@@ -18,11 +18,11 @@ pod2usage(-verbose => 99,-sections => [('NAME', 'SYNOPSIS', 'OPTIONS', 'REQUIRED
 open my $ain, '<', $opt_input_a;
 open my $bin, '<', $opt_input_b;
 
-my ($basename_a, $path_a, undef) = file_parse($opt_input_a,".sorted", ".eland");
-my ($basename_b, $path_b, undef) = file_parse($opt_input_b,".sorted", ".eland");
+my ($basename_a, $path_a, undef) = fileparse($opt_input_a,".sorted");
+my ($basename_b, $path_b, undef) = fileparse($opt_input_b,".sorted");
 
-my $output_file_a = $opt_output_a // catfile($path_a, $basename_a) . ".filtered";
-my $output_file_b = $opt_output_b // catfile($path_b, $basename_b) . ".filtered";
+my $output_file_a = $opt_output_a // catfile($path_a, $basename_a) . ".$opt_label.filtered";
+my $output_file_b = $opt_output_b // catfile($path_b, $basename_b) . ".$opt_label.filtered";
 
 open my $aout, '>', $output_file_a;
 open my $bout, '>', $output_file_b;
@@ -37,7 +37,7 @@ while (defined (my $a_record = <$ain>) and
     my ($a_id, $a_strand, $a_mm, $a_rawcoord) = (split /\t/, $a_record)[0..3];
     my ($b_id, $b_strand, $b_mm, $b_rawcoord) = (split /\t/, $b_record)[0..3];
 
-    die "" if ($a_id ne $b_id); 
+    die "$opt_input_a or $opt_input_b not sorted??" if ($a_id ne $b_id); 
 
     $a_rawcoord =~ s/.*chr\w:(\d+).*/$1/xmsi;
     $b_rawcoord =~ s/.*chr\w:(\d+).*/$1/ixms;
@@ -119,6 +119,10 @@ Ecotype A eland file
 =item  -b <eland> | --input-b <eland>
 
 Ecotype B eland file
+
+=item  -l <label> | --label <label>
+
+Label for split.
 
 =back
 
