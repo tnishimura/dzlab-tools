@@ -9,6 +9,8 @@ use autodie;
 use Getopt::Euclid qw( :vars<opt_> );
 use Pod::Usage;
 use feature 'say';
+use File::Basename;
+use File::Spec::Functions;
 
 pod2usage(-verbose => 99,-sections => [('NAME', 'SYNOPSIS', 'OPTIONS', 'REQUIRED ARGUMENTS')] )
     if $opt_help;
@@ -16,18 +18,26 @@ pod2usage(-verbose => 99,-sections => [('NAME', 'SYNOPSIS', 'OPTIONS', 'REQUIRED
 open my $ain, '<', $opt_input_a;
 open my $bin, '<', $opt_input_b;
 
-open my $aout, '>', $opt_output_a;
-open my $bout, '>', $opt_output_b;
+my ($basename_a, $path_a, undef) = file_parse($opt_input_a,".sorted", ".eland");
+my ($basename_b, $path_b, undef) = file_parse($opt_input_b,".sorted", ".eland");
 
-open my $aerror, '>', "$opt_output_a.$opt_error_suffix";
-open my $berror, '>', "$opt_output_b.$opt_error_suffix";
+my $output_file_a = $opt_output_a // catfile($path_a, $basename_a) . ".filtered";
+my $output_file_b = $opt_output_b // catfile($path_b, $basename_b) . ".filtered";
+
+open my $aout, '>', $output_file_a;
+open my $bout, '>', $output_file_b;
+
+open my $aerror, '>', "$output_file_a.$opt_error_suffix";
+open my $berror, '>', "$output_file_b.$opt_error_suffix";
 
 CMP:
 while (defined (my $a_record = <$ain>) and 
     defined (my $b_record = <$bin>)) {
 
-    my ($a_id, $a_mm, $a_rawcoord) = (split /\t/, $a_record)[0,2,3];
-    my ($b_id, $b_mm, $b_rawcoord) = (split /\t/, $b_record)[0,2,3];
+    my ($a_id, $a_strand, $a_mm, $a_rawcoord) = (split /\t/, $a_record)[0..3];
+    my ($b_id, $b_strand, $b_mm, $b_rawcoord) = (split /\t/, $b_record)[0..3];
+
+    die "" if ($a_id ne $b_id); 
 
     $a_rawcoord =~ s/.*chr\w:(\d+).*/$1/xmsi;
     $b_rawcoord =~ s/.*chr\w:(\d+).*/$1/ixms;
@@ -39,22 +49,27 @@ while (defined (my $a_record = <$ain>) and
     #say $b_rawcoord;
 
     if (! defined $a_mm and ! defined $b_mm) {
-        next CMP; # no matches at all
+        next CMP; # read matched nothing in either ecotypes
     }
-    elsif (defined $a_mm and defined $b_mm){
-        next CMP if $a_mm == $b_mm;
-        if ($a_rawcoord == $b_rawcoord){
-            print $aout $a_record if $a_mm < $b_mm;
-            print $bout $b_record if $a_mm > $b_mm;
+    elsif (defined $a_mm && defined $b_mm ){
+        # both mapped somewhere
+        if ($a_rawcoord == $b_rawcoord && $a_strand eq $b_strand){
+            # both mapped to same place
+            next if $a_mm == $b_mm; # tied.
+            print $aout $a_record if $a_mm < $b_mm; # A wins
+            print $bout $b_record if $a_mm > $b_mm; # B wins
         } else {
+            # mapped to different places
             print $aerror $a_record;
             print $berror $b_record;
         }
     }
     elsif (! defined $a_mm) {
+        # did match somewhere for b but not a
         print $bout $b_record;
     }	
     elsif (! defined $b_mm) {
+        # did match somewhere for a but not b
         print $aout $a_record;
     }
     else {croak "Impossible situation:\n$a_record\n$b_record"}
@@ -95,15 +110,26 @@ __END__
 
 =over
 
-=item  -ia <eland> | --input-a <eland>
+=item  -a <eland> | --input-a <eland>
 
 Ecotype A eland file
 
 =for Euclid eland.type:        readable
 
-=item  -ib <eland> | --input-b <eland>
+=item  -b <eland> | --input-b <eland>
 
 Ecotype B eland file
+
+=back
+
+=head1 OPTIONS
+
+=over
+
+=item  -e <suffix> | --error-suffix <suffix>
+
+=for Euclid
+    suffix.default:     'error'
 
 =for Euclid eland.type:        readable
 
@@ -114,22 +140,6 @@ Filtered A eland output file
 =item  -ob <output> | --output-b <output>
 
 Filtered B eland output file
-
-=back
-
-=head1 OPTIONS
-
-=over
-
-=item --coord | -c
-
-Use coordinates for matching as well.
-
-=item  -e <suffix> | --error-suffix <suffix>
-
-=for Euclid
-    suffix.default:     'error'
-
 
 =item --help | -h
 
