@@ -21,6 +21,7 @@ our @EXPORT = qw(launch plaunch);
 
  expected - This is a file (or arrayref of files) which we expect to be produce.
  force    - Run even if file exists.
+ dryrun   - Don't actually run.
 
 =cut
 
@@ -30,8 +31,9 @@ sub launch{
 
     my $hash      = md5_hex($cmd);
     my $force     = delete $opt{force} // 0;
+    my $dryrun    = delete $opt{dryrun} // 0;
 
-    $logger->info("running [$cmd], force = $force");
+    $logger->info(join ", ", "running [$cmd]", ($force ? "forced" : ()), ($dryrun ? "dryrun" : ()));
 
     my @expected;
     if (exists $opt{expected}){
@@ -46,15 +48,18 @@ sub launch{
     die "unknown parameters passed to doit" . Dumper \%opt if (%opt);
 
     if (!$force){
-        if (! scalar(@expected) || grep {-f} @expected){
+        if (! scalar(@expected) && grep {-f} @expected){
             $logger->info("Already done, skipping: '$cmd' ");
             return 1;
         }
     }
+    if ($dryrun){
+        $logger->info("Dryrun, exiting");
+        return;
+    }
     
     if (0==system($cmd)){
-        
-        if (! @expected || grep {-f} @expected){ 
+        if (! @expected && grep {-f} @expected){ 
             $logger->info("Successfully launched and finished [$cmd]");
         } else {
             $logger->logdie("command seems to have run but expected files not produced [$cmd]");
