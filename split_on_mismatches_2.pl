@@ -96,15 +96,20 @@ __END__
 
 =head1 NAME
 
- split_on_mismatches_2.pl - Filter sorted bowtie inputs into two files based on mismatch counts
+split_on_mismatches_2.pl - Filter sorted bowtie inputs into two files based on mismatch counts.
 
 =head1 SYNOPSIS
 
- # overwrites input files with correct imprinting alignments
- perl split_on_mismatches_2.pl 
-    -ea Col -eb Ler 
-    -a CxL_En_WT_Col.bowtie -b CxL_En_WT_Ler.bowtie 
-    -oa filtered_a -ob filtered_b
+Produces four files:
+ 
+ left.eland.<label>.filtered
+ left.eland.<label>.filtered.error
+ right.eland.<label>.filtered
+ right.eland.<label>.filtered.error
+
+overwrites input files with correct imprinting alignments:
+
+ perl split_on_mismatches_2.pl -l CxL -a left.eland -b right.eland 
 
 =head1 REQUIRED ARGUMENTS
 

@@ -54,6 +54,14 @@ if ($output) {
     open my $USER_OUT, '>', $output
         or croak "Can't open $output for writing: $!";
     select $USER_OUT;
+} else {
+    use File::Spec::Functions;
+    use File::Basename;
+    my ($basename, $path, undef) = fileparse($ARGV[0], ".bowtie");
+    my $outfile = catfile($path,$basename) . ".eland";
+    open my $USER_OUT, '>', $outfile
+        or croak "Can't open $outfile for writing: $!";
+    select $USER_OUT;
 }
 
 # read in bowtie verbose file
