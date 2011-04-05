@@ -13,7 +13,7 @@ use File::Basename;
 use File::Spec::Functions;
 
 pod2usage(-verbose => 99,-sections => [('NAME', 'SYNOPSIS', 'OPTIONS', 'REQUIRED ARGUMENTS')] )
-    if $opt_help;
+    if $opt_help || ! ($opt_label xor ($opt_output_a && $opt_output_b));
 
 open my $ain, '<', $opt_input_a;
 open my $bin, '<', $opt_input_b;
@@ -33,14 +33,13 @@ open my $berror, '>', "$output_file_b.$opt_error_suffix";
 CMP:
 while (defined (my $a_record = <$ain>) and 
     defined (my $b_record = <$bin>)) {
+    $a_record =~ tr/\n\r//d;
+    $b_record =~ tr/\n\r//d;
 
     my ($a_id, $a_strand, $a_mm, $a_rawcoord) = (split /\t/, $a_record)[0..3];
     my ($b_id, $b_strand, $b_mm, $b_rawcoord) = (split /\t/, $b_record)[0..3];
 
     die "$opt_input_a or $opt_input_b not sorted??" if ($a_id ne $b_id); 
-
-    $a_rawcoord =~ s/.*chr\w:(\d+).*/$1/xmsi;
-    $b_rawcoord =~ s/.*chr\w:(\d+).*/$1/ixms;
 
     $a_mm = get_score ($a_mm);
     $b_mm = get_score ($b_mm);
@@ -52,14 +51,23 @@ while (defined (my $a_record = <$ain>) and
         next CMP; # read matched nothing in either ecotypes
     }
     elsif (defined $a_mm && defined $b_mm ){
-        # both mapped somewhere
-        if ($a_rawcoord == $b_rawcoord && $a_strand eq $b_strand){
-            # both mapped to same place
-            next if $a_mm == $b_mm; # tied.
-            print $aout $a_record if $a_mm < $b_mm; # A wins
-            print $bout $b_record if $a_mm > $b_mm; # B wins
-        } else {
-            # mapped to different places
+        if ($a_rawcoord =~ s/.*chr\w:(\d+).*/$1/xmsi &&
+            $b_rawcoord =~ s/.*chr\w:(\d+).*/$1/ixms){
+
+            # both mapped somewhere
+            if ($a_rawcoord == $b_rawcoord && $a_strand eq $b_strand){
+                # both mapped to same place
+                next if $a_mm == $b_mm; # tied.
+                print $aout $a_record if $a_mm < $b_mm; # A wins
+                print $bout $b_record if $a_mm > $b_mm; # B wins
+            } else {
+                # mapped to different places
+                print $aerror $a_record;
+                print $berror $b_record;
+            }
+        } else{
+            # hackish-- reaching this means that rawcoord must've been negative?
+            # fix in parse_bowtie
             print $aerror $a_record;
             print $berror $b_record;
         }
@@ -100,7 +108,7 @@ split_on_mismatches_2.pl - Filter sorted bowtie inputs into two files based on m
 
 =head1 SYNOPSIS
 
-Produces four files:
+If outputs not explicitly given, Produces four files:
  
  left.eland.<label>.filtered
  left.eland.<label>.filtered.error
@@ -125,9 +133,8 @@ Ecotype A eland file
 
 Ecotype B eland file
 
-=item  -l <label> | --label <label>
+=for Euclid eland.type:        readable
 
-Label for split.
 
 =back
 
@@ -140,8 +147,6 @@ Label for split.
 =for Euclid
     suffix.default:     'error'
 
-=for Euclid eland.type:        readable
-
 =item  -oa <output> | --output-a <output>
 
 Filtered A eland output file
@@ -149,6 +154,10 @@ Filtered A eland output file
 =item  -ob <output> | --output-b <output>
 
 Filtered B eland output file
+
+=item  -l <label> | --label <label>
+
+Label for split.
 
 =item --help | -h
 
