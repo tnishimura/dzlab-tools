@@ -6,8 +6,6 @@ use Data::Dumper;
 use feature 'say';
 use Carp;
 use Cwd;
-use File::Spec::Functions;
-use Digest::MD5 qw(md5 md5_hex md5_base64);
 use IPC::Open3;
 use Log::Log4perl qw/get_logger/;
 use Parallel::ForkManager;
@@ -29,7 +27,6 @@ sub launch{
     my ($cmd, %opt) = @_;
     my $logger    = get_logger("Launch");
 
-    my $hash      = md5_hex($cmd);
     my $force     = delete $opt{force} // 0;
     my $dryrun    = delete $opt{dryrun} // 0;
 
@@ -48,7 +45,9 @@ sub launch{
     die "unknown parameters passed to doit" . Dumper \%opt if (%opt);
 
     if (!$force){
-        if (! scalar(@expected) && grep {-f} @expected){
+        if (! @expected){
+            # none expected
+        } elsif(@expected && grep {-f} @expected){
             $logger->info("Already done, skipping: '$cmd' ");
             return 1;
         }
@@ -59,10 +58,13 @@ sub launch{
     }
     
     if (0==system($cmd)){
-        if (! @expected && grep {-f} @expected){ 
+        my $exp = join ", ", @expected;
+        if (! @expected){
             $logger->info("Successfully launched and finished [$cmd]");
+        } elsif (grep {-f} @expected){ 
+            $logger->info("Successfully launched and finished. Produced $exp [$cmd]");
         } else {
-            $logger->logdie("command seems to have run but expected files not produced [$cmd]");
+            $logger->logdie("command seems to have run but expected files $exp not produced [$cmd]");
         }
     } else {
         $logger->logdie("failed to run, dying: [$cmd]");
