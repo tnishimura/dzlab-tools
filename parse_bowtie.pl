@@ -7,6 +7,7 @@ use Carp;
 use Getopt::Long;
 use Pod::Usage;
 use List::Util qw /sum/;
+use feature 'say';
 
 # Check required command line parameters
 pod2usage( -verbose => 1 )
@@ -22,6 +23,7 @@ my $output;
 my $unmatched;
 my @splice;
 my $no_normalize;
+my $whole;
 
 # Grabs and parses command line options
 my $result = GetOptions(
@@ -35,6 +37,7 @@ my $result = GetOptions(
     'id-regex|i=s'  => \$id_regex,
     'reference|r=s' => \$reference,
     'no-normalize|n'=> \$no_normalize,
+    'whole|w'       => \$whole,
     'verbose|v'     => sub { use diagnostics; },
     'quiet|q'       => sub { no warnings; },
     'help|h'        => sub { pod2usage( -verbose => 1 ); },
@@ -96,7 +99,7 @@ while (<>) {
         print_paired_gff( $current, $next );
     }
     else {
-        unless ( defined $previous ) {
+        if ( ! defined $previous ) {
             $previous = $current;
         }
         elsif ( $current->{read_id} eq $previous->{read_id} ) {
@@ -120,14 +123,18 @@ while (<>) {
 count_reads( $reference, $counts, $id_regex ) if $frequencies;
 
 catch_up( $previous, $unmatched, @splice )
-    if defined $previous and $unmatched;
+    if (defined $previous and $unmatched);
 
 print_eland($previous, $type) if defined $previous;
 
 # for when last read in bowtie file is *not* last read in fasta file
 catch_up( $previous, $unmatched, @splice )
-    if defined $previous and $unmatched;
+    if (defined $previous and $unmatched);
 
+# T:
+# Catchup: when unmatched is given, read from the original fasta file up to current read and output
+# with a NM.  This is why Fasta needs to be in same order as bowtie file, and why bowtie needs to be run 
+# WITHOUT multithreading
 {
     my %file_handles;
     my $file_handle;
@@ -168,17 +175,24 @@ catch_up( $previous, $unmatched, @splice )
 
                 $unmatched{sequence} = substr $unmatched{sequence},
                     ( $splice[0] - 1 ), ( $splice[1] - $splice[0] + 1 )
-                    if @splice;
+                    if (@splice && ! $whole);
 
                 print join( "\t",
                     $unmatched{header}, $unmatched{sequence}, 'NM', "\n" );
             }
             else {
+                # caught up. fetch original, splice if necessary, or fix coordinate if not.
                 $current->{sequence} = $sequence;
+                #say STDERR Dumper $current;
 
-                $current->{sequence} = substr $current->{sequence},
-                    ( $splice[0] - 1 ), ( $splice[1] - $splice[0] + 1 )
-                    if @splice;
+                if (@splice && $whole){
+                    $current->{coordinate} = [map {
+                        $_ - $splice[0] + 1;
+                    } @{$current->{coordinate}}];
+                } elsif (@splice && ! $whole){
+                    $current->{sequence} = substr $current->{sequence},
+                    ( $splice[0] - 1 ), ( $splice[1] - $splice[0] + 1 );
+                }
 
                 last FASTA_HEADER;
             }
@@ -216,6 +230,15 @@ sub print_paired_gff {
         q{.},
         "alt=$current->{alternatives}" ), "\n";
 }
+
+# eland format:
+# HS2_0069:5:1:1232:2189#0/1	CGATTTTAAAAGTTTAAGTAGTGTTTTTTTGTTAGAAGATATAAAGTTAAAGATTTATATGGATTTTGGATNNATTATNNNNNNTTTGAGAAGTAGGAAG	NM	
+# HS2_0069:5:1:1244:2225#0/1	TTATTTAGGATTGATAAGAATAGTTTTGAGGGAATAAATGTTAATTGATTTTTTTGTTGTTGATATTAATGNNAGTTTNNNNNNTGTGGTTTTGAATAAG	NM	
+# HS2_0069:5:1:1394:2132#0/1	NCAACCGTATTTTAAAGGCGTAAGAATTGTATTCTAGTTAAAAGATATAAAGTTAAAGATTTATATGGATTTTGGCTATATTATGAAAGTTTTGAGAAGC	1:0:0:0	CHR1:15087567F0
+# HS2_0069:5:1:1292:2162#0/1	NTTAATAAAAATCAGGATATATTATAAATGAAGCAGTGGTGGTTATTTTTAAGAAGGGATTGTTGTAAGGANTTTAATNNNNNNAATATTTGGCGATTAG	NM	
+# HS2_0069:5:1:1353:2159#0/1	NTTTGATGGTTTAGCCGAAGTTTATGTGAGTTTTTATCTTTGTATCTTCTAACAAGGAAATATTATTTAGGTTTTTAAGATTGGTTGTGGTTTAAGTTTT	0:1:0:0	RC_CHR5:15014625F1
+# HS2_0069:5:1:1265:2172#0/1	GATGAGATTTTGTGATGAAAGTATGTTGGATATAGTTGTGGAATTTAGGTATGGAATTTAGAATGTTATGTNNGTTTANNNNNNATTATATGGTGGTTAG	NM	
+# HS2_0069:5:1:1373:2171#0/1	ATATATGTAACGGTTTTCGGGTTTGTTTTATTTGCAGAACTATATGAGACTGATTTTTTTATATTATATTGTTTTTGTAAGTTTTTTAAATTTTTTTGGT	1:0:0:0	CHR5:189832F0
 
 sub print_eland {
     my ($previous, $type) = @_;
@@ -256,16 +279,26 @@ sub print_eland {
     }
 }
 
+# HS2_0069:5:1:1742:2136#0/1      +       RC_CHR2 16657675        NAGTGGTTTGGAAGAGATGGGAAGATGGTGGGATTTGTTTTTGTTTTATA      IIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII      0       0:A>N
+# HS2_0069:5:1:1527:2151#0/1      +       RC_CHR1 17711436        NTATAGATTTTTTTTTAAATGGTGTTTATAAGTTGGTAATTTTATGGTTA      IIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII      5       0:T>N
+# HS2_0069:5:1:1606:2148#0/1      +       CHR2    13865040        NATTTTTTTTTTTTTTTTAATTTTTTTTTGTATTTTGGATTTTTTTTATT      IIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII      0       0:T>N,8:G>T
+# HS2_0069:5:1:1644:2143#0/1      +       CHRC    26379   NTTTTATTTTTTATTGAATTATATTTATAGAATTTGATTTAGTAATAATG      IIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII      0       0:T>N
+
+
 sub read_bowtie {
     my ($bowtie_line) = @_;
 
     my ( $read_id, $strand, $target, $coordinate, $sequence, $qualities,
         $alternatives, $snp )
-        = split /\t|\s+/, $bowtie_line;
+    = split /\t|\s+/, $bowtie_line;
 
-        #$strand = '-' if $target =~ s/^RC_//;
+    # T: cause of bug! 
+    #$strand = '-' if $target =~ s/^RC_//;
 
-    my @mm = $snp ? split /,/, $snp : ();
+    # T: WTF?
+    #my @mm = $snp ? split /,/, $snp : (); 
+    my $mm = $snp =~ tr/>//;
+
 
     return {
         'read_id'      => $read_id,
@@ -275,7 +308,7 @@ sub read_bowtie {
         'sequence'     => $sequence,
         'qualities'    => $qualities,
         'alternatives' => $alternatives,
-        'snp'          => [ scalar @mm ],
+        'snp'          => [ $mm ],
     };
 }
 
@@ -366,6 +399,8 @@ sub index_fasta {
 }
 
 __END__
+
+# 
 
 
 =head1 NAME
