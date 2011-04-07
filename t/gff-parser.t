@@ -13,36 +13,36 @@ use lib "$FindBin::Bin/../lib";
 use GFF;
 use GFF::Parser;
 
-my $p = GFF::Parser->new(file => \*DATA);
+my $p = GFF::Parser->new(file => \*DATA, skip => 0);
 
 ### first 8 lines should be blank
 
 for (1 .. 8){ 
-    my $gff = $p->next_no_skip();
+    my $gff = $p->next();
     is($gff,0, "comment/blank should be zero");
 }
 
 ### pragmas
 
 {
-    my $gff = $p->next_no_skip();
+    my $gff = $p->next();
     like($gff,qr/pragma 1/, "pragma test 1");
 }
 
 {
-    my $gff = $p->next_no_skip();
+    my $gff = $p->next();
     like($gff,qr/pragma 2/, "pragma test 2");
 }
 
 {
-    my $gff = $p->next_no_skip();
+    my $gff = $p->next();
     like($gff,qr/\s+/, "pragma test blank");
 }
 
 ### no attirbutes. 
 
 {
-    my $gff = $p->next_no_skip();
+    my $gff = $p->next();
     ok(!$gff->equals(
             sequence => 'ctg123-meow', 
             source => undef, 
@@ -58,7 +58,7 @@ for (1 .. 8){
 }
 
 {
-    my $gff = $p->next_no_skip();
+    my $gff = $p->next();
     ok($gff->equals(
             sequence => 'ctg123', 
             source => undef, 
@@ -74,7 +74,7 @@ for (1 .. 8){
 }
 
 {
-    my $gff = $p->next_no_skip();
+    my $gff = $p->next();
     ok($gff->equals(
             sequence => 'ctg123', 
             source => undef, 
@@ -91,7 +91,7 @@ for (1 .. 8){
 ### With attributes. don't pass attribute_string b/c don't care if we have parsed attrs
 
 {
-    my $gff = $p->next_no_skip();
+    my $gff = $p->next();
     ok($gff->equals(
             sequence => 'ctg123', 
             source => undef, 
@@ -108,7 +108,7 @@ for (1 .. 8){
 }
 
 {
-    my $gff = $p->next_no_skip();
+    my $gff = $p->next();
     ok($gff->equals(
             sequence => 'ctg123', 
             source => undef, 
@@ -125,7 +125,7 @@ for (1 .. 8){
 }
 
 {
-    my $gff = $p->next_no_skip();
+    my $gff = $p->next();
     ok($gff->equals(
             sequence => 'ctg123', 
             source => undef, 
@@ -140,7 +140,7 @@ for (1 .. 8){
 }
 
 {
-    my $gff = $p->next_no_skip();
+    my $gff = $p->next();
     ok(!$gff->equals(
             sequence => 'hello', 
             source => undef, 
@@ -157,7 +157,7 @@ for (1 .. 8){
 }
 
 {
-    my $gff = $p->next_no_skip();
+    my $gff = $p->next();
     ok($gff->equals(
             sequence => 'hello', 
             source => undef, 
@@ -174,7 +174,7 @@ for (1 .. 8){
 }
 
 {
-    my $gff = $p->next_no_skip();
+    my $gff = $p->next();
     ok($gff->equals(
             sequence => 'hello', 
             source => undef, 
@@ -191,7 +191,7 @@ for (1 .. 8){
 }
 
 {
-    my $gff = $p->next_no_skip();
+    my $gff = $p->next();
     is_deeply([$gff->parse_locus('ID')],['mRNA0001','3'], "parsing locus");
 }
 

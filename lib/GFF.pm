@@ -7,17 +7,17 @@ use Moose;
 use Carp;
 use autodie;    
 
-has asterisk         => ( is => 'rw', isa => 'Bool', default => 0);
+has asterisk         => ( is => 'rw', isa => 'Bool', default => 0 );
 # type constraints very slow? removed.
-has sequence         => ( is => 'ro');
-has source           => ( is => 'ro');
-has feature          => ( is => 'ro');
-has start            => ( is => 'ro');
-has end              => ( is => 'ro');
-has score            => ( is => 'ro');
-has strand           => ( is => 'ro');
-has frame            => ( is => 'ro');
-has attribute_string => ( is => 'rw');
+has sequence         => ( is => 'ro' );
+has source           => ( is => 'ro' );
+has feature          => ( is => 'ro' );
+has start            => ( is => 'ro' );
+has end              => ( is => 'ro' );
+has score            => ( is => 'ro' );
+has strand           => ( is => 'ro' );
+has frame            => ( is => 'ro' );
+has attribute_string => ( is => 'rw' );
 has attr_hash => (
       traits    => ['Hash'],
       is        => 'ro',
@@ -68,7 +68,7 @@ sub to_string{
 
 sub parse_locus{
     my ($self, $locus_tag) = @_;
-    if ($self->get_attribute($locus_tag) =~ /([^\.]+)\.([^\.]+)/){
+    if ($self->get_attribute($locus_tag) =~ /([^.]+)\.([^.]+)/){
         return ($1,$2);
     } else{
         return;
@@ -86,7 +86,6 @@ sub get_column{
     }
 }
 
-
 sub equals{
     my ($self, %against) = @_;
     my @columns = keys %against;
@@ -94,6 +93,7 @@ sub equals{
         my $x = $self->get_column($col);
         my $y = $against{$col};
 
+        # both undefined, or both defined and equal
         if ((!defined $x && !defined $y) || (defined $x && defined $y && $x eq $y)){
             next;
         } else {
@@ -114,3 +114,74 @@ __PACKAGE__->meta->make_immutable;
 #sub colname2num{ return $colmap{$_[0]} // croak "bad colmn name"; }
 
 1;
+
+
+=head1 NAME
+ 
+GFF - GFF Moose Class
+ 
+=head1 VERSION
+ 
+This documentation refers to GFF version 0.0.1
+ 
+=head1 SYNOPSIS
+ 
+    use GFF
+  
+=head1 DESCRIPTION
+ 
+<description>
+
+=head1 SUBROUTINES/METHODS 
+
+<exports>
+
+=over
+
+=item $gff->sequence
+
+=item $gff->source  
+
+=item $gff->feature 
+
+=item $gff->start   
+
+=item $gff->end     
+
+=item $gff->score   
+
+=item $gff->strand  
+
+=item $gff->frame   
+
+=item $gff->length
+
+=item $gff->to_string
+
+Format a GFF object for printing
+
+=item $gff->get_column('sequence')
+
+Like get_attribute, but also accepts 'sequence', 'source', etc.
+
+=item $gff->get_attribute('ID')
+
+Get value of attribute in column 9.
+
+=item $gff->set_attribute('ID') = 'AT12345'
+
+Set value of attribute in column 9.
+
+=item $gff->parse_locus('ID')
+
+Returns the 'ID' attribute split by a dot ('.'), or undef.
+
+=item $gff->equals({sequence => 'chr1', start => 1234})
+
+Returns true if for every key $k in hash, $gff has $gff->get_column($k) eq $val.
+For debugging mostly.
+
+=back
+
+=cut
+

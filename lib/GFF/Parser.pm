@@ -16,6 +16,11 @@ has filename_or_handle => (
     init_arg => 'file',
 );
 
+has skip => (
+    is => 'ro',
+    default => 1
+);
+
 # privates
 
 has filehandle => (
@@ -51,7 +56,8 @@ sub DEMOLISH{
 
 =head2 $p->next()
 
-return the next gff record. returns undef when eof.
+return the next gff record. returns undef when eof. If skip = 0 in constructor,
+then return unparseable/comment lines as undef and pragmas as strings.
 
 =cut 
 
@@ -59,42 +65,46 @@ sub next{
     my ($self) = @_;
     while (defined (my $line = scalar readline $self->filehandle)){
         my $gff = parse_gff($line);
-        if (is_gff($gff)){
+        if (!$self->skip || is_gff($gff)){
             return $gff;
         }
     }
     return;
 }
 
-=head2 $p->next_no_skip()
-
-return the next gff record, 0 on a comment, or string on a pragma statement.
-returns undef when eof.
-
-=cut 
-
-sub next_no_skip{
-    my ($self) = @_;
-    while (defined (my $line = readline $self->filehandle)){
-        return parse_gff($line);
-    }
-    return;
-}
-
-=head2 $p->do(sub { my $gff = shift; ... })
-
-=cut
-
-sub do{
-    my ($self,$code) = @_;
-    croak "do needs a sub!" if (ref $code ne 'CODE');
-    while (my $gff = $self->next()){
-        $code->($gff);
-    }
-}
 
 no Moose;
 __PACKAGE__->meta->make_immutable;
 
 1;
+
+
+=head1 NAME
+ 
+GFF::Parser - Parse a GFF file line by line
+ 
+=head1 SYNOPSIS
+ 
+    use GFF::Parser;
+    my $p = GFF::Parser->new(file => "file.gff");
+    while (my $gff = $p->next()){
+        # ...
+    }
+  
+=head1 DESCRIPTION
+ 
+Parser for GFF.
+
+=head1 SUBROUTINES/METHODS 
+
+=over
+
+=item GFF::Parser->new(file => 'file', skip => 1);
+
+=item $gff = $p->next()
+
+
+=back
+
+=cut
 
