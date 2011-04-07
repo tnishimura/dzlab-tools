@@ -17,7 +17,7 @@ pod2usage(-verbose => 99,-sections => [qw/NAME SYNOPSIS OPTIONS/])
 if ($opt_help || !$opt_gff || !$opt_input || !$opt_output);
 
 if ($opt_output ne '-'){
-    open my $fh, '<', $opt_output;
+    open my $fh, '>', $opt_output;
     select $fh; 
 }
 
