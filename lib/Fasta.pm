@@ -11,13 +11,14 @@ use autodie;
 require Exporter;
 our @ISA = qw(Exporter);
 our @EXPORT_OK = qw(convert_file convert bisulfite_convert);
-our @EXPORT = qw(slurp_fasta format_fasta count_fasta count_fasta_complete dump_fasta);
+our @EXPORT = qw(fasta_subseq slurp_fasta format_fasta count_fasta count_fasta_complete dump_fasta);
 
 =head1 EXPORTED FUNCTIONS
 
-=head2 slurp_fasta
+=head2 slurp_fasta('text.fasta', normalize => 1);
 
-return hash of seqid (the first word after the '>') to the sequence.
+return hash of seqid (the first word after the '>') to the sequence. 
+All sequence names upper cased if normalize => 1 (default)
 
 =cut
 sub slurp_fasta {
@@ -56,6 +57,57 @@ sub slurp_fasta {
     return \%accum;
 }
 
+=head2 fasta_get($fasta, $seqid, $start, $end, reverse => 0, base => 1, normalize => 1)
+
+If reverse, use coordinates with respect to the 3' end and reverse complement. 
+Normalize => 1 (default) means upper case seqid.
+
+=cut
+
+sub fasta_subseq{
+    my ($fasta, $seqid, $start, $end, %opt) = @_;
+    my $reverse   = $opt{reverse} // 0;
+    my $base      = $opt{base} // 1;
+    my $normalize = $opt{normalize} // 1;
+    $seqid = $normalize ? uc $seqid : $seqid;
+
+    if ($end < $start){
+        croak "fasta_get: end ($end) < start ($start)?";
+    }
+
+    # everything in base 0 coord now.
+    $start -= $base;
+    $end   -= $base;
+    my $sublen = ($end-$start)+1;
+
+    if(my $seq = $fasta->{$seqid}){
+        my $totlen = length $seq;
+        my $lastindex = $totlen - 1;
+        if (!$reverse){
+            my $left = $start;
+            my $right = $left + $sublen - 1; 
+
+            croak "($start,$end) (left = $left, right = $right) out of bounds" if ($left < 0 || $right > $lastindex);
+            return substr($seq,$left, $sublen);
+        } 
+        else {
+            my $left = $totlen - $end - 1; 
+            my $right = $left + $sublen - 1;
+            croak "($start,$end) (left = $left, right = $right) on reverse out of bounds" if ($left < 0 || $right > $lastindex);
+
+            my $sub = substr($seq,$left, $sublen);
+            $sub =~ tr/acgtACGT/tgcaTGCA/;
+            return reverse $sub;
+        }
+    } else {
+        croak "no such seqid $seqid";
+    }
+}
+
+
+=head2 convert($seqs, '[c2t|g2a|rc]')
+
+=cut
 
 # convert c2t/g2a/rc in-place
 sub convert{
@@ -67,6 +119,10 @@ sub convert{
     }
 }
 
+=head2 convert_file('in.fasta', 'out.fasta', '[c2t|g2a|rc]'
+
+=cut
+
 sub convert_file{
     my ($infile,$outfile,$pattern) = @_;
     open my $in, '<', $infile;
@@ -76,7 +132,10 @@ sub convert_file{
         if($line =~ m/^[ACGTN]+/i) {
             $line =~ tr/Cc/Tt/ if $pattern eq 'c2t';
             $line =~ tr/Gg/Aa/ if $pattern eq 'g2a';
-            $line =~ tr/acgtACGT/tgcaTGCA/ if $pattern eq 'rc';
+            if ($pattern eq 'rc'){
+                $line =~ tr/acgtACGT/tgcaTGCA/;
+                $line = reverse $line;
+            }
         }
         print $out $line;
     }
@@ -159,6 +218,12 @@ sub count_fasta_complete {
 
     return \%accum;
 }
+
+=head2 count_fasta('file')
+
+Return hash of {seqid => count}.
+
+=cut
 sub count_fasta {
     my ($file) = @_;
     my $counts = count_fasta_complete($file);
@@ -166,9 +231,9 @@ sub count_fasta {
 }
 
 
-=head2 format_fasta
+=head2 format_fasta('header', $seq)
 
-format a header and seq for printing as a fasta.
+format a header and a single seq for printing as a fasta.
 
 =cut 
 sub format_fasta{
@@ -186,6 +251,12 @@ sub format_fasta{
     }
     return (join "\n", @buffer) . "\n";
 }
+
+=head2 dump_fasta($seqs)
+
+Print fasta to STDOUT.
+
+=cut
 
 sub dump_fasta{
     my ($fasta) = @_;
