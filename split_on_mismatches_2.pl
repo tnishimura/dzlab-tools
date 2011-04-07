@@ -58,27 +58,27 @@ while (defined (my $a_record = <$ain>) and
             if ($a_rawcoord == $b_rawcoord && $a_strand eq $b_strand){
                 # both mapped to same place
                 next if $a_mm == $b_mm; # tied.
-                print $aout $a_record if $a_mm < $b_mm; # A wins
-                print $bout $b_record if $a_mm > $b_mm; # B wins
+                say $aout $a_record if $a_mm < $b_mm; # A wins
+                say $bout $b_record if $a_mm > $b_mm; # B wins
             } else {
                 # mapped to different places
-                print $aerror $a_record;
-                print $berror $b_record;
+                say $aerror $a_record;
+                say $berror $b_record;
             }
         } else{
             # hackish-- reaching this means that rawcoord must've been negative?
             # fix in parse_bowtie
-            print $aerror $a_record;
-            print $berror $b_record;
+            say $aerror $a_record;
+            say $berror $b_record;
         }
     }
     elsif (! defined $a_mm) {
         # did match somewhere for b but not a
-        print $bout $b_record;
+        say $bout $b_record;
     }	
     elsif (! defined $b_mm) {
         # did match somewhere for a but not b
-        print $aout $a_record;
+        say $aout $a_record;
     }
     else {croak "Impossible situation:\n$a_record\n$b_record"}
 }
