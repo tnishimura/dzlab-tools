@@ -57,16 +57,18 @@ sub slurp_fasta {
     return \%accum;
 }
 
-=head2 fasta_get($fasta, $seqid, $start, $end, reverse => 0, base => 1, normalize => 1)
+=head2 fasta_get($fasta, $seqid, $start, $end, coord => 'f', rc => 1, base => 0, normalize => 1)
 
-If reverse, use coordinates with respect to the 3' end and reverse complement. 
-Normalize => 1 (default) means upper case seqid.
+If coord => 'r', use coordinates with respect to the 3' end. 
+If rc => 1 (default for reverse coord), reverse complement. 
+If Normalize => 1 (default) means upper case seqid.
 
 =cut
 
 sub fasta_subseq{
     my ($fasta, $seqid, $start, $end, %opt) = @_;
-    my $reverse   = $opt{reverse} // 0;
+    my $coord     = $opt{coord} // 'f';
+    my $rc        = $opt{rc} // ($coord eq 'r');
     my $base      = $opt{base} // 1;
     my $normalize = $opt{normalize} // 1;
     $seqid = $normalize ? uc $seqid : $seqid;
@@ -83,22 +85,29 @@ sub fasta_subseq{
     if(my $seq = $fasta->{$seqid}){
         my $totlen = length $seq;
         my $lastindex = $totlen - 1;
-        if (!$reverse){
+        my $sub;
+        if ($coord eq 'f'){
             my $left = $start;
             my $right = $left + $sublen - 1; 
 
             croak "($start,$end) (left = $left, right = $right) out of bounds" if ($left < 0 || $right > $lastindex);
-            return substr($seq,$left, $sublen);
+            $sub = substr($seq,$left, $sublen);
         } 
-        else {
+        elsif ($coord eq 'r') {
             my $left = $totlen - $end - 1; 
             my $right = $left + $sublen - 1;
             croak "($start,$end) (left = $left, right = $right) on reverse out of bounds" if ($left < 0 || $right > $lastindex);
 
-            my $sub = substr($seq,$left, $sublen);
-            $sub =~ tr/acgtACGT/tgcaTGCA/;
-            return reverse $sub;
+            $sub = substr($seq,$left, $sublen);
         }
+        else {
+            croak "coord needs to be 'f' or 'r'";
+        }
+        if ($rc){
+            $sub =~ tr/acgtACGT/tgcaTGCA/;
+            $sub = reverse $sub;
+        }
+        return $sub;
     } else {
         croak "no such seqid $seqid";
     }
