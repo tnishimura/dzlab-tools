@@ -1,0 +1,4 @@
+chr1	test	gene	1	10	.	+	.	ID=Line1
+chr1	test	gene	11	20	.	+	.	ID=Line2
+chr1	test	gene	1	10	.	-	.	ID=Line3
+chr1	test	gene	11	20	.	-	.	ID=Line4
