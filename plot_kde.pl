@@ -1,101 +1,101 @@
 #!/usr/bin/env perl
-
-use warnings;
 use strict;
+use warnings;
 use Data::Dumper;
-use Carp;
-use Getopt::Long;
+use feature 'say';
+use autodie;
+use Scalar::Util qw(looks_like_number );
+
 use Pod::Usage;
-use Statistics::KernelEstimation;
+use Getopt::Long;
 
-my $DATA_HANDLE = 'ARGV';
-my $output;
+my $opt_min;
+my $opt_max;
+my $opt_buckets = 50;
+my $output = '-';
+my $fh;
 
-# Grabs and parses command line options
 my $result = GetOptions (
-    'output|o=s'  => \$output,
-    'verbose|v'   => sub { use diagnostics; },
-    'quiet|q'     => sub { no warnings; },
-    'help|h'      => sub { pod2usage ( -verbose => 1 ); },
-    'manual|m'    => sub { pod2usage ( -verbose => 2 ); }
+    "buckets|b=i" => \$opt_buckets,
+    "max=f" => \$opt_max,
+    "min=f" => \$opt_min,
+    "output|o=s" => \$output,
 );
+pod2usage(-verbose => 1) if (!$result || ! @ARGV);  
 
-# Check required command line parameters
-pod2usage ( -verbose => 1 )
-unless $result;
-
-if ($output) {
-    open my $USER_OUT, '>', $output or croak "Can't open $output for writing: $!";
-    select $USER_OUT;
+if ($output eq '-'){
+    $fh = \*STDOUT;
+} else {
+    open $fh, '>', $output;
 }
 
-my $s = Statistics::KernelEstimation->new();
+my @accum;
 
-while (<>) {
-    chomp;
-    $s->add_data($_);
+while (defined(my $line = <ARGV>)){
+    chomp $line;
+    $line =~ tr/\r\n//d;
+    if (looks_like_number $line){
+        push @accum, $line;
+    } else {
+        warn "Non-numeric line \"$line\" on line $. of $ARGV";
+    }
+}
+if (! @accum) { die "file empty?"; }
+
+@accum = sort { $a <=> $b } @accum;
+my $num = scalar @accum;
+my $min = $opt_min // $accum[0];
+my $max = $opt_max // $accum[-1];
+my $bucket_size = ($max - $min ) / $opt_buckets;
+my @buckets = ();
+
+for my $bucki (0 .. $opt_buckets - 1) {
+    my $left = $min + $bucket_size * $bucki;
+    my $right = $min + $bucket_size * ($bucki + 1);
+    my $total = 0;
+    while (@accum && $accum[0] < $right){
+        $total++;
+        shift @accum;
+    }
+    printf $fh "%f\t%f\t%f\n", $left,$right, ($total / $num / $bucket_size);
 }
 
-my $w           = $s->default_bandwidth();
-my ($min, $max) = $s->extended_range();
-
-for( my $x = $min; $x <= $max; $x += ($max - $min) / 100 ) {
-    print $x, "\t", $s->pdf( $x, $w ), "\t", $s->cdf( $x, $w ), "\n";
+if ($output ne '-'){
+    close $fh;
 }
-
-
-__END__
 
 
 =head1 NAME
 
- plot_kde.pl - Compute KDE and-or CDFs
+plot_kde.pl - Feed this script a list of numbers to produce a histogram.
 
 =head1 SYNOPSIS
 
-=head1 DESCRIPTION
+Usage examples:
+
+ plot_kde.pl -b 100 -o histogram.txt data.txt
 
 =head1 OPTIONS
 
- plot_kde.pl [OPTION]... [FILE]...
+=over
 
- -o, --output      filename to write results to (defaults to STDOUT)
- -v, --verbose     output perl's diagnostic and warning messages
- -q, --quiet       supress perl's diagnostic and warning messages
- -h, --help        print this information
- -m, --manual      print the plain old documentation page
+=item  --max <num>
 
-=head1 REVISION
+Manually specify max.  Default to the max actually found in list.
 
- Version 0.0.1
+=item  --min <num>
 
- $Rev: $:
- $Author: $:
- $Date: $:
- $HeadURL: $:
- $Id: $:
+Manually specify min.  Default to the min actually found in list.
 
-=head1 AUTHOR
+=item  -b <num> | --buckets <num>
 
- Pedro Silva <psilva@nature.berkeley.edu/>
- Zilberman Lab <http://dzlab.pmb.berkeley.edu/>
- Plant and Microbial Biology Department
- College of Natural Resources
- University of California, Berkeley
+Number of buckets in histogram. Default 50.
 
-=head1 COPYRIGHT
+=item  -o <file> | --output <file>
 
- This program is free software: you can redistribute it and/or modify
- it under the terms of the GNU General Public License as published by
- the Free Software Foundation, either version 3 of the License, or
- (at your option) any later version.
+Output file, default to screen (STDOUT).
 
- This program is distributed in the hope that it will be useful,
- but WITHOUT ANY WARRANTY; without even the implied warranty of
- MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- GNU General Public License for more details.
-
- You should have received a copy of the GNU General Public License
- along with this program. If not, see <http://www.gnu.org/licenses/>.
+=back
 
 =cut
+
