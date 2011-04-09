@@ -25,8 +25,17 @@ sub land{
     my $gff = shift;
     return defined $gff->score && $gff->score >= $opt_threshold;
 }
+sub unknown{
+    my $gff = shift;
+    return ! defined $gff->score;
+}
+sub sea{
+    my $gff = shift;
+    return defined $gff->score && $gff->score < $opt_threshold;
+}
 
-my ($c, $t, $n, $start, $gap) = (0,0,0,undef,0);
+my $previous;
+my ($c, $t, $n, $start, $end, $gap) = (0,0,0,undef,0,0);
 while (my $gff = $p->next()){
     my $current_c = $gff->get_attribute('c');
     my $current_t = $gff->get_attribute('t');
@@ -38,13 +47,23 @@ while (my $gff = $p->next()){
         die sprintf "%s has no start or end", $gff->to_string;
     } 
     if (defined $start && $start>$current_start){
-        die "gff not sorted????";
+        if ($previous->sequence ne $gff->sequence){
+            # okay, sequence changed.
+            if ($start){
+                blit($gff,$start,$end,$c,$t);
+                ($c, $t, $n, $gap) = (0,0,0,0);
+                undef $start;
+                undef $end;
+            }
+        }else{
+            die "gff not sorted????";
+        }
     }
         
-
     # case 1: no on island, and we got land
     if (!$start && land($gff)){
         $start = $current_start;
+        $end   = $current_end;
         $c += $current_c;
         $t += $current_t;
         $n += $current_n;
@@ -56,30 +75,45 @@ while (my $gff = $p->next()){
     # case 3: on island, land
     elsif ($start && land($gff)){
         # extend island
+        $end   = $current_end;
         $c += $current_c;
         $t += $current_t;
         $n += $current_n;
     }
-
-    elsif ($start && ! land($gff)){
+    # case 4: on island, unknown
+    elsif ($start && unknown($gff)){
         if ($gap > $opt_max_gap){
-            my $score = $c + $t > 0 ? $c / ($c + $t) : 0;
-            say join "\t", 
-            $gff->sequence, 
-            $gff->source,
-            $gff->feature,
-            $start,
-            $current_end,
-            $score,
-            $gff->strand // '.',
-            '.',
-            "n=$n;c=$c;t=$t";
+            blit($gff,$start,$end,$c,$t);
             ($c, $t, $n, $gap) = (0,0,0,0);
             undef $start;
+            undef $end;
         } else {
             ++$gap;
         }
     }
+    elsif ($start && sea($gff)){
+        blit($gff,$start,$end,$c,$t);
+        ($c, $t, $n, $gap) = (0,0,0,0);
+        undef $start;
+        undef $end;
+    }
+    $previous = $gff;
+}
+
+if ($start){
+    blit($previous,$start,$end,$c,$t);
+    ($c, $t, $n, $gap) = (0,0,0,0);
+    undef $start;
+    undef $end;
+}
+
+sub blit{
+    my ($gff,$start,$end,$c,$t) = @_;
+
+    my $score = $c + $t > 0 ? $c / ($c + $t) : 0;
+
+    say join "\t", $gff->sequence, $gff->source, $gff->feature,
+    $start, $end, $score, $gff->strand // '.', '.', "n=$n;c=$c;t=$t";
 }
 if ($opt_output ne '-'){
     close \*STDOUT;
