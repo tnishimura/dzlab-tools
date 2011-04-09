@@ -12,9 +12,12 @@ use DZLab::Tools::GFFStore;
 use Pod::Usage;
 use Getopt::Long;
 
+use File::Spec::Functions;
+use File::Basename;
+
 my $help;
 my $verbose = 0;
-my $outfile;
+my $outfile = '-';
 my $memory = 0;
 my $result = GetOptions (
     "verbose" => \$verbose,
@@ -24,9 +27,17 @@ my $result = GetOptions (
 );
 pod2usage(-verbose => 1) if (!$result || $help || !$outfile);  
 
-unless ($outfile eq '-'){
-    close STDOUT;
-    open STDOUT, '>', $outfile or die "can't open $outfile for writing";
+if ($outfile eq '-' && @ARGV == 1){
+    my ($basename, $path, $suffix) = fileparse($ARGV[0],".gff");
+    my $defout = catfile($path,$basename) . ".compiled.gff";
+    open STDOUT, '>', $defout or die "can't open $outfile for writing";
+} 
+elsif ($outfile eq '-' && @ARGV > 1){
+    die "Sorry, when there are more than 1 input file, you need to specify a name with -o";
+}
+else {
+    open my $fh, '>', $outfile or die "can't open $outfile for writing";
+    select $fh;
 }
 
 my $gffstore = DZLab::Tools::GFFStore->new({
