@@ -23,23 +23,30 @@ pod2usage(-verbose => 1) if (!$result || $help);
 my $genome = slurp_fasta($reference);
 
 my $counter = 0;
+TOP:
 while (defined(my $line = <ARGV>)){
     $line =~ tr/\r\n//d;
-    my ($seq, $coord, $attr) = (split /\t/, $line)[0,3,8];
+    my ($seq, $coord, $strand,$attr) = (split /\t/, $line)[0,3,6,8];
     
     next unless $seq && $coord && $attr;
     my ($original, $converted) = split />/,$attr;
     die "$line fubar" unless $original && $converted;
+    if ($strand eq '-'){
+        $original =~ s/acgtACGT/tgcaTGCA/;
+        $converted =~ s/acgtACGT/tgcaTGCA/;
+    }
 
     $seq = uc $seq;
 
     # check before
+    BEFORE:
     {
         my $grab = substr $genome->{$seq}, $coord-1,1;
+        last BEFORE if $grab !~ /ACTG/ && $original !~ /ACTG/;
         if ($grab ne $original){
             say STDERR "BEFORE: $grab doesn't match $original at $line"; 
             ++$counter;
-            next ;
+            next TOP;
         }
     }
 
