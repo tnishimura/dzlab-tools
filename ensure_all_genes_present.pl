@@ -12,6 +12,7 @@ use FindBin;
 use lib "$FindBin::Bin/DZLab-Tools/lib";
 use DZLab::Tools::RunUtils;
 
+use Data::Dumper;
 use Pod::Usage;
 use Getopt::Long;
 
@@ -26,15 +27,17 @@ my $result = GetOptions (
 pod2usage(-verbose => 1) if (!$annotation || $help);  
 
 my %genes;
-open my $ANNOTATION, q{<}, $ARGV{annotation} or die "Can't open $ARGV{annotation}: $!";
+open my $ANNOTATION, q{<}, $annotation or die "Can't open $ARGV{annotation}: $!";
 
 LOAD_CANONICAL_GENE_LIST:
 while (<$ANNOTATION>) {
     chomp;
-    my ($id) = $_ =~ m/ID=([^;]+)/;
-    $genes{$id} = 0;
+    if ( m/ID=([^;]+)/){
+        $genes{$1} = 0;
+    }
 }
 close $ANNOTATION or die "Can't close $ARGV{annotation}: $!";
+
 
 my @genes = sort keys %genes;
 
