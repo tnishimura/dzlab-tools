@@ -1,0 +1,7 @@
+#!/usr/bin/env perl
+use strict;
+use warnings;
+
+print "DZLab-Tools __VERSION__ installed! (April 11, 2011)\n";
+exit 0;
+
