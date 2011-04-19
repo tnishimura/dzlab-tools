@@ -41,8 +41,7 @@ if ($output) {
 
 # slurp up GFF's given as arguments.  these will serve as source's.
 
-my $gff_iterator
-= make_gff_iterator( parser => \&gff_read, handle => 'ARGV' );
+my $gff_iterator = make_gff_iterator( parser => \&gff_read, handle => 'ARGV' );
 
 my %gff_records = (); # { sequence => [$gff_hashes] }
 LOAD:
@@ -53,12 +52,12 @@ while ( my $gff_line = $gff_iterator->() ) {
 
 # $gff file will serve as target's
 
-my $annotation_iterator = sub { };
-if ($gff) {
-    $annotation_iterator = make_annotation_iterator(
-        file  => $gff,
-        tag   => $tag,
-    );
+my $annotation_iterator = make_gff_iterator( parser => \&gff_read, file => $gff );
+my %annotation_records = ();
+LOAD:
+while ( my $gff_line = $annotation_iterator->() ) {
+    next LOAD unless ref $gff_line eq 'HASH';
+    push @{ $annotation_records{ $gff_line->{seqname} } }, $gff_line;
 }
 
 SEQUENCE:
@@ -72,8 +71,10 @@ for my $sequence ( sort keys %gff_records ) {
     }
 
     # for each range/locus for the sequence...
-  WINDOW:
-    while ( my ( $ranges, $locus ) = $annotation_iterator->($sequence) ) {
+    WINDOW:
+    for my $annotation (@{$annotation_records{$sequence}}) {
+        my $ranges = [[$annotation->{start},$annotation->{end}]];
+        my $attributes = $annotation->{attribute};
 
 
         my $brs_iterator = binary_range_search(
@@ -83,25 +84,26 @@ for my $sequence ( sort keys %gff_records ) {
             ranges => $gff_records{$sequence},
         );
 
-        # what is $_ here???
-        next WINDOW unless
-        $overlap <= overlap ($ranges->[0], [$_->{start}, $_->{end}]);
+        # what is $_ here??? I dunno, rejected!
+        #next WINDOW unless
+        #$overlap <= overlap ($ranges->[0], [$_->{start}, $_->{end}]);
 
         # print if overlap meets a cutoff.
         if ($full) {
-            $overlap <= overlap ($ranges->[0], [$_->{start}, $_->{end}])
-            && print join ("\t",
-                           $_->{seqname},
-                           $_->{source},
-                           $_->{feature},
-                           $_->{start},
-                           $_->{end},
-                           $_->{score},
-                           $_->{strand},
-                           $_->{frame},
-                           ($_->{attribute} . ";ID=$locus"),
-                       ), "\n"
-                       while local $_ = $brs_iterator->();
+            while (my $brs_res = $brs_iterator->()){
+                $overlap <= overlap ($ranges->[0], [$brs_res->{start}, $brs_res->{end}])
+                && print join ("\t",
+                    $brs_res->{seqname},
+                    $brs_res->{source},
+                    $brs_res->{feature},
+                    $brs_res->{start},
+                    $brs_res->{end},
+                    $brs_res->{score},
+                    $brs_res->{strand},
+                    $brs_res->{frame},
+                    ($brs_res->{attribute} eq '.' ? $attributes : "$brs_res->{attribute};$attributes"),
+                ), "\n";
+            }
         }
         else {
             my $overlaps = 0;
@@ -110,7 +112,7 @@ for my $sequence ( sort keys %gff_records ) {
             && $overlaps++ while local $_ = $brs_iterator->();
 
             print join ("\t", 
-                        $locus,
+                        $attributes,
                         $overlaps
                     ), "\n";
         }
@@ -141,113 +143,6 @@ sub overlap {
 
     # overlap ratio = overlap / length of range_b;
     return $overlap / ( $range_b->[1] - $range_b->[0] + 1 );
-}
-
-##########################################################
-# make_annotation_iterator
-#
-# return an iterator which, given a sequence, will return 
-# ( [ ranges ], $locus ), on every call, until loci runs out
-
-sub make_annotation_iterator {
-    my (%options) = @_;
-
-    my $annotation_file = $options{file};
-    my $locus_tag       = $options{tag}   || 'ID';
-    my $merge_exons     = $options{merge} || 0;
-
-    open my $GFFH, '<', $annotation_file
-        or croak "Can't read file: $annotation_file";
-
-    my $gff_iterator
-        = make_gff_iterator( parser => \&gff_read, handle => $GFFH );
-
-    my $annotation = index_annotation( iterator => $gff_iterator, %options );
-
-    close $GFFH or croak "Can't close $annotation_file: $!";
-
-    # closure
-    my %annotation_keys = ();
-    return sub {
-        my ($sequence) = @_;
-        return unless $sequence;
-
-        # first time, make %annotation_keys a { sequence => [locus_ids] }
-        if ( ! exists $annotation_keys{$sequence} ) {
-            @{ $annotation_keys{$sequence} }
-                = sort keys %{ $annotation->{$sequence} };
-        }
-
-        # grab a locus
-        my $locus = shift @{ $annotation_keys{$sequence} };
-        return unless $locus;
-
-        # grab the locus's [ranges]
-        my $ranges = $annotation->{$sequence}{$locus};
-        delete $annotation->{$sequence}{$locus};
-
-        # return [ unique_ranges of seq ], and a locus
-        if ( $locus and @$ranges ) {
-            return [ uniq_ranges($ranges) ], $locus;
-        }
-        else {
-            return;
-        }
-    };
-}
-
-##########################################################
-# index annotations
-# 
-# accept a gff iterator, a locus tag ('ID') and a feature (column 3) to merge
-# on.
-#
-# return { sequence_names => { locus_id => [ranges]} }
-
-sub index_annotation {
-    my (%options) = @_;
-
-    my $gff_iterator = $options{iterator}
-        || croak 'Need an iterator parameter';
-    my $locus_tag     = $options{tag}   || 'ID';
-    my $merge_feature = $options{merge} || 0;
-
-    my %annotation = ();
-
-LOCUS:
-    # fore each line in gff
-    while ( my $locus = $gff_iterator->() ) {
-
-        next LOCUS unless ref $locus eq 'HASH';
-
-        # see if there's an 'ID'. 
-        my ($locus_id) = $locus->{attribute} =~ m/$locus_tag[=\s]?([^;,]+)/;
-
-        # if there is no ID, use the first attribute 
-        if ( !defined $locus_id ) {
-            ( $locus_id, undef ) = split /;/, $locus->{attribute};
-            $locus_id ||= q{.};
-        }
-        # if there is...
-        else {
-
-            # clean whitespace/quotes
-            $locus_id =~ s/["\t\r\n]//g;
-
-            # kill after period if merging
-            $locus_id
-                =~ s/\.\w+$// # this fetches the parent ID in GFF gene models (eg. exon is Parent=ATG101010.n)
-                if $merge_feature and $locus->{feature} eq $merge_feature;
-        }
-
-        # so annotation is a { sequence_names => { locus_id => [ranges]} }
-        push @{ $annotation{ $locus->{seqname} }{$locus_id} },
-            [ $locus->{start}, $locus->{end} ]
-            unless ( $merge_feature and $locus->{feature} ne $merge_feature );
-
-    }
-
-    return \%annotation;
 }
 
 ##########################################################
