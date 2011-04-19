@@ -15,7 +15,7 @@ my $distance       = 5000;
 my $stop_flag      = 2;
 my $stop_distance  = 1500;
 my $three_prime    = 0;
-my $five_prime     = 0;
+my $five_prime     = 1;
 my $attribute_id   = 'ID';
 my $output;
 
@@ -49,29 +49,36 @@ my $stop_flag_dispatch = {
 
 # Check required command line parameters
 pod2usage( -verbose => 1 )
-    unless @ARGV
+    unless (@ARGV
     and $result
     and $gff_annotation
     and ( $three_prime xor $five_prime )
     and ( $stop_flag != 6 or ( $stop_flag == 6 and $stop_distance ) )
     and exists $stop_flag_dispatch->{$stop_flag},
-    and $bin_width > 0;
+    and $bin_width > 0);
 
 if ($output) {
     open my $USER_OUT, '>', $output or croak "Can't read $output: $!";
     select $USER_OUT;
 }
 
+my %flag_parameters = (
+    -three_prime   => $three_prime,
+    -five_prime    => $five_prime,
+    -distance      => $distance,
+    -stop_flag     => $stop_flag,
+    -stop_distance => $stop_distance,
+);
+
 # index and offset the loci annotations data based on stop flag
+# { seqname => { 
+#      start_coord => 
+#           [flag_start, flag_end, strand, attributes, 
+#            original_start, original_end]}}
 my $annotation = offset_gff_annotation(
     index_gff_annotation( $gff_annotation, $attribute_id ),
     $stop_flag_dispatch->{$stop_flag},
-    {   -three_prime   => $three_prime,
-        -five_prime    => $five_prime,
-        -distance      => $distance,
-        -stop_flag     => $stop_flag,
-        -stop_distance => $stop_distance
-    }
+    \%flag_parameters
 );
 
 my $num_bins           = 2 * int( $distance / $bin_width );
@@ -88,7 +95,7 @@ while ( my $gff_line = $gff_iterator->() ) {
 
     next COORD if $gff_line->{score} eq q{.};
 
-    # Step 2: Memoization
+    # Step 2: Memoization for sorting annoation
     # has this been done before? use it : otherwise cache it
     unless ( exists $sorted_annotations{ $gff_line->{seqname} } ) {
 
@@ -123,9 +130,9 @@ while ( my $gff_line = $gff_iterator->() ) {
     # divided by the negative bin width.
     # note: $reverse + 4 accesses original start or end coordinate for this locus
     my $index = int(
-        ($locus->[ $reverse + 4 ] 
-         - $bin_width * ( $num_bins / 2 )
-         - $gff_line->{start}
+        ($locus->[ $reverse + 4 ]          # original start
+         - $bin_width * ( $num_bins / 2 )  # new start. is just $distance, no?
+         - $gff_line->{start}              # result diff between $gff_line location and new start. negative
         ) / -$bin_width
     );
 
@@ -363,23 +370,23 @@ sub stop_flag_2 {
     # don't go beyond:
     # 1) the other end of itself,
     # 2) into another gene
-    if (   $parameters->{-five_prime} and $current->[2] eq q{-}
+    if (   $parameters->{-five_prime} and $current->[2] eq q{-}  
         or $parameters->{-three_prime} and $current->[2] eq q{+} )
     {
         #                       min       max
-        # window:                v----+----v
-        # n                               |-------------|
-        # c                 |---------|
+        # window:                v----+----v                (centered on downstream end)
         # p   |--------------|
+        # c                 |---------|
+        # n                               |-------------|
         return ( max( $current->[0], $previous->[1], $minimum ),
                  min( $next->[0], $maximum ) );
     }
-    else {
+    else { 
         #             min       max
-        # window:      v----+----v
-        # n   |--------------|
-        # c                 |---------|
+        # window:      v----+----v                         (centered on upstream end)
         # p                               |-------------|
+        # c                 |---------|
+        # n   |--------------|
         return ( max( $previous->[1], $minimum ),
                  min( $current->[1], $next->[0], $maximum ) );
     }
@@ -412,6 +419,7 @@ sub stop_flag_6 {
     if (   $parameters->{-five_prime} and $current->[2] eq q{-}
         or $parameters->{-three_prime} and $current->[2] eq q{+} )
     {
+        # downstream end
         return (
             max($current->[0] + $parameters->{-stop_distance}, $previous->[1],
                 $minimum
@@ -420,6 +428,7 @@ sub stop_flag_6 {
         );
     }
     else {
+        # upstream end
         return (
             max($previous->[1], $minimum ),
             min($current->[1] - $parameters->{-stop_distance}, $next->[0], $maximum)
@@ -428,21 +437,28 @@ sub stop_flag_6 {
 }
 
 #==================================================================
-# return forward-strand coordinates of the end window. don't go into negatives.
+# return forward-strand coordinates of the window start/end. don't go into negatives.
+# $current = [start,end,strand,attributes]
 
 sub min_max_distance {
     my ( $current, $parameters ) = @_;
 
     my ( $minimum, $maximum );
 
-    if (   $parameters->{-five_prime} and $current->[2] eq q{-}
-        or $parameters->{-three_prime} and $current->[2] eq q{+} )
+    #    start    end
+    # 3' <----------- 5'  (5' end on minus strand is 'end'.)
+    # 5' -----------> 3'  (3' end on plus strans is also 'end')
+    if (   $parameters->{-five_prime} and $current->[2] eq q{-}    # 
+        or $parameters->{-three_prime} and $current->[2] eq q{+} ) # 
     {
 
         $minimum = $current->[1] - $parameters->{-distance};
         $maximum = $current->[1] + $parameters->{-distance};
 
     }
+    #    start    end
+    # 5' -----------> 3'  (5' end on plus strand is also 'start')
+    # 3' <----------- 5'  (3' end on minus strand is 'start'.)
     else {
         $minimum = $current->[0] - $parameters->{-distance};
         $maximum = $current->[0] + $parameters->{-distance};
@@ -483,6 +499,26 @@ __END__
  -q, --quiet          supress perl's diagnostic and warning messages
  -h, --help           print this information
  -m, --manual         print the plain old documentation page
+
+=head2 --stop-flag
+
+=over 
+
+=item 0
+
+For the centered end, go upstream or downstream --distance bases.
+
+=item 2
+
+For the centered end, go upstream or downstream --distance bases but do not
+overlap into any other genes.
+
+=item 6
+
+For the centered end, go upstream or downstream --distance bases but do not
+overlap OR go within  --stop-distance of into any other genes.
+
+=back
 
 =head1 REVISION
 
