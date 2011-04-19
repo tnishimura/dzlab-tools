@@ -9,14 +9,14 @@ use autodie;
 
 has asterisk         => ( is => 'rw', isa => 'Bool', default => 0 );
 # type constraints very slow? removed.
-has sequence         => ( is => 'ro' );
-has source           => ( is => 'ro' );
-has feature          => ( is => 'ro' );
-has start            => ( is => 'ro' );
-has end              => ( is => 'ro' );
-has score            => ( is => 'ro' );
-has strand           => ( is => 'ro' );
-has frame            => ( is => 'ro' );
+has sequence         => ( is => 'rw' );
+has source           => ( is => 'rw' );
+has feature          => ( is => 'rw' );
+has start            => ( is => 'rw' );
+has end              => ( is => 'rw' );
+has score            => ( is => 'rw' );
+has strand           => ( is => 'rw' );
+has frame            => ( is => 'rw' );
 has attribute_string => ( is => 'rw' );
 has attr_hash => (
       traits    => ['Hash'],
@@ -77,10 +77,14 @@ sub parse_locus{
 
 my %cols = map { $_ => 1 } qw/sequence source feature start end score strand frame attribute_string/;
 
+
 sub get_column{
     my ($self, $colname) = @_;
     if (exists $cols{$colname}){
         return $self->$colname;
+    } elsif ($colname =~ s/^\*//){
+        my ($locus, $suffix) = $self->parse_locus($colname);
+        return $locus;
     } else{
         return $self->get_attribute($colname);
     }
@@ -162,7 +166,12 @@ Format a GFF object for printing
 
 =item $gff->get_column('sequence')
 
-Like get_attribute, but also accepts 'sequence', 'source', etc.
+Like get_attribute, but also accepts qw/sequence source feature start end score
+strand frame attribute_string/, as well as any attribute key.  If prefixed by a
+'*', parse_locus called and the prefix is returned.  (So '*ID' on 'AT123.1'
+returns 'AT123').
+
+=cut
 
 =item $gff->get_attribute('ID')
 

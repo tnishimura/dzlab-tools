@@ -34,9 +34,9 @@ sub gff_slurp{
     return \@accum;
 }
 
-=head2 gff_slurp_index('file','chr1')
+=head2 gff_slurp_index('file','sequence')
 
-return a hashref of column val to gff record
+return a hashref of get_column val to gff record. Sort GFF records by start.
 
 =cut
 
