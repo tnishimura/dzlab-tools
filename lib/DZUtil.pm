@@ -52,10 +52,14 @@ use List::Util qw/max min/;
 
 sub overlap{
     my ($x,$y) = @_;
+    my $start1 = min($x->[0], $x->[1]);
+    my $end1   = max($x->[0], $x->[1]);
 
+    my $start2 = min($y->[0], $y->[1]);
+    my $end2   = max($y->[0], $y->[1]);
 
-    if ($x->[1] >= $y->[0] && $y->[1] >= $x->[0]){
-        return min($x->[1], $y->[1]) - max($x->[0], $y->[0])  + 1;
+    if ($end1 >= $start2 && $end2 >= $start1){
+        return min($end1, $end2) - max($start1, $start2)  + 1;
     }
     else {
         return 0;
