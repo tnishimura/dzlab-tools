@@ -61,11 +61,17 @@ while (defined(my $line = <$in>)){
         if ($score eq 'na'){
             print "\tna";
         }
+        # If it overlaps with exon, always allow it.
         elsif (grep { 
                 overlap([$current_start,$current_end], [$_->start,$_->end]) / $opt_bin_width >= ($opt_threshold / 100)
             } @$exons){
             print "\t$score";
         } 
+        # otherwise, if we're not filtering outside and current is not in gene, allow it
+        elsif (!$opt_everywhere && overlap([$current_start, $current_end],[$gene_start,$gene_end]) == 0){
+            print "\t$score";
+        }
+        # else eliminate
         else {
             print "\tna";
             print "*" if $opt_debug;
@@ -160,6 +166,11 @@ its score is kept.
 =item  <input>
 
 Input file.  Should be the output file of ends_analysis.pl.
+
+=item  -n  | --everywhere 
+
+By default, this script will not affect bins that are outside genes, which are clearly outside exons.  
+Using this options removes scores outside genes.
 
 =item  --debug
 

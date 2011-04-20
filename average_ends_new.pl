@@ -54,14 +54,14 @@ print join ("\t", qw/bin mean std var ste numscores 25% 50% 75%/), "\n";
 
 for my $k (0 .. $scores - 1){
     my $stat = $stats[$k];
-    printf("%d\t" . ("%f\t" x 4) . "%d\t" . ("%f\t" x 3) . "\n",
+    printf("%d\t" . ("%s\t" x 4) . "%d\t" . ("%s\t" x 3) . "\n",
         $k * $bin_width - int ($scores/2) * $bin_width,
-        $stat->mean(),
-        $stat->standard_deviation(),
-        $stat->variance(),
-        $stat->standard_deviation() / sqrt ($stat->count),
+        $stat->count ? $stat->mean() : 'na',
+        $stat->count ? $stat->standard_deviation() : 'na',
+        $stat->count ? $stat->variance() : 'na',
+        $stat->count ? $stat->standard_deviation() / sqrt ($stat->count) : 'na',
         $stat->count,
-        quartiles($stat->get_data)
+        $stat->count ? quartiles($stat->get_data) : ('na', 'na', 'na')
     );
 }
 
