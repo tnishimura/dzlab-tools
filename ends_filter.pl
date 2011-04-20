@@ -29,13 +29,20 @@ my $exons = gff_slurp_index($opt_exons_gff,'*' . $opt_exon_locus);
 
 open my $in, '<', $opt_input;
 
+TOP:
 while (defined(my $line = <$in>)){
     chomp $line;
     my ($locus, @scores) = split /\t/, $line;
     my $genes = $genes->{$locus};
     my $exons = $exons->{$locus};
-    die "$locus not found in $opt_genes_gff?" unless defined $genes;
-    die "$locus not found in $opt_exons_gff?" unless defined $exons;
+    if (! defined $genes){
+        warn "$locus not found in genes GFF file $opt_genes_gff? skipping...";
+        next TOP;
+    }
+    if (! defined $exons){
+        warn "$locus not found in exons GFF file $opt_exons_gff? skipping...";
+        next TOP;
+    }
 
     print $locus;
 
