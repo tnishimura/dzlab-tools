@@ -39,7 +39,7 @@ sub parse_gff{
     = map { $_ eq q{.} ? undef : $_ } @split;
 
     if (defined $accum{sequence}){
-        $accum{sequence} = lc $accum{sequence};
+        $accum{sequence} = uc $accum{sequence};
     }
 
     return GFF->new(%accum);

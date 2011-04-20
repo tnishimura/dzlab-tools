@@ -96,6 +96,7 @@ sub equals{
     foreach my $col (@columns) {
         my $x = $self->get_column($col);
         my $y = $against{$col};
+        $y = defined $y && $col eq 'sequence' ? uc $y : $y;
 
         # both undefined, or both defined and equal
         if ((!defined $x && !defined $y) || (defined $x && defined $y && $x eq $y)){

@@ -4,7 +4,7 @@ use warnings;
 use Data::Dumper;
 use feature 'say';
 use autodie;
-use Smart::Comments;
+#use Smart::Comments;
 
 use Test::More qw(no_plan);
 
@@ -25,8 +25,8 @@ seek DATA, $data_pos, 0;
 
 my $hash = gff_slurp_index(\*DATA,'sequence');
 
-is(scalar @{$hash->{chr1}},6,"slurp index 1");
-is(scalar @{$hash->{chr2}},1,"slurp index 2");
+is(scalar @{$hash->{CHR1}},6,"slurp index 1");
+is(scalar @{$hash->{CHR2}},1,"slurp index 2");
 
 __DATA__
 Chr1	TAIR8	gene	3631	5899	.	+	.	AT1G01010; ANAC001 (Arabidopsis NAC domain containing protein 1); transcription factor
