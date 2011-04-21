@@ -15,7 +15,7 @@ my $distance       = 5000;
 my $stop_flag      = 2;
 my $stop_distance  = 1500;
 my $three_prime    = 0;
-my $five_prime     = 1;
+my $five_prime     = 0;
 my $attribute_id   = 'ID';
 my $output;
 
