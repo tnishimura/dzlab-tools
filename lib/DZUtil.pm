@@ -24,8 +24,8 @@ return filename with new extension
 sub chext{
     my ($fullpath, $ext) = @_;
     my ($filename, $path) = fileparse($fullpath);
-    $filename =~ s/\.[^.]+$/.$ext/;
-    return catfile($path,$filename);
+    $filename =~ s/\.[^.]+$//;
+    return catfile($path,$filename) . ".$ext";
 }
 
 =head2 split_names("/home/test/path.txt", qw/chr1 chr2 chr3/)
@@ -39,7 +39,7 @@ sub split_names{
     my ($filename, $path) = fileparse($fullpath);
     my $ext = ($filename =~ s/\.([^.]+)$//) ? $1 : "";
 
-    return map { catfile($path, $filename) . "-$_.$ext" } @splits;
+    return map { catfile($path, $filename) . "-$_" . ($ext ? ".$ext" : "") } @splits;
 }
 
 =head2 overlap([start1,end1], [start2,end2])
