@@ -17,23 +17,23 @@ use Pod::Usage;
 use Getopt::Long;
 
 my $bindir = $FindBin::Bin;
-my $logdir;
+my $logfile;
 my $outdir;
 
 my $result = GetOptions (
-    "logdir=s" => \$logdir,
+    "logfile=s" => \$logfile,
     "outdir=s" => \$outdir,
 );
 
-if (!$logdir  || !$outdir){
-    say "usage: $0 --logdir some/where/log --outdir some/where/outdir";
+if (!$logfile  || !$outdir){
+    say "usage: $0 --logfile some/where/log --outdir some/where/outdir";
     exit 1;
 }
 
 use Log::Log4perl qw/:easy/;
 Log::Log4perl->easy_init( { 
     level    => $DEBUG,
-    file     => ">>" . catfile($logdir,"_build.conf"),
+    file     => ">>$logfile",
     layout   => '%d{HH:mm:ss} %p> (%L) %M - %m%n',
 } );
 my $logger = get_logger();
