@@ -18,14 +18,14 @@ use Getopt::Long;
 
 my $bindir = $FindBin::Bin;
 my $logfile;
-my $outdir;
+my $outdir = $bindir;
 
 my $result = GetOptions (
     "logfile=s" => \$logfile,
     "outdir=s" => \$outdir,
 );
 
-if (!$logfile  || !$outdir){
+if (!$result){
     say "usage: $0 --logfile some/where/log --outdir some/where/outdir";
     exit 1;
 }
@@ -33,8 +33,8 @@ if (!$logfile  || !$outdir){
 use Log::Log4perl qw/:easy/;
 Log::Log4perl->easy_init( { 
     level    => $DEBUG,
-    file     => ">>$logfile",
     layout   => '%d{HH:mm:ss} %p> (%L) %M - %m%n',
+    ($logfile ?  (file => ">>$logfile") : ()),
 } );
 my $logger = get_logger();
 
@@ -64,9 +64,3 @@ if (defined(my $log = $iter->next())){
         $logger->info("$dest already exists, not remaking...");
     }
 }
-
-
-__DATA__
-archive = /var/www/lighttpd/dzlab-tools/archive
-www = /var/www/lighttpd/dzlab-tools
-repo = /home/vaquero/dzlab-tools/.git
