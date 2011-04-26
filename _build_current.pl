@@ -22,7 +22,7 @@ my $outdir;
 
 my $result = GetOptions (
     "logdir=s" => \$logdir,
-    "outdir=s"    => \$outdir,
+    "outdir=s" => \$outdir,
 );
 
 if (!$logdir  || !$outdir){
@@ -33,7 +33,7 @@ if (!$logdir  || !$outdir){
 use Log::Log4perl qw/:easy/;
 Log::Log4perl->easy_init( { 
     level    => $DEBUG,
-    file     => catfile($logdir,"_build.conf"),
+    file     => ">>" . catfile($logdir,"_build.conf"),
     layout   => '%d{HH:mm:ss} %p> (%L) %M - %m%n',
 } );
 my $logger = get_logger();
