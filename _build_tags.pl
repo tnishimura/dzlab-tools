@@ -43,7 +43,7 @@ for my $tag (@tags) {
     if (! -f catfile($outdir,"dzlab-tools-$tag.exe")){
         $logger->info("$tag needs building");
         $logger->info("checkout: " . Git::Repository->run(checkout => $tag));
-        system("./_build.pl $tag");
+        system("./_build.pl --outdir $outdir --tag $tag");
     } else{
         $logger->info("$tag already built, skipping");
     }
