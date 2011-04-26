@@ -14,3 +14,5 @@ if (@ARGV != 1){
 system("perl -wlpe 's/__VERSION__/$ARGV[0]/' installer.nsi.in > installer.nsi");
 system("perl -wlpe 's/__VERSION__/$ARGV[0]/' dzlab-check.pl.in > dzlab-check.pl");
 system("makensis installer.nsi");
+unlink "installer.nsi";
+unlink "dzlab-check.pl";

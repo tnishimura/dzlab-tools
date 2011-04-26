@@ -58,6 +58,8 @@ if (defined(my $log = $iter->next())){
         system("perl -wlpe 's/__VERSION__/$version/' installer.nsi.in > installer.nsi");
         system("perl -wlpe 's/__VERSION__/$version/' dzlab-check.pl.in > dzlab-check.pl");
         system("makensis installer.nsi");
+        unlink "installer.nsi";
+        unlink "dzlab-check.pl";
         move $filename, $dest;
     }
     else {
