@@ -75,9 +75,9 @@ if ($merge) {
 if ($absolute) {
     croak
         '-b, --absolute option only works with arabidopsis or rice or puffer'
-        unless lc $absolute eq 'arabidopsis'
-            or lc $absolute eq 'rice'
-            or lc $absolute eq 'puffer';
+        unless (lc $absolute eq 'arabidopsis'
+                or lc $absolute eq 'rice'
+                or lc $absolute eq 'puffer');
     $no_skip = 1;
 }
 
@@ -606,7 +606,7 @@ sub full_weighed_average{
 
 sub half_weighed_average{
     my ($brs_iterator, %opt) = @_;
-    weighed_average($brs_iterator, %opt, source => 0, dest => 1);
+    weighed_average($brs_iterator, %opt, source => 1, dest => 0);
 }
 sub unweighed_average{
     my ($brs_iterator, %opt) = @_;
@@ -962,7 +962,7 @@ the windows are arranged like so:
  Window:                |--------------------|   Length: y
  Overlap:               |------|                 Length: z
 
-Then the score contribution of the query to the window is n * (y/z).
+Then the score contribution of the query to the window is n * (x/z).
 
 =head1 REVISION
 
