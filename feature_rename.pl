@@ -40,6 +40,9 @@ sub outname{
 }
 
 sub label{
+    if ($label){
+        return $label;
+    }
     my $prefix = shift;
     $prefix =~ s{^[./]*}{};
 
