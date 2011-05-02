@@ -77,20 +77,28 @@ else{
 
 while (my ($in,$out) = each %files) {
     my $feature = label($in);
+    my ($ifh, $ofh);
+
     if ($in eq $out){
+        # inplace
+        open $ifh, '<', $in;
+        unlink $in;
+        open $ofh, '>', $in;
     }
     else{
-        open my $ifh, '<', $in;
-        open my $ofh, '>', $out;
-        while (defined(my $line = <$ifh>)){
-            chomp $line;
-            my @s = split /\t/, $line;
-            $s[2] = $feature;
-            say $ofh join "\t", @s;
-        }
-        close $ifh;
-        close $ofh;
+        open $ifh, '<', $in;
+        open $ofh, '>', $out;
     }
+
+    while (defined(my $line = <$ifh>)){
+        chomp $line;
+        my @s = split /\t/, $line;
+        $s[2] = $feature;
+        say $ofh join "\t", @s;
+    }
+
+    close $ifh;
+    close $ofh;
 }
 
 =head1 NAME
@@ -127,7 +135,9 @@ to --label.
 
 =item -l <label> | --label <label>
 
-=item  -c <c> | --minchar <c>
+=item -c <c> | --minchar <c>
+
+=item -i | --in-place
 
 =item -h | --help
 
