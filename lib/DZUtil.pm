@@ -11,7 +11,7 @@ use File::Basename;
 
 require Exporter;
 our @ISA = qw(Exporter);
-our @EXPORT_OK = qw(overlap chext split_names);
+our @EXPORT_OK = qw(overlap chext split_names base_match);
 our @EXPORT = qw();
 
 
@@ -48,7 +48,7 @@ Return overlap between two ranges, or 0 if not overlapping.
 
 =cut
 
-use List::Util qw/max min/;
+use List::Util qw/max min first/;
 
 sub overlap{
     my ($x,$y) = @_;
@@ -66,6 +66,35 @@ sub overlap{
     }
 }
 
+
+my %iupac = (
+    G => [qw/ G /],
+    A => [qw/ A /],
+    T => [qw/ T /],
+    C => [qw/ C /],
+    R => [qw/ G A /],
+    Y => [qw/ T C /],
+    M => [qw/ A C /],
+    K => [qw/ G T /],
+    S => [qw/ G C /],
+    W => [qw/ A T /],
+    H => [qw/ A C T Y M W /],
+    B => [qw/ G T C Y K S /],
+    V => [qw/ G C A R M S /],
+    D => [qw/ G A T R K W /],
+    N => [qw/ G A T C R Y M K S W H B V D N/],
+);
+
+# base_match - return true if base1 is compatible with base2. 
+
+sub base_match{
+    my ($base1, $base2, $both) = @_;
+
+    $base1 = uc $base1;
+    $base2 = uc $base2;
+
+    return first{ $base1 eq $_ } (@{$iupac{$base2}});
+}
 
 
 

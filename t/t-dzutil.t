@@ -6,7 +6,7 @@ use feature 'say';
 use autodie;
 use FindBin;
 use lib "$FindBin::Bin/../lib";
-use DZUtil qw/chext split_names/;
+use DZUtil qw/chext split_names base_match/;
 
 
 use Test::More qw(no_plan);
@@ -38,3 +38,9 @@ is_deeply(
     "split_names 2",
 );
 
+for (['a','D'], ['c','n'], ['c', 'y']){
+    ok(base_match(@$_), 'base_match');
+}
+for (['n', 'a'], ['g','t']){
+    ok(!base_match(@$_), '!base_match');
+}
