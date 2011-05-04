@@ -12,6 +12,9 @@ use version; our $VERSION = qv('0.0.1');
 use File::Path qw(make_path remove_tree);
 use File::Spec;
 use Digest::MD5 qw(md5_hex);
+use FindBin;
+use lib "$FindBin::Bin/System-Wrapper/lib";
+
 use System::Wrapper;
 use System::Wrapper::Parallel;
 
@@ -372,6 +375,9 @@ __END__
  -rb  --reference-b   genome of ecotype-b in fasta
  -a   --annotation    gff annotation 
  -l   --loci-type     [gene, transposon, exon, etc]
+
+ not implemented yet:
+ -n   --num-mismatch  number of mismatches for bowtie
 
 =head1 VERSION
 
