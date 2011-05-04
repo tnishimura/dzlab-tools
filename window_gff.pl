@@ -950,7 +950,7 @@ the windows are arranged like so:
  Window:                |--------------------|   Length: y
  Overlap:               |------|                 Length: z
 
-Then the score contribution of the query to the window is n * (x/z) * (y/z).  This was yvonne's idea so if it doesn't
+Then the score contribution of the query to the window is n * (z/x) * (z/y).  This was yvonne's idea so if it doesn't
 make sense, blame her.
 
 =item half_weighed_average:
@@ -962,7 +962,7 @@ the windows are arranged like so:
  Window:                |--------------------|   Length: y
  Overlap:               |------|                 Length: z
 
-Then the score contribution of the query to the window is n * (x/z).
+Then the score contribution of the query to the window is n * (z/x).
 
 =head1 REVISION
 
