@@ -8,12 +8,12 @@ use Carp;
 use autodie;
 use File::Spec::Functions;
 use File::Basename;
+use POSIX qw/strftime/;
 
 require Exporter;
 our @ISA = qw(Exporter);
-our @EXPORT_OK = qw(overlap chext split_names base_match);
+our @EXPORT_OK = qw(timestamp datestamp overlap chext split_names base_match);
 our @EXPORT = qw();
-
 
 =head2 chext("/etc/test.txt", "newext")
 
@@ -96,7 +96,8 @@ sub base_match{
     return first{ $base1 eq $_ } (@{$iupac{$base2}});
 }
 
-
+sub timestamp{ return strftime("%Y%m%d-%H%M",localtime); }
+sub datestamp{ return strftime("%Y%m%d",localtime); }
 
 1;
 
