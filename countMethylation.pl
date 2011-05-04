@@ -33,7 +33,7 @@ use diagnostics;
 disable diagnostics;
 use List::Util qw(max sum);
 use Carp;
-#use Smart::Comments '###';
+use File::Spec;
 
 # Globals, passed as command line options
 my $gfffile = '';
@@ -75,15 +75,23 @@ if(!($output eq '-')) {
 }
 
 if ($sort) {
-    # opens gff file
-    open my $GFFIN, '<', $gfffile or die("Can't read file: $gfffile");
-    my @gff_data = <$GFFIN>;
-    close $GFFIN;
+    my @path = File::Spec->path();
+    if (grep { -x "$_/sort" } @path) {
+        print STDERR "Starting external sort...\n";
+        system("sort -k4,4n -S 15% $gfffile -o $gfffile");
+        print STDERR "Done external sort...\n";
+    }
+    else {
+        # opens gff file
+        open my $GFFIN, '<', $gfffile or die("Can't read file: $gfffile");
+        my @gff_data = <$GFFIN>;
+        close $GFFIN;
 
-    open my $GFFOUT, '>', $gfffile or die("Can't write to file: $gfffile");
-    @gff_data =  gff_sort (\@gff_data);
-    print $GFFOUT @gff_data;
-    close $GFFOUT;
+        open my $GFFOUT, '>', $gfffile or die("Can't write to file: $gfffile");
+        @gff_data =  gff_sort (\@gff_data);
+        print $GFFOUT @gff_data;
+        close $GFFOUT;
+    }
 }
 
 # prints out a commented line with header fields
