@@ -78,7 +78,7 @@ if ($sort) {
     my @path = File::Spec->path();
     if (grep { -x "$_/sort" } @path) {
         print STDERR "Starting external sort...\n";
-        system("sort -k4,4n -S 15% $gfffile -o $gfffile");
+        system("sort -k4,4n -S 50M $gfffile -o $gfffile");
         print STDERR "Done external sort...\n";
     }
     else {

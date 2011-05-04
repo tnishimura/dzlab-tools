@@ -35,6 +35,8 @@ my $random_assign = 1;      # if there is multiple reconciliation between ends, 
 my $pthreads      = 1;      # not used... for bowtie.
 my $di_nuc_freqs  = 0;      # if true, CG, CT, CC, CA instead of CHH, CHG, CG. 
 my @contexts;		# CG, CHG, CHH, etc.
+my $no_windowing  = 0;
+my $pfm_max       = 1;
 
 my @date = localtime (time);
 
@@ -69,6 +71,8 @@ my $result = GetOptions (
     'pthreads|pt=i'        => \$pthreads,
     'di-nuc-freqs|dnf=i'   => \$di_nuc_freqs,
     'contexts|ct=s{,}'     => \@contexts,
+    'no-windowing'         => \$no_windowing,
+    'parallel=i'           => \$pfm_max,
     'verbose|V'            => sub { use diagnostics; },
     'quiet|q'              => sub { no warnings; },
     'help|h'               => sub { pod2usage ( -verbose => 1 ); },
@@ -79,6 +83,8 @@ my $result = GetOptions (
 pod2usage ( -verbose => 1 )
 unless $result and $left_read and $right_read and $reference;
 
+use Parallel::ForkManager;
+my $pm = Parallel::ForkManager->new($pfm_max);
 
 # Get all chromosomes, pseudo-chromosomes, groups, etc, in the fasta reference file
 # Discards all information after first blank character in fasta header
@@ -190,18 +196,23 @@ run_cmd ("perl -S collect_align_stats.pl $files{lel3}.post $files{rel3}.post $fi
 # quantify methylation
 for (@groups) {
     run_cmd ("perl -S split_gff.pl --sequence all $files{base}") unless (file_exists($files{split}->{$_}));
+    $pm->start and next;
     run_cmd ("perl -S countMethylation.pl --ref $reference --gff $files{split}->{$_} --output $files{freq}->{$_} --sort -d $di_nuc_freqs") unless file_exists($files{freq}->{$_});
+    $pm->finish;
 }
+$pm->wait_all_children;
 
 # window methylation counts into non-overlapping windows
 for my $context (0 .. @contexts - 1) {
     for my $group (@groups) {
         run_cmd ("perl -S split_gff.pl --feature all $files{freq}->{$group}") 
 		unless file_exists($files{cont}->[$context]{$group});
-        run_cmd ("perl -S window_gff.pl $files{cont}->[$context]{$group} --width 1 --step 1 --output $files{cont}->[$context]{$group}.merged") 
-		unless file_exists("$files{cont}->[$context]{$group}.merged");
-        run_cmd ("perl -S window_gff.pl $files{cont}->[$context]{$group}.merged --width $window_size --step $window_size --output $files{wcont}->[$context]{$group} --no-skip") 
-		unless file_exists($files{wcont}->[$context]{$group});
+        unless ($no_windowing){
+            run_cmd ("perl -S window_gff.pl $files{cont}->[$context]{$group} --width 1 --step 1 --output $files{cont}->[$context]{$group}.merged") 
+            unless file_exists("$files{cont}->[$context]{$group}.merged");
+            run_cmd ("perl -S window_gff.pl $files{cont}->[$context]{$group}.merged --width $window_size --step $window_size --output $files{wcont}->[$context]{$group} --no-skip") 
+            unless file_exists($files{wcont}->[$context]{$group});
+        }
     }
 }
 
@@ -383,6 +394,14 @@ When this is 0, calculate the CG, CHH and CHG contexts.  If 1, calculate CG, CA,
 =item -i <num> | --batch <num>
 
 Label for collect_align_stats.pl (the .log file produced).  Default to 1.
+
+=item --no-windowing
+
+Skip the windowing after single-c file generation. 
+
+=item --parallel <threads>
+
+Launch various subprocesses (countMethylation only at the moment in parallel.)  Careful! 
 
 =back
 
