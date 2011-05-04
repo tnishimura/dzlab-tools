@@ -82,7 +82,7 @@ while (my $gff = $p->next()){
     }
     # case 4: on island, unknown
     elsif ($start && unknown($gff)){
-        if ($gap > $opt_max_gap){
+        if ($gap >= $opt_max_gap){
             blit($gff,$start,$end,$c,$t);
             ($c, $t, $n, $gap) = (0,0,0,0);
             undef $start;
@@ -145,7 +145,7 @@ Default 100.
 
 =for Euclid
     gap.default:     100
-    gap.type:        int, gap >= 1 
+    gap.type:        int, gap >= 0 
 
 =item  -t <threshold> | --threshold <threshold>
 
