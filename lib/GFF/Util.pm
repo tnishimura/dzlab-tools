@@ -36,7 +36,7 @@ sub parse_gff{
 
     my %accum;
     @accum{qw/sequence source feature start end score strand frame attribute_string/}
-    = map { $_ eq q{.} ? undef : $_ } @split;
+    = map { ($_ eq q{.} || $_ eq q{} ) ? undef : $_ } @split;
 
     if (defined $accum{sequence}){
         $accum{sequence} = uc $accum{sequence};

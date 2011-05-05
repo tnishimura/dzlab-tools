@@ -10,9 +10,19 @@ use GFF;
 use GFF::Parser;
 use Getopt::Euclid qw( :vars<opt_> );
 use Pod::Usage;
+use Log::Log4perl qw/:easy/;
+Log::Log4perl->easy_init( { 
+    level    => $DEBUG,
+    #file     => ">run.log",
+    layout   => '%d{HH:mm:ss} %p> (%L) %M - %m%n',
+} );
+my $logger = get_logger();
 
 pod2usage(-verbose => 99,-sections => [qw/NAME SYNOPSIS OPTIONS/]) 
 if $opt_help || !$opt_input || !$opt_output;
+
+$logger->info("threshold: $opt_threshold");
+$logger->info("  max gap: $opt_max_gap");
 
 if ($opt_output ne '-'){
     open my $fh, '>', $opt_output;
@@ -23,6 +33,9 @@ my $p = GFF::Parser->new(file => $opt_input);
 
 sub land{
     my $gff = shift;
+    #if (defined $gff->score){
+    #die Dumper $gff;
+    #}
     return defined $gff->score && $gff->score >= $opt_threshold;
 }
 sub unknown{
@@ -37,9 +50,14 @@ sub sea{
 my $previous;
 my ($c, $t, $n, $start, $end, $gap) = (0,0,0,undef,0,0);
 while (my $gff = $p->next()){
-    my $current_c = $gff->get_attribute('c');
-    my $current_t = $gff->get_attribute('t');
-    my $current_n = $gff->get_attribute('n');
+    my $current_c;
+    my $current_t;
+    my $current_n;
+    unless ($opt_just_scores){
+        $current_c = $gff->get_attribute('c');
+        $current_t = $gff->get_attribute('t');
+        $current_n = $gff->get_attribute('n');
+    }
     my $current_start = $gff->start();
     my $current_end = $gff->end();
 
@@ -64,9 +82,11 @@ while (my $gff = $p->next()){
     if (!$start && land($gff)){
         $start = $current_start;
         $end   = $current_end;
-        $c += $current_c;
-        $t += $current_t;
-        $n += $current_n;
+        unless ($opt_just_scores){
+            $c += $current_c;
+            $t += $current_t;
+            $n += $current_n;
+        }
     } 
     # case 2: not on island, no land
     elsif (!$start && ! land($gff)){
@@ -75,10 +95,13 @@ while (my $gff = $p->next()){
     # case 3: on island, land
     elsif ($start && land($gff)){
         # extend island
-        $end   = $current_end;
-        $c += $current_c;
-        $t += $current_t;
-        $n += $current_n;
+        $gap = 0;
+        $end = $current_end;
+        unless ($opt_just_scores){
+            $c += $current_c;
+            $t += $current_t;
+            $n += $current_n;
+        }
     }
     # case 4: on island, unknown
     elsif ($start && unknown($gff)){
@@ -110,10 +133,17 @@ if ($start){
 sub blit{
     my ($gff,$start,$end,$c,$t) = @_;
 
-    my $score = $c + $t > 0 ? $c / ($c + $t) : 0;
+    if ($opt_just_scores){
+        my $score = $end - $start + 1;
 
-    say join "\t", $gff->sequence, $gff->source, $gff->feature,
-    $start, $end, $score, $gff->strand // '.', '.', "n=$n;c=$c;t=$t";
+        say join "\t", $gff->sequence, $gff->source, $gff->feature,
+        $start, $end, $score, $gff->strand // '.', '.', '.';
+    } else {
+        my $score = $c + $t > 0 ? $c / ($c + $t) : 0;
+
+        say join "\t", $gff->sequence, $gff->source, $gff->feature,
+        $start, $end, $score, $gff->strand // '.', '.', "n=$n;c=$c;t=$t";
+    }
 }
 if ($opt_output ne '-'){
     close \*STDOUT;
@@ -154,6 +184,9 @@ GFF lines with scores less than this are considered empty (part of a gap). defau
 =for Euclid
     threshold.default:     0.01
 
+=item -s | --just-scores
+
+Do not collect c, t, n counts from column 9 -- just go by score.
 
 =item -h | --help
 
