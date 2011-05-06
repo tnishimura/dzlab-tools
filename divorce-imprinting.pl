@@ -94,12 +94,12 @@ my $bowtie_a = "$basename_a.0.bowtie";
 my $bowtie_b = "$basename_b.0.bowtie";
 
 if ($pm->start == 0){
-    launch("bowtie $opt_reference_a -f -B 1 -v $opt_bowtie_mismatches --norc --best -5 $trim5 -3 $trim3 $rawfas $bowtie_a",
+    launch("bowtie $opt_reference_a -f -B 1 -v $opt_bowtie_mismatches --best -5 $trim5 -3 $trim3 $rawfas $bowtie_a",
         expected => $bowtie_a, force => $opt_force);
     $pm->finish();
 }
 if ($pm->start == 0){
-    launch("bowtie $opt_reference_b -f -B 1 -v $opt_bowtie_mismatches --norc --best -5 $trim5 -3 $trim3 $rawfas $bowtie_b",
+    launch("bowtie $opt_reference_b -f -B 1 -v $opt_bowtie_mismatches --best -5 $trim5 -3 $trim3 $rawfas $bowtie_b",
         expected => $bowtie_b, force => $opt_force);
     $pm->finish();
 }
