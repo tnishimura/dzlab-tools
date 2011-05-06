@@ -35,6 +35,7 @@ my ($name, $path, $suffix) = fileparse ($ARGV[0], qr/\.[^.]*/);
 
 my %file_handle;
 my $iter = gff_make_iterator(file => $ARGV[0]);
+my @output_files;
 RECORD:
 while (defined(my $gff = $iter->())){
     next unless ref $gff eq 'HASH';
@@ -49,6 +50,7 @@ while (defined(my $gff = $iter->())){
         my $out = $path . $name . "-$current" . $suffix;
 
         if (! exists $file_handle{$current}){
+            say STDERR $out;
             open $file_handle{$current}, '>', $out
                 or croak "Can't open $out for writing: $!";
         }
@@ -56,6 +58,7 @@ while (defined(my $gff = $iter->())){
         say {$file_handle{$current}} gff_to_string $gff;
     }
 }
+
 
 __END__
 
