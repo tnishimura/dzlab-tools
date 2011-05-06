@@ -17,7 +17,7 @@ use Parallel::ForkManager;
 my $pm = Parallel::ForkManager->new(2);
 
 pod2usage(-verbose => 99,-sections => [qw/NAME SYNOPSIS OPTIONS/]) 
-unless $opt_output_directory && $opt_reference_a && $opt_reference_b && $opt_raw && $opt_ecotype_a && $opt_ecotype_b && scalar %opt_splice;
+unless $opt_output_directory && $opt_annotation && $opt_reference_a && $opt_reference_b && $opt_raw && $opt_ecotype_a && $opt_ecotype_b && scalar %opt_splice;
 
 my $logname = $opt_output_directory . "-" . timestamp() . ".log.txt";
 
@@ -152,6 +152,91 @@ my $eland_filtered_b = "$basename_b.3.elfiltered";
 launch("perl -S split_on_mismatches_2.pl -a $eland_a -b $eland_b -oa $eland_filtered_a -ob $eland_filtered_b",
     expected => [ $eland_filtered_a, $eland_filtered_b]);
 
+#######################################################################
+# Parse_eland.pl
+
+$logger->info("Parse eland to gff");
+
+my $gff_a = "$basename_a.4.gff";
+my $gff_b = "$basename_b.4.gff";
+
+
+if ($pm->start == 0){
+    launch("perl -S parse_eland.pl -3 $eland_filtered_a -o $gff_a", expected => $gff_a);
+    $pm->finish();
+}
+if ($pm->start == 0){
+    launch("perl -S parse_eland.pl -3 $eland_filtered_b -o $gff_b", expected => $gff_b);
+    $pm->finish();
+}
+$pm->wait_all_children;
+
+#######################################################################
+# Parse_eland.pl
+
+$logger->info("sort the gff's");
+
+my $gff_sorted_a = "$basename_a.5.sorted.gff";
+my $gff_sorted_b = "$basename_b.5.sorted.gff";
+
+if ($pm->start == 0){
+    launch("sort -k 1,1 -k 4,4n -k 5,5n -k 7,7 -S 100M $gff_a -o $gff_sorted_a", expected => $gff_sorted_a);
+    $pm->finish();
+}
+if ($pm->start == 0){
+    launch("sort -k 1,1 -k 4,4n -k 5,5n -k 7,7 -S 100M $gff_b -o $gff_sorted_b", expected => $gff_sorted_b);
+    $pm->finish();
+}
+$pm->wait_all_children;
+
+#######################################################################
+# filter_gff
+
+$logger->info("filter_repeats");
+
+my $gff_filtered_a = "$basename_a.6.filtered.gff";
+my $gff_filtered_b = "$basename_b.6.filtered.gff";
+
+my $gff_repeats_a = "$basename_a.6.repeats.gff";
+my $gff_repeats_b = "$basename_b.6.repeats.gff";
+
+if ($pm->start == 0){
+    launch("perl -S filter_repeats.pl $gff_sorted_a -o $gff_filtered_a 2> $gff_repeats_a", expected => $gff_filtered_a);
+    $pm->finish();
+}
+if ($pm->start == 0){
+    launch("perl -S filter_repeats.pl $gff_sorted_b -o $gff_filtered_b 2> $gff_repeats_b", expected => $gff_filtered_b);
+    $pm->finish();
+}
+$pm->wait_all_children;
+
+#######################################################################
+# windowing
+
+$logger->info("filter_repeats");
+
+my $w50_a = "$basename_a.7.w50.gff";
+my $w50_b = "$basename_b.7.w50.gff";
+
+my $w50_filtered_a = "$basename_a.7.w50-filtered.gff";
+my $w50_filtered_b = "$basename_b.7.w50-filtered.gff";
+
+if ($pm->start == 0){
+    launch("perl -S window_gff.pl $gff_sorted_a -g $opt_annotation -k -c sum -o $w50_a -r", expected => $w50_a);
+    launch("perl -S window_gff.pl $gff_filtered_a -g $opt_annotation -k -c sum -o $w50_filtered_a -r", expected => $w50_filtered_a);
+    $pm->finish();
+}
+if ($pm->start == 0){
+    launch("perl -S window_gff.pl $gff_sorted_b -g $opt_annotation -k -c sum -o $w50_b -r", expected => $w50_b);
+    launch("perl -S window_gff.pl $gff_filtered_b -g $opt_annotation -k -c sum -o $w50_filtered_b -r", expected => $w50_filtered_b);
+    $pm->finish();
+}
+$pm->wait_all_children;
+
+my $table = "$basename.table.txt";
+
+launch("perl -S divorce_gene_table.pl -a $opt_annotation -f $w50_a $w50_filtered_a $w50_b $w50_filtered_b -o $table", expected => $table);
+
 =head1 NAME
 
 ratio.pl - Your program here
@@ -192,6 +277,13 @@ Genome reference for B.
 
 =for Euclid 
     fasta.type: readable
+
+=item  -a <a> | --annotation <a>
+
+GFF annotation file
+
+=for Euclid
+    a.type:        readable
 
 =item  -ea <eco> | --ecotype-a <eco>
 
