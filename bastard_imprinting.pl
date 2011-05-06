@@ -70,10 +70,12 @@ $logger->info("ecotype A: $opt_ecotype_a");
 $logger->info("ecotype B: $opt_ecotype_b");
 $logger->info("splice: " . join ',', @opt_splice{qw/start end/});
 
+my $singlecdir = catfile($opt_output_directory, "single-c");
+
 mkdir $opt_output_directory;
-if (! -d $opt_output_directory){
-    $logger->logdie("can't create $opt_output_directory");
-}
+mkdir $singlecdir;
+if (! -d $opt_output_directory){ $logger->logdie("can't create $opt_output_directory"); }
+if (! -d $singlecdir){ $logger->logdie("can't create $singlecdir"); }
 
 my $basename = $opt_basename;
 if (! defined $basename){
@@ -204,7 +206,7 @@ while (my ($gff,$reference) = each %gff) {
     for my $line (@lines) {
         chomp $line;
         if ($line=~/gff$/){
-            my $singlec = chext($line,"single-c.gff");
+            my $singlec = catfile($singlecdir,basename(chext($line,"single-c.gff")));
             $pm->start and next;
             launch("perl -S countMethylation.pl --ref $reference --gff $line --output $singlec --sort",expected => $singlec);
             $pm->finish;
