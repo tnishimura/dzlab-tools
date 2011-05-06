@@ -25,7 +25,7 @@ our @EXPORT = qw(launch plaunch);
 
 sub launch{
     my ($cmd, %opt) = @_;
-    my $logger    = get_logger("Launch");
+    my $logger    = get_logger("PipeLine");
 
     my $force     = delete $opt{force} // 0;
     my $dryrun    = delete $opt{dryrun} // 0;
