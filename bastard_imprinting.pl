@@ -14,14 +14,15 @@ use FindBin;
 use lib "$FindBin::Bin/lib";
 use Fasta qw/bisulfite_convert/;
 use Launch;
-use DZUtil qw/chext/;
+use DZUtil qw/chext timestamp/;
 use Parallel::ForkManager;
-my $pm = Parallel::ForkManager->new(2);
-#$pm->wait_all_children;
+my $pm = Parallel::ForkManager->new($opt_parallel);
 
 
 pod2usage(-verbose => 99,-sections => [qw/NAME SYNOPSIS OPTIONS/]) 
 unless $opt_output_directory && $opt_reference_a && $opt_reference_b && $opt_raw && $opt_ecotype_a && $opt_ecotype_b && scalar %opt_splice;
+
+my $logname = $opt_output_directory . "-" . timestamp() . ".log.txt";
 
 my $conf=qq/
     log4perl.logger          = DEBUG, Print
@@ -32,25 +33,14 @@ my $conf=qq/
     log4perl.appender.Print.layout.ConversionPattern = %d{HH:mm:ss} %p> (%L) %M - %m%n
 
     log4perl.appender.File                          = Log::Log4perl::Appender::File
-    log4perl.appender.File.filename                 = $opt_raw.log
+    log4perl.appender.File.filename                 = $logname
     log4perl.appender.File.layout                   = PatternLayout
     log4perl.appender.File.layout.ConversionPattern = %d{HH:mm:ss} %p> (%L) %M - %m%n
 /;
 Log::Log4perl::init( \$conf );
 
-my $logger = get_logger("PipeLine");
+my $logger = get_logger($opt_debug ? "" : "PipeLine");
 
-#################################################################################
-
-sub _gen_files {
-    my ($base, $ext, @groups) = @_;
-
-    my %split_files;
-    for my $group (@groups) {
-        $split_files{$group} = "$base-$group.$ext";
-    }
-    return \%split_files;
-}
 
 #################################################################################
 
@@ -69,6 +59,7 @@ $logger->info("reference B: $opt_reference_b");
 $logger->info("ecotype A: $opt_ecotype_a");
 $logger->info("ecotype B: $opt_ecotype_b");
 $logger->info("splice: " . join ',', @opt_splice{qw/start end/});
+$logger->info("parallel: $opt_parallel");
 
 my $singlecdir = catfile($opt_output_directory, "single-c");
 
@@ -218,19 +209,13 @@ $pm->wait_all_children;
 
 =head1 NAME
 
-bastard_imprinting.pl - Your program here
+bastard_imprinting.pl - BaStard = BiSulfite parent imprinting.
 
 =head1 SYNOPSIS
 
 Usage examples:
 
- bastard_imprinting.pl -r raw.fastq -ea Col -b Ler -ra genome-a.fasta -rb genome-b.fasta -l 100 -m 2 -s 1 50 -o outdir -b basename
-
-=head1 REQUIRED ARGUMENTS
-
-=over
-
-=back
+ bastard_imprinting.pl -r raw.fastq -ea Col -b Ler -ra genome-a.fasta -rb genome-b.fasta -mh 10 -l 100 -m 2 -s 1 50 -o outdir -b basename
 
 =head1 OPTIONS
 
@@ -300,6 +285,15 @@ Bowtie max hits, default 10.
 
 =for Euclid
     hits.default:     10
+
+=item  --parallel <numthreads>
+
+Number of concurrent jobs to run.  CAREFUL.  Default 1. 
+
+=for Euclid
+    numthreads.default:     1
+
+=item --debug
 
 =item --help | -h
 
