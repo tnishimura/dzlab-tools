@@ -222,13 +222,13 @@ my $w50_filtered_a = "$basename_a.7.w50-filtered.gff";
 my $w50_filtered_b = "$basename_b.7.w50-filtered.gff";
 
 if ($pm->start == 0){
-    launch("perl -S window_gff.pl $gff_sorted_a -g $opt_annotation -k -c sum -o $w50_a -r", expected => $w50_a);
-    launch("perl -S window_gff.pl $gff_filtered_a -g $opt_annotation -k -c sum -o $w50_filtered_a -r", expected => $w50_filtered_a);
+    launch("perl -S window_gff.pl -t $opt_locus_tag $gff_sorted_a -g $opt_annotation -k -c sum -o $w50_a -r", expected => $w50_a);
+    launch("perl -S window_gff.pl -t $opt_locus_tag $gff_filtered_a -g $opt_annotation -k -c sum -o $w50_filtered_a -r", expected => $w50_filtered_a);
     $pm->finish();
 }
 if ($pm->start == 0){
-    launch("perl -S window_gff.pl $gff_sorted_b -g $opt_annotation -k -c sum -o $w50_b -r", expected => $w50_b);
-    launch("perl -S window_gff.pl $gff_filtered_b -g $opt_annotation -k -c sum -o $w50_filtered_b -r", expected => $w50_filtered_b);
+    launch("perl -S window_gff.pl -t $opt_locus_tag $gff_sorted_b -g $opt_annotation -k -c sum -o $w50_b -r", expected => $w50_b);
+    launch("perl -S window_gff.pl -t $opt_locus_tag $gff_filtered_b -g $opt_annotation -k -c sum -o $w50_filtered_b -r", expected => $w50_filtered_b);
     $pm->finish();
 }
 $pm->wait_all_children;
@@ -245,7 +245,7 @@ ratio.pl - Your program here
 
 Usage examples:
 
- ratio.pl -r raw.fastq -ea Col -b Ler -ra genome-a.fasta -rb genome-b.fasta -l 100 -m 2 -s 1 50 -o outdir -b basename
+ ratio.pl -t ID -r raw.fastq -ea Col -b Ler -ra genome-a.fasta -rb genome-b.fasta -l 100 -m 2 -s 1 50 -o outdir -b basename
 
 =head1 REQUIRED ARGUMENTS
 
@@ -333,6 +333,13 @@ Level of forcefulness in doing jobs.  1 = Redo all run-specifics.  2 = Redo bowt
     level.type:        int, level >= 0
 
 =item  --debug
+
+=item  -t <tag> | --locus-tag <tag>
+
+Locus tag in the annotation file. Default: ID.
+
+=for Euclid
+    tag.default:     'ID'
 
 =back
 
