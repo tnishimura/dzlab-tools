@@ -9,7 +9,6 @@ use Cwd;
 use IPC::Open3;
 use Log::Log4perl qw/get_logger/;
 use Parallel::ForkManager;
-use IPC::Cmd qw[can_run run ];
 
 require Exporter;
 our @ISA = qw(Exporter);
@@ -32,13 +31,6 @@ sub launch{
     my $dryrun    = delete $opt{dryrun} // 0;
 
     $logger->info(join ", ", "running [$cmd]", ($force ? "forced" : ()), ($dryrun ? "dryrun" : ()));
-
-    my $exe = (split ' ', $cmd)[0];
-    if (!can_run($exe)){
-        $logger->logdie("command not found: $exe");
-    }
-
-    ### commands can be arrayrefs or strings ###
 
     my @expected;
     if (exists $opt{expected}){
@@ -64,29 +56,17 @@ sub launch{
         $logger->info("Dryrun, exiting");
         return;
     }
-
-    ### in list context ###
-    my( $success, $error_message, $full_buf, $stdout_buf, $stderr_buf ) = run( command => $cmd, verbose => 1 );
-
-    # a little bit dirty b/c the output will be written twice....
-    $logger->info("output: " . join "", @$full_buf);
-
-    if ($success){
+    
+    if (0==system($cmd)){
         my $exp = join ", ", @expected;
         if (! @expected){
             $logger->info("Successfully launched and finished [$cmd]");
-        } elsif (@expected == grep {-f} @expected){ 
-            $logger->info("Successfully launched and finished. Produced $exp [$cmd].");
+        } elsif (grep {-f} @expected){ 
+            $logger->info("Successfully launched and finished. Produced $exp [$cmd]");
         } else {
-            # mark all expected files that were produced as dirty
-            for my $e (@expected) { if (-f $e){ rename $e, "DIRTY_$e"; } }
             $logger->logdie("command seems to have run but expected files $exp not produced [$cmd]");
         }
     } else {
-        if (@expected){
-            # mark all expected files that were produced as dirty
-            for my $e (@expected) { if (-f $e){ rename $e, "DIRTY_$e"; } }
-        }
         $logger->logdie("failed to run, dying: [$cmd]");
     }
 }
