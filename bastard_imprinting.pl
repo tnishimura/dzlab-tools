@@ -198,8 +198,17 @@ while (my ($gff,$reference) = each %gff) {
         chomp $line;
         if ($line=~/gff$/){
             my $singlec = catfile($singlecdir,basename(chext($line,"single-c.gff")));
+            my @split_names = split_names($singlec, qw/CG CHH CHG/);
             $pm->start and next;
             launch("perl -S countMethylation.pl --ref $reference --gff $line --output $singlec --sort",expected => $singlec);
+            if ($opt_merge){
+                launch("perl -S split_gff.pl --feature all $singlec", expected => [@split_names]);
+                for my $s (@split_names) {
+                    # body...
+                    my $m = chext($s, 'merged.gff');
+                    launch("perl -S compile_gff.pl -v -o $m $s");
+                }
+            }
             $pm->finish;
         }
     }
@@ -304,6 +313,8 @@ Level of forcefulness in doing jobs.  1 = Redo all run-specifics.  2 = Redo bowt
 =for Euclid
     level.default:     0
     level.type:        int, level >= 0
+
+=item  --merge 
 
 =back
 
