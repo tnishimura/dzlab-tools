@@ -9,6 +9,10 @@ use Pod::Usage;
 use File::Spec;
 use File::Path;
 use File::Basename;
+use FindBin;
+use lib "$FindBin::Bin/lib";
+use DZUtil qw/split_names/;
+
 
 # SIGINT trap. Ctrl-c triggers unclean exit.
 $SIG{INT} = sub {croak "Received SIG$_[0]. Exiting...\n"};
@@ -193,6 +197,8 @@ run_cmd ("perl -S correlatePairedEnds.pl -l $files{lel3}.post -r $files{rel3}.po
 # basic stats about the aligment
 run_cmd ("perl -S collect_align_stats.pl $files{lel3}.post $files{rel3}.post $files{base} $organism $batch > $files{log}") unless file_exists($files{log});
 
+
+
 # quantify methylation
 for (@groups) {
     run_cmd ("perl -S split_gff.pl --sequence all $files{base}") unless (file_exists($files{split}->{$_}));
@@ -201,6 +207,8 @@ for (@groups) {
     $pm->finish;
 }
 $pm->wait_all_children;
+
+
 
 # window methylation counts into non-overlapping windows
 for my $context (0 .. @contexts - 1) {
@@ -280,7 +288,7 @@ Single ends example. Notice the left and right reads are the same file.
 
 =over 1
 
-=item --reference <fasta> | --f <fasta>
+=item -f <fasta> | --reference <fasta> 
 
 Reference genome file in Fasta format. Required.
 
@@ -292,12 +300,12 @@ Left reads file in fastq format. For single ends, -l and -r should be the same. 
 
 Left reads file in fastq format. For single ends, -l and -r should be the same. Required.
 
-=item -l <start> <end> | --left-splice <start> <end>
+=item -ls <start> <end> | --left-splice <start> <end>
 
 Start and end coordinate for the chunk of the --left-read fastq file to use for the left alignment.  Required.
 For example, if you are doing single ends with 1-45 and 46-76, use "-ls 1 45".
 
-=item -r <start> <end> | --right-splice <start> <end>
+=item -rs <start> <end> | --right-splice <start> <end>
 
 Start and end coordinate for the chunk of the --right-read fastq file to use for the right alignment.  Required.
 For example, if you are doing single ends with 1-45 and 46-76, use "-rs 46 76".
@@ -353,7 +361,7 @@ Default 50, for windowing single-c files.
 
 =over 
 
-=item -m <hits> | --max-hits <hits>
+=item -mh <hits> | --max-hits <hits>
 
 Discards reads that map to the genome more the this many times, passed to bowtie.  In repetitive sections of the genome,
 reads can potentially map hundreds of times, so this helps us filter repetitive chunks out..  Defaults to 0  for no filtering.  
@@ -369,7 +377,7 @@ For bowtie.  For each read alignment, allow this many mismatches.  Default 2.
 
 =over 
 
-=item -r | --random-assign
+=item -rnd | --random-assign
 
 For correlatedPairedEnds.pl.  When there are multiple possible reconciliations between the left and right alignments,
 assign one randomly.  For Arabidopsis and other organisms with lower levels of repetitive sequences, use 0. For maize
@@ -387,7 +395,7 @@ upstream (left reads).  Default 0.
 
 =over 
 
-=item -d | --di-nuc-freqs
+=item -dnf | --di-nuc-freqs
 
 When this is 0, calculate the CG, CHH and CHG contexts.  If 1, calculate CG, CA, CT, CC.  Default 0.
 
