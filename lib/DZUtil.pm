@@ -12,7 +12,7 @@ use POSIX qw/strftime/;
 
 require Exporter;
 our @ISA = qw(Exporter);
-our @EXPORT_OK = qw(timestamp datestamp overlap chext split_names base_match);
+our @EXPORT_OK = qw(fastq_read_length timestamp datestamp overlap chext split_names base_match);
 our @EXPORT = qw();
 
 =head2 chext("/etc/test.txt", "newext")
@@ -98,6 +98,20 @@ sub base_match{
 
 sub timestamp{ return strftime("%Y%m%d-%H%M",localtime); }
 sub datestamp{ return strftime("%Y%m%d",localtime); }
+
+sub fastq_read_length{
+    my $filename = shift;
+    open my $fh, "<", $filename;
+    <$fh>;
+    my $line = <$fh>;
+    close $fh;
+
+    if (defined $line){
+        chomp $line;
+        return length $line;
+    }
+    return;
+}
 
 1;
 
