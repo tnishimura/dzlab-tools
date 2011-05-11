@@ -1,5 +1,4 @@
 #!/usr/bin/env perl
-
 use warnings;
 use strict;
 use Data::Dumper;
@@ -7,11 +6,21 @@ use Carp;
 use Getopt::Long;
 use Pod::Usage;
 use Statistics::Descriptive;
+use FindBin;
+use lib "$FindBin::Bin/lib";
+use DZUtil qw/read_conf/;
+use autodie;
 
-my $output;
-my $comments    = q{#};
+my %config = read_conf();
+
+my $output      = '-';
 my $scores      = 100;
 my $bin_width   = 1;
+
+$bin_width = $config{'bin-width'} // $bin_width;
+if (exists $config{distance}){
+    $scores = $config{distance} * 2 / $bin_width;
+}
 
 # Grabs and parses command line options
 my $result = GetOptions (
@@ -28,9 +37,8 @@ my $result = GetOptions (
 pod2usage ( -verbose => 1 )
 unless @ARGV and $result;
 
-if ($output) {
-    open my $USER_OUT, '>', $output
-    or croak "Can't open $output for writing: $!";
+if ($output ne '-') {
+    open my $USER_OUT, '>', $output;
     select $USER_OUT;
 }
 
