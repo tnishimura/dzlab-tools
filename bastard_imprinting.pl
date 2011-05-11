@@ -14,7 +14,7 @@ use FindBin;
 use lib "$FindBin::Bin/lib";
 use Fasta qw/bisulfite_convert/;
 use Launch;
-use DZUtil qw/chext timestamp/;
+use DZUtil qw/split_names chext timestamp/;
 use Parallel::ForkManager;
 my $pm = Parallel::ForkManager->new($opt_parallel);
 
