@@ -1,5 +1,4 @@
 #!/usr/bin/env perl
-
 use warnings;
 use strict;
 use Data::Dumper;
@@ -7,6 +6,10 @@ use Carp;
 use Getopt::Long;
 use Pod::Usage;
 use List::Util qw(min max sum);
+use FindBin;
+use lib "$FindBin::Bin/lib";
+use DZUtil qw/read_conf/;
+
 
 my $DATA_HANDLE    = 'ARGV';
 my $gff_annotation = q{};
@@ -17,7 +20,28 @@ my $stop_distance  = 1500;
 my $three_prime    = 0;
 my $five_prime     = 0;
 my $attribute_id   = 'ID';
-my $output;
+my $output         = '-';
+
+# bin-width      = 100
+# distance       = 5000
+# stop-flag      = 6 
+# stop-distance  = 1500
+# end            = 5
+# extract-id     = ID
+
+my %conf = read_conf();
+$bin_width     = $conf{'bin-width'}     // $bin_width;
+$distance      = $conf{'distance'}      // $distance;
+$stop_flag     = $conf{'stop-flag'}     // $stop_flag;;
+$stop_distance = $conf{'stop-distance'} // $stop_distance;
+$attribute_id  = $conf{'extract-id'}    // $attribute_id;
+if (exists $conf{end}){
+    if (3 == $conf{end}){
+        $three_prime = 1;
+    } elsif (5 == $conf{end}){
+        $five_prime = 1;
+    }
+}
 
 # Grabs and parses command line options
 my $result = GetOptions(
@@ -35,6 +59,16 @@ my $result = GetOptions(
     'help|h'             => sub { pod2usage( -verbose => 1 ); },
     'manual|m'           => sub { pod2usage( -verbose => 2 ); }
 );
+
+say STDERR "gff_annotation $gff_annotation";
+say STDERR "bin_width      $bin_width     ";
+say STDERR "distance       $distance      ";
+say STDERR "stop_flag      $stop_flag     ";
+say STDERR "stop_distance  $stop_distance ";
+say STDERR "three_prime    $three_prime   ";
+say STDERR "five_prime     $five_prime    ";
+say STDERR "attribute_id   $attribute_id  ";
+say STDERR "output         $output        ";
 
 # Add additional stop strategies here and implement the corresponding function
 my $stop_flag_dispatch = {
@@ -57,7 +91,7 @@ pod2usage( -verbose => 1 )
     and exists $stop_flag_dispatch->{$stop_flag},
     and $bin_width > 0);
 
-if ($output) {
+if ($output ne '-') {
     open my $USER_OUT, '>', $output or croak "Can't read $output: $!";
     select $USER_OUT;
 }
@@ -73,7 +107,7 @@ my %flag_parameters = (
 # index and offset the loci annotations data based on stop flag
 # { seqname => { 
 #      start_coord => 
-#           [flag_start, flag_end, strand, attributes, 
+#           [flag_start         = '-', flag_end, strand, attributes, 
 #            original_start, original_end]}}
 my $annotation = offset_gff_annotation(
     index_gff_annotation( $gff_annotation, $attribute_id ),

@@ -116,7 +116,8 @@ sub fastq_read_length{
 
 sub read_conf{
     my ($index) = grep { '--conf' eq $main::ARGV[$_] } (0 .. $#main::ARGV);
-    return () if ! $index;
+    return () if ! defined $index;
+
     my (undef, $file) = splice @main::ARGV, $index, 2;
     return () if ! $file;
 
