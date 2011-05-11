@@ -1,0 +1,6 @@
+bin-width      = 100
+distance       = 5000
+stop-flag      = 6 
+stop-distance  = 1500
+end            = 5
+extract-id     = ID
