@@ -22,6 +22,7 @@ my $five_prime     = 0;
 my $attribute_id   = 'ID';
 my $output         = '-';
 
+# gff-annotation = /path/to/annotation.gff
 # bin-width      = 100
 # distance       = 5000
 # stop-flag      = 6 
@@ -30,6 +31,7 @@ my $output         = '-';
 # extract-id     = ID
 
 my %conf = read_conf();
+$gff_annotation = $conf{'gff-annotation'} // $gff_annotation;
 $bin_width     = $conf{'bin-width'}     // $bin_width;
 $distance      = $conf{'distance'}      // $distance;
 $stop_flag     = $conf{'stop-flag'}     // $stop_flag;;

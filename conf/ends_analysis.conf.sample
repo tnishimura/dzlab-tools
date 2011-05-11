@@ -4,3 +4,4 @@ stop-flag      = 6
 stop-distance  = 1500
 end            = 5
 extract-id     = ID
+gff-annotation = /path/to/annotation

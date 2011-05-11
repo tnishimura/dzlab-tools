@@ -29,7 +29,7 @@ pod2usage(-verbose => 1) if (!$result || $help || !$outfile);
 
 if ($outfile eq '-' && @ARGV == 1){
     my ($basename, $path, $suffix) = fileparse($ARGV[0],".gff");
-    my $defout = catfile($path,$basename) . ".compiled.gff";
+    my $defout = catfile($path,$basename) . ".merged.gff";
     open STDOUT, '>', $defout or die "can't open $outfile for writing";
 } 
 elsif ($outfile eq '-' && @ARGV > 1){
