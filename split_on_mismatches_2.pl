@@ -51,25 +51,33 @@ while (defined (my $a_record = <$ain>) and
         next CMP; # read matched nothing in either ecotypes
     }
     elsif (defined $a_mm && defined $b_mm ){
-        if ($a_rawcoord =~ s/.*chr\w:(\d+).*/$1/xmsi &&
-            $b_rawcoord =~ s/.*chr\w:(\d+).*/$1/ixms){
 
-            # both mapped somewhere
-            if ($a_rawcoord == $b_rawcoord && $a_strand eq $b_strand){
-                # both mapped to same place
-                next if $a_mm == $b_mm; # tied.
-                say $aout $a_record if $a_mm < $b_mm; # A wins
-                say $bout $b_record if $a_mm > $b_mm; # B wins
-            } else {
-                # mapped to different places
+        if ($opt_check_coord){
+            if ($a_rawcoord =~ s/.*chr\w:(\d+).*/$1/xmsi &&
+                $b_rawcoord =~ s/.*chr\w:(\d+).*/$1/ixms){
+
+                # both mapped somewhere
+                if ($a_rawcoord == $b_rawcoord && $a_strand eq $b_strand){
+                    # both mapped to same place
+                    next if $a_mm == $b_mm; # tied.
+                    say $aout $a_record if $a_mm < $b_mm; # A wins
+                    say $bout $b_record if $a_mm > $b_mm; # B wins
+                } else {
+                    # mapped to different places
+                    say $aerror $a_record;
+                    say $berror $b_record;
+                }
+            } else{
+                # hackish-- reaching this means that rawcoord must've been negative?
+                # fix in parse_bowtie
                 say $aerror $a_record;
                 say $berror $b_record;
             }
-        } else{
-            # hackish-- reaching this means that rawcoord must've been negative?
-            # fix in parse_bowtie
-            say $aerror $a_record;
-            say $berror $b_record;
+        } 
+        else {
+            next if $a_mm == $b_mm; # tied.
+            say $aout $a_record if $a_mm < $b_mm; # A wins
+            say $bout $b_record if $a_mm > $b_mm; # B wins
         }
     }
     elsif (! defined $a_mm) {
@@ -158,6 +166,13 @@ Filtered B eland output file
 =item  -l <label> | --label <label>
 
 Label for split.
+
+=item  -c | --check-coord 
+
+If this option is given, check that each read is mapping to the same coordinate
+on the same chromosome.  This should NOT be used, b/c by default (without
+--strata, -k, -m), bowtie only reports 1 alignment per read, and there's no
+guarantee that it'll report the same location on any two runs.
 
 =item --help | -h
 

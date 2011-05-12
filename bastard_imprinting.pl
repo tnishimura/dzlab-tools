@@ -112,14 +112,14 @@ my $bowtie_b = "$basename_b.0.bowtie";
 
 if ($pm->start == 0){
     launch("bowtie $bsrc_reference_a -f -B 1 -v $opt_bowtie_mismatches --norc " 
-        . ($opt_max_hits ? " --strata  -k $opt_max_hits -m $opt_max_hits" : q{})  
+        #. ($opt_max_hits ? " --strata  -k $opt_max_hits -m $opt_max_hits" : q{})  
         . " --best -5 $trim5 -3 $trim3 $rawc2t $bowtie_a",
         expected => $bowtie_a, force => $opt_force);
     $pm->finish;
 }
 if ($pm->start == 0){
     launch("bowtie $bsrc_reference_b -f -B 1 -v $opt_bowtie_mismatches --norc " 
-        . ($opt_max_hits ? " --strata  -k $opt_max_hits -m $opt_max_hits" : q{})  
+        #. ($opt_max_hits ? " --strata  -k $opt_max_hits -m $opt_max_hits" : q{})  
         . " --best -5 $trim5 -3 $trim3 $rawc2t $bowtie_b",
         expected => $bowtie_b, force => $opt_force);
     $pm->finish;
@@ -287,13 +287,6 @@ Output Directory.
 =item  -b <name> | --basename <name>
 
 Prefix for the file names.
-
-=item  -mh <hits> | --max-hits <hits>
-
-Bowtie max hits, default 10.
-
-=for Euclid
-    hits.default:     10
 
 =item  --parallel <numthreads>
 
