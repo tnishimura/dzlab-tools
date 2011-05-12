@@ -433,7 +433,7 @@ Output file
 =item  -m <hits> | --max-hits <hits>
 
 =for Euclid
-    hits.default:     10
+    hits.default:     0
 
 =back
 
