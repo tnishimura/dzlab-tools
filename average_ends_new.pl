@@ -8,19 +8,19 @@ use Pod::Usage;
 use Statistics::Descriptive;
 use FindBin;
 use lib "$FindBin::Bin/lib";
-use DZUtil qw/read_conf/;
+#use DZUtil qw/read_conf/;
 use autodie;
 
-my %config = read_conf();
+#my %config = read_conf();
 
 my $output      = '-';
 my $scores      = 100;
 my $bin_width   = 1;
 
-$bin_width = $config{'bin-width'} // $bin_width;
-if (exists $config{distance}){
-    $scores = $config{distance} * 2 / $bin_width;
-}
+#$bin_width = $config{'bin-width'} // $bin_width;
+#if (exists $config{distance}){
+#    $scores = $config{distance} * 2 / $bin_width;
+#}
 
 # Grabs and parses command line options
 my $result = GetOptions (

@@ -8,12 +8,12 @@ use Carp;
 use autodie;
 use File::Spec::Functions;
 use File::Basename;
-use Config::General qw(ParseConfig);
+#use Config::General qw(ParseConfig);
 use POSIX qw/strftime/;
 
 require Exporter;
 our @ISA = qw(Exporter);
-our @EXPORT_OK = qw(read_conf fastq_read_length timestamp datestamp overlap chext split_names base_match);
+our @EXPORT_OK = qw(fastq_read_length timestamp datestamp overlap chext split_names base_match);
 our @EXPORT = qw();
 
 =head2 chext("/etc/test.txt", "newext")
@@ -114,17 +114,17 @@ sub fastq_read_length{
     return;
 }
 
-sub read_conf{
-    my ($index) = grep { '--conf' eq $main::ARGV[$_] } (0 .. $#main::ARGV);
-    return () if ! defined $index;
-
-    my (undef, $file) = splice @main::ARGV, $index, 2;
-    return () if ! $file;
-
-    die "--conf $file not a file?" if ! -f $file;
-
-    return ParseConfig("$file");
-}
+#sub read_conf{
+#    my ($index) = grep { '--conf' eq $main::ARGV[$_] } (0 .. $#main::ARGV);
+#    return () if ! defined $index;
+#
+#    my (undef, $file) = splice @main::ARGV, $index, 2;
+#    return () if ! $file;
+#
+#    die "--conf $file not a file?" if ! -f $file;
+#
+#    return ParseConfig("$file");
+#}
 
 1;
 

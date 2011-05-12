@@ -8,7 +8,7 @@ use Pod::Usage;
 use List::Util qw(min max sum);
 use FindBin;
 use lib "$FindBin::Bin/lib";
-use DZUtil qw/read_conf/;
+#use DZUtil qw/read_conf/;
 
 
 my $DATA_HANDLE    = 'ARGV';
@@ -30,20 +30,20 @@ my $output         = '-';
 # end            = 5
 # extract-id     = ID
 
-my %conf = read_conf();
-$gff_annotation = $conf{'gff-annotation'} // $gff_annotation;
-$bin_width     = $conf{'bin-width'}     // $bin_width;
-$distance      = $conf{'distance'}      // $distance;
-$stop_flag     = $conf{'stop-flag'}     // $stop_flag;;
-$stop_distance = $conf{'stop-distance'} // $stop_distance;
-$attribute_id  = $conf{'extract-id'}    // $attribute_id;
-if (exists $conf{end}){
-    if (3 == $conf{end}){
-        $three_prime = 1;
-    } elsif (5 == $conf{end}){
-        $five_prime = 1;
-    }
-}
+#my %conf = read_conf();
+#$gff_annotation = $conf{'gff-annotation'} // $gff_annotation;
+#$bin_width     = $conf{'bin-width'}     // $bin_width;
+#$distance      = $conf{'distance'}      // $distance;
+#$stop_flag     = $conf{'stop-flag'}     // $stop_flag;;
+#$stop_distance = $conf{'stop-distance'} // $stop_distance;
+#$attribute_id  = $conf{'extract-id'}    // $attribute_id;
+#if (exists $conf{end}){
+#    if (3 == $conf{end}){
+#        $three_prime = 1;
+#    } elsif (5 == $conf{end}){
+#        $five_prime = 1;
+#    }
+#}
 
 # Grabs and parses command line options
 my $result = GetOptions(
