@@ -20,7 +20,7 @@ my $pm = Parallel::ForkManager->new($opt_parallel);
 
 
 pod2usage(-verbose => 99,-sections => [qw/NAME SYNOPSIS OPTIONS/]) 
-unless $opt_output_directory && $opt_reference_a && $opt_reference_b && $opt_raw && $opt_ecotype_a && $opt_ecotype_b && scalar %opt_splice;
+unless $opt_output_directory && $opt_reference_a && $opt_reference_b && $opt_raw && $opt_ecotype_a && $opt_ecotype_b && scalar %opt_left_splice;
 
 my $logname = $opt_output_directory . "-" . timestamp() . ".log.txt";
 
@@ -45,7 +45,8 @@ my $logger = get_logger($opt_debug ? "" : "PipeLine");
 #################################################################################
 
 # already rc'd and bs'd
-my ($trim5, $trim3) = ($opt_splice{start} - 1, $opt_read_length - $opt_splice{end});
+my ($left_trim5, $left_trim3)   = ($opt_left_splice{start} - 1,  $opt_read_length - $opt_left_splice{end});
+my ($right_trim5, $right_trim3) = ($opt_right_splice{start} - 1, $opt_read_length - $opt_right_splice{end});
 #my @chromosomes;
 
 #$logger->info("Chromosomes: " . join ",", @chromosomes);
@@ -53,12 +54,20 @@ my ($trim5, $trim3) = ($opt_splice{start} - 1, $opt_read_length - $opt_splice{en
 #######################################################################
 # Handle options
 
+my $single_sided = ! scalar %opt_right_splice;
+
 $logger->info("raw file: $opt_raw");
 $logger->info("reference A: $opt_reference_a");
 $logger->info("reference B: $opt_reference_b");
 $logger->info("ecotype A: $opt_ecotype_a");
 $logger->info("ecotype B: $opt_ecotype_b");
-$logger->info("splice: " . join ',', @opt_splice{qw/start end/});
+$logger->info("left splice: " . join ',', @opt_left_splice{qw/start end/});
+if ($single_sided){
+    $logger->info("singled sided (no right splice)");
+}
+else{
+    $logger->info("right splice: " . join ',', @opt_right_splice{qw/start end/});
+}
 $logger->info("parallel: $opt_parallel");
 
 my $singlecdir = catfile($opt_output_directory, "single-c");
@@ -88,8 +97,7 @@ launch("perl -S fasta_bsrc.pl $opt_reference_a > $bsrc_reference_a", expected =>
 launch("perl -S fasta_bsrc.pl $opt_reference_b > $bsrc_reference_b", expected => $bsrc_reference_b, force => $opt_force >= 2 );
 
 for my $ref ($bsrc_reference_a,$bsrc_reference_b) {
-    launch("bowtie-build $ref $ref", 
-        expected => ("$ref.1.ebwt"), force => $opt_force >= 2);
+    launch("bowtie-build $ref $ref", expected => ("$ref.1.ebwt"), force => $opt_force >= 2);
 }
 
 # raw: fastq -> fasta,  c2t
@@ -107,113 +115,167 @@ launch("perl -S convert.pl c2t $rawfas > $rawc2t", expected => $rawc2t, force =>
 $logger->info("running $opt_raw against eco a and b bowtie");
 my $basename_a = "$basename-vs-$opt_ecotype_a";
 my $basename_b = "$basename-vs-$opt_ecotype_b";
-my $bowtie_a = "$basename_a.0.bowtie";
-my $bowtie_b = "$basename_b.0.bowtie";
+
+my $left_basename_a = "$basename_a.left";
+my $left_basename_b = "$basename_b.left";
+
+my $right_basename_a = "$basename_a.right";
+my $right_basename_b = "$basename_b.right";
+
+my $left_bowtie_a = "$left_basename_a.0.bowtie";
+my $left_bowtie_b = "$left_basename_b.0.bowtie";
+
+my $right_bowtie_a = "$right_basename_a.0.bowtie";
+my $right_bowtie_b = "$right_basename_b.0.bowtie";
 
 if ($pm->start == 0){
-    launch("bowtie $bsrc_reference_a -f -B 1 -v $opt_bowtie_mismatches --norc " 
-        #. ($opt_max_hits ? " --strata  -k $opt_max_hits -m $opt_max_hits" : q{})  
-        . " --best -5 $trim5 -3 $trim3 $rawc2t $bowtie_a",
-        expected => $bowtie_a, force => $opt_force);
+    launch("bowtie $bsrc_reference_a -f -B 1 -v $opt_bowtie_mismatches --norc --best -5 $left_trim5 -3 $left_trim3 $rawc2t $left_bowtie_a",
+        expected => $left_bowtie_a, force => $opt_force);
     $pm->finish;
 }
 if ($pm->start == 0){
-    launch("bowtie $bsrc_reference_b -f -B 1 -v $opt_bowtie_mismatches --norc " 
-        #. ($opt_max_hits ? " --strata  -k $opt_max_hits -m $opt_max_hits" : q{})  
-        . " --best -5 $trim5 -3 $trim3 $rawc2t $bowtie_b",
-        expected => $bowtie_b, force => $opt_force);
+    launch("bowtie $bsrc_reference_b -f -B 1 -v $opt_bowtie_mismatches --norc --best -5 $left_trim5 -3 $left_trim3 $rawc2t $left_bowtie_b",
+        expected => $left_bowtie_b, force => $opt_force);
     $pm->finish;
 }
+
+if (!$single_sided){
+    if ($pm->start == 0){
+        launch("bowtie $bsrc_reference_a -f -B 1 -v $opt_bowtie_mismatches --norc --best -5 $right_trim5 -3 $right_trim3 $rawc2t $right_bowtie_a",
+            expected => $right_bowtie_a, force => $opt_force);
+        $pm->finish;
+    }
+    if ($pm->start == 0){
+        launch("bowtie $bsrc_reference_b -f -B 1 -v $opt_bowtie_mismatches --norc --best -5 $right_trim5 -3 $right_trim3 $rawc2t $right_bowtie_b",
+            expected => $right_bowtie_b, force => $opt_force);
+        $pm->finish;
+    }
+}
+
 $pm->wait_all_children;
 
 #######################################################################
 # parse bowtie
 
 $logger->info("parse bowtie -> eland");
-my $eland_a = "$basename_a.1.eland";
-my $eland_b = "$basename_b.1.eland";
+
+my $left_eland_a = "$left_basename_a.1.eland";
+my $left_eland_b = "$left_basename_b.1.eland";
+
+my $right_eland_a = "$right_basename_a.1.eland";
+my $right_eland_b = "$right_basename_b.1.eland";
 
 
 if ($pm->start == 0){
-    launch("perl -S parse_bowtie.pl -u $rawfas -s @opt_splice{qw/start end/} $bowtie_a -o $eland_a",
-        expected => $eland_a, force => $opt_force);
+    launch("perl -S parse_bowtie.pl -u -w $rawfas -s @opt_left_splice{qw/start end/} $left_bowtie_a -o $left_eland_a",
+        expected => $left_eland_a, force => $opt_force);
     $pm->finish;
 }
 if ($pm->start == 0){
-    launch("perl -S parse_bowtie.pl -u $rawfas -s @opt_splice{qw/start end/} $bowtie_b -o $eland_b",
-        expected => $eland_b, force => $opt_force);
+    launch("perl -S parse_bowtie.pl -u -w $rawfas -s @opt_left_splice{qw/start end/} $left_bowtie_b -o $left_eland_b",
+        expected => $left_eland_b, force => $opt_force);
     $pm->finish;
+}
+if (!$single_sided){
+    if ($pm->start == 0){
+        launch("perl -S parse_bowtie.pl -u -w $rawfas -s @opt_right_splice{qw/start end/} $right_bowtie_a -o $right_eland_a",
+            expected => $right_eland_a, force => $opt_force);
+        $pm->finish;
+    }
+    if ($pm->start == 0){
+        launch("perl -S parse_bowtie.pl -u -w $rawfas -s @opt_right_splice{qw/start end/} $right_bowtie_b -o $right_eland_b",
+            expected => $right_eland_b, force => $opt_force);
+        $pm->finish;
+    }
+
 }
 $pm->wait_all_children;
 
 #######################################################################
 # Split on mismatches
 
-# don't think we need this....
-#$logger->info("sort the eland files");
-#my $eland_sorted_a = "$eland_a.sorted";
-#my $eland_sorted_b = "$eland_b.sorted";
-#launch("sort -k 1,1 -k 4,4 -S 15% $eland_a -o $eland_sorted_a",expected => $eland_sorted_a, force => $opt_force);
-#launch("sort -k 1,1 -k 4,4 -S 15% $eland_b -o $eland_sorted_b",expected => $eland_sorted_b, force => $opt_force);
-
 $logger->info("split_on_mismatch.pl");
-my $eland_filtered_a = "$basename_a.2.elfiltered";
-my $eland_filtered_b = "$basename_b.2.elfiltered";
-launch("perl -S split_on_mismatches_2.pl -a $eland_a -b $eland_b -oa $eland_filtered_a -ob $eland_filtered_b",
-    expected => [ $eland_filtered_a, $eland_filtered_b]);
+my $left_eland_filtered_a = "$basename_a.2.elfiltered";
+my $left_eland_filtered_b = "$basename_b.2.elfiltered";
+my $right_eland_filtered_a = "$basename_a.2.elfiltered";
+my $right_eland_filtered_b = "$basename_b.2.elfiltered";
+
+launch("perl -S split_on_mismatches_2.pl -a $left_eland_a -b $left_eland_b -oa $left_eland_filtered_a -ob $left_eland_filtered_b",
+    expected => [ $left_eland_filtered_a, $left_eland_filtered_b]);
+
+if ($single_sided){
+    launch("perl -S split_on_mismatches_2.pl -a $right_eland_a -b $right_eland_b -oa $right_eland_filtered_a -ob $right_eland_filtered_b",
+        expected => [ $right_eland_filtered_a, $right_eland_filtered_b]);
+}
+
+#######################################################################
+# Unionize left and right
+
+my $eland_union_a = "$basename_a.3.union";
+my $eland_union_b = "$basename_b.3.union";
+
+if ($single_sided){
+    $eland_union_a = $left_eland_filtered_a;
+    $eland_union_b = $left_eland_filtered_b;
+}
+else {
+    launch("eland_unionize.pl -l $left_eland_filtered_a -r $right_eland_filtered_a -o $eland_union_a", expected => $eland_union_a);
+    launch("eland_unionize.pl -l $left_eland_filtered_b -r $right_eland_filtered_b -o $eland_union_b", expected => $eland_union_b);
+}
+
 
 #######################################################################
 # Count and calc ratios and stuff
 
-launch("perl -S split_ratio.pl -o $basename.ratio.txt -ea $opt_ecotype_a -eb $opt_ecotype_b -a $eland_filtered_a -b $eland_filtered_b -m $opt_bowtie_mismatches",
+launch("perl -S split_ratio.pl -o $basename.ratio.txt -ea $opt_ecotype_a -eb $opt_ecotype_b -a $eland_union_a -b $eland_union_b -m $opt_bowtie_mismatches",
     expected => "$basename.ratio.txt");
 
 #######################################################################
 # correlate
 
-my $gff_a = "$basename_a.3.gff";
-my $gff_b = "$basename_b.3.gff";
+my $gff_a = "$basename_a.4.gff";
+my $gff_b = "$basename_b.4.gff";
 
 # make sure reads map together
 
 if ($pm->start == 0){
-    launch("perl -S correlatePairedEnds.pl -l $eland_filtered_a -ref $opt_reference_a -o $gff_a -s $opt_read_length -m $opt_max_hits", expected => $gff_a);
+    launch("perl -S correlateSingleEnds.pl -rnd -e $eland_union_a -f $opt_reference_a -o $gff_a", expected => $gff_a);
     $pm->finish;
 }
 if ($pm->start == 0){
-    launch("perl -S correlatePairedEnds.pl -l $eland_filtered_b -ref $opt_reference_b -o $gff_b -s $opt_read_length -m $opt_max_hits", expected => $gff_b);
+    launch("perl -S correlateSingleEnds.pl -rnd -e $eland_union_b -f $opt_reference_b -o $gff_b", expected => $gff_b);
     $pm->finish;
 }
 $pm->wait_all_children;
 
 
-my %gff = ($gff_a => $opt_reference_a, $gff_b => $opt_reference_b);
-while (my ($gff,$reference) = each %gff) {
-    my $split_log = "$gff.splitlog";
-    launch("perl -S split_gff.pl --sequence all $gff 2> $split_log", expected => $split_log);
-    open my $fh, '<', $split_log;
-    my @lines = <$fh>;
-    close $fh;
-    for my $line (@lines) {
-        chomp $line;
-        if ($line=~/gff$/){
-            my $singlec = catfile($singlecdir,basename(chext($line,"single-c.gff")));
-            my @split_names = split_names($singlec, qw/CG CHH CHG/);
-            $pm->start and next;
-            launch("perl -S countMethylation.pl --ref $reference --gff $line --output $singlec --sort",expected => $singlec);
-            if ($opt_merge){
-                launch("perl -S split_gff.pl --feature all $singlec", expected => [@split_names]);
-                for my $s (@split_names) {
-                    # body...
-                    my $m = chext($s, 'merged.gff');
-                    launch("perl -S compile_gff.pl -v -o $m $s");
-                }
-            }
-            $pm->finish;
-        }
-    }
-}
-$pm->wait_all_children;
+# my %gff = ($gff_a => $opt_reference_a, $gff_b => $opt_reference_b);
+# while (my ($gff,$reference) = each %gff) {
+#     my $split_log = "$gff.splitlog";
+#     launch("perl -S split_gff.pl --sequence all $gff 2> $split_log", expected => $split_log);
+#     open my $fh, '<', $split_log;
+#     my @lines = <$fh>;
+#     close $fh;
+#     for my $line (@lines) {
+#         chomp $line;
+#         if ($line=~/gff$/){
+#             my $singlec = catfile($singlecdir,basename(chext($line,"single-c.gff")));
+#             my @split_names = split_names($singlec, qw/CG CHH CHG/);
+#             $pm->start and next;
+#             launch("perl -S countMethylation.pl --ref $reference --gff $line --output $singlec --sort",expected => $singlec);
+#             if ($opt_merge){
+#                 launch("perl -S split_gff.pl --feature all $singlec", expected => [@split_names]);
+#                 for my $s (@split_names) {
+#                     # body...
+#                     my $m = chext($s, 'merged.gff');
+#                     launch("perl -S compile_gff.pl -v -o $m $s");
+#                 }
+#             }
+#             $pm->finish;
+#         }
+#     }
+# }
+# $pm->wait_all_children;
 
 
 =head1 NAME
@@ -259,7 +321,13 @@ Ecotype A label.
 
 Ecotype B label.
 
-=item  -s <start> <end> | --splice <start> <end>
+=item  -ls <start> <end> | --left-splice <start> <end>
+
+=for Euclid
+    start.type:     int
+    end.type:     int
+
+=item  -rs <start> <end> | --right-splice <start> <end>
 
 =for Euclid
     start.type:     int
@@ -268,9 +336,6 @@ Ecotype B label.
 =item  -l <len> | --read-length <len>
 
 Number of bp in each read.
-
-=for Euclid
-    len.default: 100
 
 =item  -m <num> | --bowtie-mismatches <num>
 
