@@ -58,81 +58,106 @@ my $logger = get_logger();
 
 my %config = ParseConfig($opt_conf);
 
-my $basename = $opt_basename // basename($opt_base_dir);
-$logger->info("basedir  - $opt_base_dir");
-$logger->info("basename - $basename");
-
-$logger->debug("single-c dirs found: " . join ",", find_single_c());
-
-for my $single_c_dir (find_single_c()) {
-    $logger->info("single-c directory - $single_c_dir");
-    while (my ($conf_name,$conf_hash) = each %config) {
-        $logger->info("reading $conf_name");
-
-        my ($binwidth,  $distance,  $stopflag,  $stopdistance,  $end,  $extractid,  $gffannotation,  $consolidate,  $extension)
-        = @{$conf_hash}{'bin-width', 'distance', 'stop-flag', 'stop-distance', 'end', 'extract-id', 'gff-annotation', 'consolidate', 'extension' };
-
-        my $scores = $distance * 2 / $binwidth;
-
-        $logger->debug("\$binwidth - $binwidth");
-        $logger->debug("\$distance - $distance");
-        $logger->debug("\$stopflag - $stopflag");
-        $logger->debug("\$stopdistance - $stopdistance");
-        $logger->debug("\$end - $end");
-        $logger->debug("\$extractid - $extractid");
-        $logger->debug("\$gffannotation - $gffannotation");
-        $logger->debug("\$consolidate - $consolidate");
-        $logger->debug("\$extension - $extension");
-
-        my %files;
-
-        find( sub {
-                # $File::Find::name - filename relative to pwd
-                # $File::Find::dir  - dirname relative to pwd 
-                # $_                - filename relative to $File::Find::dir
-                if (/CG.$extension$/i)     { push @{$files{cg}}, $File::Find::name; }
-                elsif (/CHG.$extension$/i) { push @{$files{chg}}, $File::Find::name; }
-                elsif (/CHH.$extension$/i) { push @{$files{chh}}, $File::Find::name; }
-            }, $single_c_dir);
-
-        GROUPLOOP:
-        while (my ($group,$group_files) = each %files) {
-            $logger->info("context: $group");
-            $logger->info("files: " . join "\t", @$group_files);
-
-            my $consolidated_input  = catfile($single_c_dir, $basename) .  sprintf("_all_%s\_%s", uc($group), $extension, );
-            my $ends_output = "$consolidated_input.$conf_name.ends";
-            my $avg_output = "$consolidated_input.$conf_name.ends.avg";
-
-            # concatenate files
-            if (! -f $consolidated_input){
-                $logger->info("concatenating $group files into $consolidated_input");
-                open my $outfh, '>', $consolidated_input;
-                for my $f (@$group_files) {
-                    open my $infh, '<', $f;
-                    while (defined(my $line = <$infh>)){
-                        chomp $line;
-                        say $outfh $line;
-                    }
-                    close $infh;
-                }
-                close $outfh;
+my %dirs;
+{
+    my @basedirs = split /,/, $opt_base_dir;
+    if (defined $opt_basename){
+        my @basenames = split /,/,$opt_basename;
+        if (@basenames != @basedirs){
+            $logger->logdie("number of comma-separated basenames should equal basedirs");
+        } else{
+            for (0 .. $#basedirs){
+                $dirs{$basedirs[$_]} = $basenames[$_];
             }
+        }
+    }
+    else{
+        %dirs = map { $_ => basename($_) } @basedirs;
+    }
+}
+
+$logger->info(Dumper \%dirs);
+
+while (my ($dir,$name) = each %dirs) {
+    $logger->info("basedir  - $dir");
+    $logger->info("basename - $name");
+
+    for my $single_c_dir (find_single_c($dir)) {
+        $logger->info("single-c directory - $single_c_dir");
+
+        while (my ($conf_name,$conf_hash) = each %config) {
+
+            $logger->info("starting run $conf_name");
+
+            my ($binwidth,  $distance,  $stopflag,  $stopdistance,  $end,  $extractid,  $gffannotation,  $consolidate,  $extension)
+            = @{$conf_hash}{'bin-width', 'distance', 'stop-flag', 'stop-distance', 'end', 'extract-id', 'gff-annotation', 'consolidate', 'extension' };
+
+            my $scores = $distance * 2 / $binwidth;
+
+            $logger->debug("\$binwidth - $binwidth");
+            $logger->debug("\$distance - $distance");
+            $logger->debug("\$stopflag - $stopflag");
+            $logger->debug("\$stopdistance - $stopdistance");
+            $logger->debug("\$end - $end");
+            $logger->debug("\$extractid - $extractid");
+            $logger->debug("\$gffannotation - $gffannotation");
+            $logger->debug("\$consolidate - $consolidate");
+            $logger->debug("\$extension - $extension");
+
+            my %files;
+
+            find( sub {
+                    # $File::Find::name - filename relative to pwd
+                    # $File::Find::dir  - dirname relative to pwd 
+                    # $_                - filename relative to $File::Find::dir
+                    if (/CG.$extension$/i)     { push @{$files{cg}}, $File::Find::name; }
+                    elsif (/CHG.$extension$/i) { push @{$files{chg}}, $File::Find::name; }
+                    elsif (/CHH.$extension$/i) { push @{$files{chh}}, $File::Find::name; }
+                }, $single_c_dir);
+
+            GROUPLOOP:
+            while (my ($group,$group_files) = each %files) {
+                $logger->info("context: $group");
+                $logger->info("files: " . join "\t", @$group_files);
+
+                my $consolidated_input  = catfile($single_c_dir, $name) .  sprintf("_all_%s\_%s", uc($group), $extension, );
+                my $ends_output = "$consolidated_input.$conf_name.ends";
+                my $avg_output = "$consolidated_input.$conf_name.ends.avg";
+
+                # concatenate files
+                if (! -f $consolidated_input){
+                    $logger->info("concatenating $group files into $consolidated_input");
+                    open my $outfh, '>', $consolidated_input;
+                    for my $f (@$group_files) {
+                        open my $infh, '<', $f;
+                        while (defined(my $line = <$infh>)){
+                            chomp $line;
+                            say $outfh $line;
+                        }
+                        close $infh;
+                    }
+                    close $outfh;
+                    $logger->info("concatenation done");
+                }
+                else{
+                    $logger->info("concatenation was already done");
+                }
 
 
-            $pm->start and next GROUPLOOP;
-            launch("ends_analysis.pl -g $gffannotation -b $binwidth -d $distance -s $stopflag -k $stopdistance "
-                .  " -x $extractid -$end -o $ends_output $consolidated_input ", 
-                expected => $ends_output,
-                dryrun => $opt_dry,
-                force => $opt_force,
-            );
-            launch("average_ends_new.pl -s $scores -w $binwidth -o $avg_output $ends_output", 
-                expected => $avg_output,
-                dryrun => $opt_dry,
-                force => $opt_force,
-            );
-            $pm->finish;
+                $pm->start and next GROUPLOOP;
+                launch("ends_analysis.pl -g $gffannotation -b $binwidth -d $distance -s $stopflag -k $stopdistance "
+                    .  " -x $extractid -$end -o $ends_output $consolidated_input ", 
+                    expected => $ends_output,
+                    dryrun => $opt_dry,
+                    force => $opt_force,
+                );
+                launch("average_ends_new.pl -s $scores -w $binwidth -o $avg_output $ends_output", 
+                    expected => $avg_output,
+                    dryrun => $opt_dry,
+                    force => $opt_force,
+                );
+                $pm->finish;
+            }
         }
     }
 }
@@ -140,12 +165,13 @@ $pm->wait_all_children;
 
 
 sub find_single_c{
+    my $dir = shift;
     my %accum;
     find( sub {
             if ($File::Find::dir =~ /single-c$/){
                 $accum{$File::Find::dir} = 1;
             }
-        }, $opt_base_dir);
+        }, $dir);
 
     return keys %accum;
 }
