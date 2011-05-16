@@ -167,23 +167,23 @@ my $right_eland_b = "$right_basename_b.1.eland";
 
 
 if ($pm->start == 0){
-    launch("perl -S parse_bowtie.pl -u -w $rawfas -s @opt_left_splice{qw/start end/} $left_bowtie_a -o $left_eland_a",
+    launch("perl -S parse_bowtie.pl -w -u $rawfas -s @opt_left_splice{qw/start end/} $left_bowtie_a -o $left_eland_a",
         expected => $left_eland_a, force => $opt_force);
     $pm->finish;
 }
 if ($pm->start == 0){
-    launch("perl -S parse_bowtie.pl -u -w $rawfas -s @opt_left_splice{qw/start end/} $left_bowtie_b -o $left_eland_b",
+    launch("perl -S parse_bowtie.pl -w -u $rawfas -s @opt_left_splice{qw/start end/} $left_bowtie_b -o $left_eland_b",
         expected => $left_eland_b, force => $opt_force);
     $pm->finish;
 }
 if (!$single_sided){
     if ($pm->start == 0){
-        launch("perl -S parse_bowtie.pl -u -w $rawfas -s @opt_right_splice{qw/start end/} $right_bowtie_a -o $right_eland_a",
+        launch("perl -S parse_bowtie.pl -w -u $rawfas -s @opt_right_splice{qw/start end/} $right_bowtie_a -o $right_eland_a",
             expected => $right_eland_a, force => $opt_force);
         $pm->finish;
     }
     if ($pm->start == 0){
-        launch("perl -S parse_bowtie.pl -u -w $rawfas -s @opt_right_splice{qw/start end/} $right_bowtie_b -o $right_eland_b",
+        launch("perl -S parse_bowtie.pl -w -u $rawfas -s @opt_right_splice{qw/start end/} $right_bowtie_b -o $right_eland_b",
             expected => $right_eland_b, force => $opt_force);
         $pm->finish;
     }
@@ -195,15 +195,15 @@ $pm->wait_all_children;
 # Split on mismatches
 
 $logger->info("split_on_mismatch.pl");
-my $left_eland_filtered_a = "$basename_a.2.elfiltered";
-my $left_eland_filtered_b = "$basename_b.2.elfiltered";
-my $right_eland_filtered_a = "$basename_a.2.elfiltered";
-my $right_eland_filtered_b = "$basename_b.2.elfiltered";
+my $left_eland_filtered_a = "$left_basename_a.2.elfiltered";
+my $left_eland_filtered_b = "$left_basename_b.2.elfiltered";
+my $right_eland_filtered_a = "$right_basename_a.2.elfiltered";
+my $right_eland_filtered_b = "$right_basename_b.2.elfiltered";
 
 launch("perl -S split_on_mismatches_2.pl -a $left_eland_a -b $left_eland_b -oa $left_eland_filtered_a -ob $left_eland_filtered_b",
     expected => [ $left_eland_filtered_a, $left_eland_filtered_b]);
 
-if ($single_sided){
+if (! $single_sided){
     launch("perl -S split_on_mismatches_2.pl -a $right_eland_a -b $right_eland_b -oa $right_eland_filtered_a -ob $right_eland_filtered_b",
         expected => [ $right_eland_filtered_a, $right_eland_filtered_b]);
 }
@@ -239,43 +239,46 @@ my $gff_b = "$basename_b.4.gff";
 # make sure reads map together
 
 if ($pm->start == 0){
-    launch("perl -S correlateSingleEnds.pl -rnd -e $eland_union_a -f $opt_reference_a -o $gff_a", expected => $gff_a);
+    launch("perl -S correlateSingleEnds.pl -rnd 1 -e $eland_union_a -f $opt_reference_a -o $gff_a", expected => $gff_a);
     $pm->finish;
 }
 if ($pm->start == 0){
-    launch("perl -S correlateSingleEnds.pl -rnd -e $eland_union_b -f $opt_reference_b -o $gff_b", expected => $gff_b);
+    launch("perl -S correlateSingleEnds.pl -rnd 1 -e $eland_union_b -f $opt_reference_b -o $gff_b", expected => $gff_b);
     $pm->finish;
 }
 $pm->wait_all_children;
 
+#######################################################################
+# count methyl
 
-# my %gff = ($gff_a => $opt_reference_a, $gff_b => $opt_reference_b);
-# while (my ($gff,$reference) = each %gff) {
-#     my $split_log = "$gff.splitlog";
-#     launch("perl -S split_gff.pl --sequence all $gff 2> $split_log", expected => $split_log);
-#     open my $fh, '<', $split_log;
-#     my @lines = <$fh>;
-#     close $fh;
-#     for my $line (@lines) {
-#         chomp $line;
-#         if ($line=~/gff$/){
-#             my $singlec = catfile($singlecdir,basename(chext($line,"single-c.gff")));
-#             my @split_names = split_names($singlec, qw/CG CHH CHG/);
-#             $pm->start and next;
-#             launch("perl -S countMethylation.pl --ref $reference --gff $line --output $singlec --sort",expected => $singlec);
-#             if ($opt_merge){
-#                 launch("perl -S split_gff.pl --feature all $singlec", expected => [@split_names]);
-#                 for my $s (@split_names) {
-#                     # body...
-#                     my $m = chext($s, 'merged.gff');
-#                     launch("perl -S compile_gff.pl -v -o $m $s");
-#                 }
-#             }
-#             $pm->finish;
-#         }
-#     }
-# }
-# $pm->wait_all_children;
+
+my %gff = ($gff_a => $opt_reference_a, $gff_b => $opt_reference_b);
+while (my ($gff,$reference) = each %gff) {
+    my $split_log = "$gff.splitlog";
+    launch("perl -S split_gff.pl --sequence all $gff 2> $split_log", expected => $split_log);
+    open my $fh, '<', $split_log;
+    my @lines = <$fh>;
+    close $fh;
+    for my $line (@lines) {
+        chomp $line;
+        if ($line=~/gff$/){
+            my $singlec = catfile($singlecdir,basename(chext($line,"single-c.gff")));
+            my @split_names = split_names($singlec, qw/CG CHH CHG/);
+            $pm->start and next;
+            launch("perl -S countMethylation.pl --ref $reference --gff $line --output $singlec --sort",expected => $singlec);
+            if ($opt_merge){
+                launch("perl -S split_gff.pl --feature all $singlec", expected => [@split_names]);
+                for my $s (@split_names) {
+                    # body...
+                    my $m = chext($s, 'merged.gff');
+                    launch("perl -S compile_gff.pl -v -o $m $s");
+                }
+            }
+            $pm->finish;
+        }
+    }
+}
+$pm->wait_all_children;
 
 
 =head1 NAME
@@ -355,10 +358,10 @@ Prefix for the file names.
 
 =item  --parallel <numthreads>
 
-Number of concurrent jobs to run.  CAREFUL.  Default 1. 
+Number of concurrent jobs to run.  CAREFUL.  Default 0, for no parallelization. 
 
 =for Euclid
-    numthreads.default:     1
+    numthreads.default:     0
 
 =item --debug
 
