@@ -414,7 +414,7 @@ Genome reference.
 
 =item  -rnd <rnd> | --random-assign <rnd>
 
-If a read matches to 
+If a read matches to multiple places, pick one random. 
 
 =for Euclid
     rnd.default:     1
