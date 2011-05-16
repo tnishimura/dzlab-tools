@@ -12,13 +12,15 @@ use Getopt::Long;
 
 my $windows;
 my $singlec;
+my $inter;
 my $result = GetOptions (
     "single-c|s" => \$singlec,
     "windows|w"  => \$windows,
+    "intermidiate|i" => \$inter,
 );
 if (!@ARGV || !$result){
     say "usage: ";
-    say "$0 [-s] [-w] dir1 dir2 file1 file2 ... | rsync -avnrP --files-from=- . /somewhere";
+    say "$0 [-s] [-w] [-i] dir1 dir2 file1 file2 ... | rsync -avnrP --files-from=- . /somewhere";
     exit 1;
 }
 
@@ -31,16 +33,24 @@ find( sub {
         # $File::Find::dir  - dirname relative to pwd 
         # $_                - filename relative to $File::Find::dir
 
+        my $dirbase = basename($File::Find::dir);
+
         # default extensions
         if (/log$/ || /table$/ || /freq$/ || /ends$/ || /avg$/ || /ratio\.txt$/){ 
             $accum{$File::Find::name} = 1;
         }
         # if dir is windows is named 
-        if (($windows) && basename($File::Find::dir) =~ /^windows$/){
+        if ($windows && $dirbase =~ /^windows$/){
             $accum{$File::Find::name} = 1;
         }
-        if (($singlec) && basename($File::Find::dir) =~ /^single-c$/ && /gff.merged$/){
+        if ($singlec && $dirbase =~ /^single-c$/ && /gff.merged$/){
             $accum{$File::Find::name} = 1;
+        }
+        # non-single-c/non-window big files
+        if ($inter && $dirbase !~ /^windows$/ && $dirbase !~ /^single-c$/){ 
+            if (/gff$/ || /c2t$/ || /g2a$/ || /fa$/ || /eland3$/ || /eland3\.post$/){
+                $accum{$File::Find::name} = 1;
+            }
         }
     }, @dirs) if @dirs;
 
