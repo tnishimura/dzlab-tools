@@ -263,6 +263,8 @@ $pm->wait_all_children;
 launch("perl -S countMethylation_batch.pl -g $gff_a -s $singlecdir_a -w $windowdir_a -r $opt_reference_a -b $basename_base-vs-$opt_ecotype_a -l $logname -t $opt_parallel");
 launch("perl -S countMethylation_batch.pl -g $gff_b -s $singlecdir_b -w $windowdir_b -r $opt_reference_b -b $basename_base-vs-$opt_ecotype_b -l $logname -t $opt_parallel");
 
+launch("collect-freqs.pl -o $basename.freq $opt_output_directory");
+
 =head1 NAME
 
 bastard_imprinting.pl - BaStard = BiSulfite parent imprinting.

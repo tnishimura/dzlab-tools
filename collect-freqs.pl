@@ -22,14 +22,18 @@ find( sub {
         # $File::Find::name - filename relative to pwd
         # $File::Find::dir  - dirname relative to pwd 
         # $_                - filename relative to $File::Find::dir
-        if (m/freq$/){
+        
+        if (basename($File::Find::dir) =~ /^single-c/ && m/freq$/){
             push @freqs, $File::Find::name;
         }
     }, $opt_directory);
 
+#say STDERR Dumper \@freqs;
+
 my $first = 1;
 
 for my $f (sort @freqs) {
+    #say STDERR $f;
     open my $fh, '<', $f;
     my ($header, $body) = <$fh>;
     chomp $header;
