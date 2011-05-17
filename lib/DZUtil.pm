@@ -13,7 +13,7 @@ use POSIX qw/strftime/;
 
 require Exporter;
 our @ISA = qw(Exporter);
-our @EXPORT_OK = qw(basename_prefix fastq_read_length timestamp datestamp overlap chext split_names base_match);
+our @EXPORT_OK = qw(mfor basename_prefix fastq_read_length timestamp datestamp overlap chext split_names base_match);
 our @EXPORT = qw();
 
 =head2 chext("/etc/test.txt", "newext")
@@ -133,6 +133,16 @@ sub basename_prefix{
         return $1;
     }
     return $base;
+}
+
+sub mfor {
+    my $code = pop @_;
+    my @arrays = @_;
+    my $minlength = min map { scalar @$_ } @arrays;
+
+    for my $i (0 .. $minlength - 1) {
+        $code->(map { $_->[$i] } @arrays);
+    }
 }
 
 1;
