@@ -41,20 +41,19 @@ Log::Log4perl::init( \$conf );
 
 my $logger = get_logger($opt_debug ? "" : "PipeLine");
 
+my $single_sided = ! scalar %opt_right_splice;
 
 #################################################################################
 
-# already rc'd and bs'd
 my ($left_trim5, $left_trim3)   = ($opt_left_splice{start} - 1,  $opt_read_length - $opt_left_splice{end});
-my ($right_trim5, $right_trim3) = ($opt_right_splice{start} - 1, $opt_read_length - $opt_right_splice{end});
-#my @chromosomes;
-
-#$logger->info("Chromosomes: " . join ",", @chromosomes);
+my ($right_trim5, $right_trim3); 
+if (!$single_sided){
+    ($right_trim5, $right_trim3) = ($opt_right_splice{start} - 1, $opt_read_length - $opt_right_splice{end});
+}
 
 #######################################################################
 # Handle options
 
-my $single_sided = ! scalar %opt_right_splice;
 
 $logger->info("raw file: $opt_raw");
 $logger->info("reference A: $opt_reference_a");
@@ -71,11 +70,14 @@ else{
 $logger->info("parallel: $opt_parallel");
 
 my $singlecdir = catfile($opt_output_directory, "single-c");
+my $windowdir = catfile($opt_output_directory, "windows");
 
 mkdir $opt_output_directory;
 mkdir $singlecdir;
+mkdir $windowdir;
 if (! -d $opt_output_directory){ $logger->logdie("can't create $opt_output_directory"); }
 if (! -d $singlecdir){ $logger->logdie("can't create $singlecdir"); }
+if (! -d $windowdir){ $logger->logdie("can't create $windowdir"); }
 
 my $basename = $opt_basename;
 if (! defined $basename){
@@ -83,6 +85,7 @@ if (! defined $basename){
     $basename =~ s/\.\w+$//;
     $basename = basename $basename;
 }
+my $basename_base = $basename;
 $basename = catfile($opt_output_directory,$basename);
 
 $logger->info("basename: $basename");
@@ -251,35 +254,8 @@ $pm->wait_all_children;
 #######################################################################
 # count methyl
 
-
-my %gff = ($gff_a => $opt_reference_a, $gff_b => $opt_reference_b);
-while (my ($gff,$reference) = each %gff) {
-    my $split_log = "$gff.splitlog";
-    launch("perl -S split_gff.pl --sequence all $gff 2> $split_log", expected => $split_log);
-    open my $fh, '<', $split_log;
-    my @lines = <$fh>;
-    close $fh;
-    for my $line (@lines) {
-        chomp $line;
-        if ($line=~/gff$/){
-            my $singlec = catfile($singlecdir,basename(chext($line,"single-c.gff")));
-            my @split_names = split_names($singlec, qw/CG CHH CHG/);
-            $pm->start and next;
-            launch("perl -S countMethylation.pl --ref $reference --gff $line --output $singlec --sort",expected => $singlec);
-            if ($opt_merge){
-                launch("perl -S split_gff.pl --feature all $singlec", expected => [@split_names]);
-                for my $s (@split_names) {
-                    # body...
-                    my $m = chext($s, 'merged.gff');
-                    launch("perl -S compile_gff.pl -v -o $m $s");
-                }
-            }
-            $pm->finish;
-        }
-    }
-}
-$pm->wait_all_children;
-
+launch("perl -S countMethylation_batch.pl -g $gff_a -s $singlecdir -w $windowdir -r $opt_reference_a -b $basename_base-vs-$opt_ecotype_a");
+launch("perl -S countMethylation_batch.pl -g $gff_b -s $singlecdir -w $windowdir -r $opt_reference_b -b $basename_base-vs-$opt_ecotype_b");
 
 =head1 NAME
 

@@ -50,7 +50,7 @@ while (defined(my $gff = $iter->())){
         my $out = $path . $name . "-$current" . $suffix;
 
         if (! exists $file_handle{$current}){
-            say STDERR $out;
+            say STDERR "$current\t$out";
             open $file_handle{$current}, '>', $out
                 or croak "Can't open $out for writing: $!";
         }
