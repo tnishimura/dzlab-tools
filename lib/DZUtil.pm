@@ -13,7 +13,7 @@ use POSIX qw/strftime/;
 
 require Exporter;
 our @ISA = qw(Exporter);
-our @EXPORT_OK = qw(fastq_read_length timestamp datestamp overlap chext split_names base_match);
+our @EXPORT_OK = qw(basename_prefix fastq_read_length timestamp datestamp overlap chext split_names base_match);
 our @EXPORT = qw();
 
 =head2 chext("/etc/test.txt", "newext")
@@ -125,6 +125,15 @@ sub fastq_read_length{
 #
 #    return ParseConfig("$file");
 #}
+
+sub basename_prefix{
+    my $file = shift;
+    my $base = basename($file);
+    if ($base =~ /([^.]*?)\./){
+        return $1;
+    }
+    return $base;
+}
 
 1;
 
