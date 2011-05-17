@@ -58,7 +58,7 @@ my $logger = get_logger();
 
 my %config = ParseConfig($opt_conf);
 
-my %dirs;
+my @dirs;
 {
     my @basedirs = split /,/, $opt_base_dir;
     if (defined $opt_basename){
@@ -67,18 +67,24 @@ my %dirs;
             $logger->logdie("number of comma-separated basenames should equal basedirs");
         } else{
             for (0 .. $#basedirs){
-                $dirs{$basedirs[$_]} = $basenames[$_];
+                push @dirs, [ $basedirs[$_], $basenames[$_]];
+                #$dirs{$basedirs[$_]} = $basenames[$_];
             }
         }
     }
     else{
-        %dirs = map { $_ => basename($_) } @basedirs;
+        for (0 .. $#basedirs){
+            push @dirs, [ $basedirs[$_], $basedirs[$_]];
+            #%dirs = map { $_ => basename($_) } @basedirs;
+        }
     }
 }
 
-$logger->info(Dumper \%dirs);
+$logger->info(Dumper \@dirs);
 
-while (my ($dir,$name) = each %dirs) {
+#while (my ($dir,$name) = each %dirs) {
+for my $pair (@dirs) {
+    my ($dir, $name) = @$pair;
     $logger->info("basedir  - $dir");
     $logger->info("basename - $name");
 
@@ -110,22 +116,22 @@ while (my ($dir,$name) = each %dirs) {
                     # $File::Find::name - filename relative to pwd
                     # $File::Find::dir  - dirname relative to pwd 
                     # $_                - filename relative to $File::Find::dir
-                    if (/CG.$extension$/i)     { push @{$files{cg}}, $File::Find::name; }
-                    elsif (/CHG.$extension$/i) { push @{$files{chg}}, $File::Find::name; }
-                    elsif (/CHH.$extension$/i) { push @{$files{chh}}, $File::Find::name; }
+                    if (/^$name.*CG.$extension$/i)     { push @{$files{cg}}, $File::Find::name; }
+                    elsif (/^$name.*CHG.$extension$/i) { push @{$files{chg}}, $File::Find::name; }
+                    elsif (/^$name.*CHH.$extension$/i) { push @{$files{chh}}, $File::Find::name; }
                 }, $single_c_dir);
 
             GROUPLOOP:
             while (my ($group,$group_files) = each %files) {
                 $logger->info("context: $group");
-                $logger->info("files: " . join "\t", @$group_files);
+                $logger->info("files:\n" . join "\n", @$group_files);
 
                 my $consolidated_input  = catfile($single_c_dir, $name) .  sprintf("_all_%s\_%s", uc($group), $extension, );
                 my $ends_output = "$consolidated_input.$conf_name.ends";
                 my $avg_output = "$consolidated_input.$conf_name.ends.avg";
 
                 # concatenate files
-                if (! -f $consolidated_input){
+                if (! -f $consolidated_input && ! $opt_dry){
                     $logger->info("concatenating $group files into $consolidated_input");
                     open my $outfh, '>', $consolidated_input;
                     for my $f (@$group_files) {
