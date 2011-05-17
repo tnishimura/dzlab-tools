@@ -91,9 +91,11 @@ for my $dir (@opt_base_dirs) {
                     # $File::Find::name - filename relative to pwd
                     # $File::Find::dir  - dirname relative to pwd 
                     # $_                - filename relative to $File::Find::dir
-                    if (/CG.$extension$/i)     { push @{$files{cg}}, $File::Find::name; }
-                    elsif (/CHG.$extension$/i) { push @{$files{chg}}, $File::Find::name; }
-                    elsif (/CHH.$extension$/i) { push @{$files{chh}}, $File::Find::name; }
+                    if (! /_all_/){ # '_all_' are the completed ones... avoid nesting
+                        if    (/CG.$extension$/i)     { push @{$files{cg}}, $File::Find::name; }
+                        elsif (/CHG.$extension$/i) { push @{$files{chg}}, $File::Find::name; }
+                        elsif (/CHH.$extension$/i) { push @{$files{chh}}, $File::Find::name; }
+                    }
                 }, $single_c_dir);
 
             GROUPLOOP:
