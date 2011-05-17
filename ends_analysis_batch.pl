@@ -66,6 +66,15 @@ for my $dir (@opt_base_dirs) {
     for my $single_c_dir (find_single_c($dir)) {
         $logger->info("single-c directory - $single_c_dir");
 
+        my $ends_dir = catfile(dirname($single_c_dir), "ends");
+        if (! -d $ends_dir){
+            mkdir $ends_dir;
+            if (! -d $ends_dir){
+                $logger->logdie("can't create $ends_dir?");
+            }
+        }
+
+
         while (my ($conf_name,$conf_hash) = each %config) {
 
             $logger->info("starting run $conf_name");
@@ -104,8 +113,9 @@ for my $dir (@opt_base_dirs) {
                 $logger->info("files:\n" . join "\n", @$group_files);
 
                 my $consolidated_input  = catfile($single_c_dir, basename_prefix($group_files->[0])) .  sprintf("_all_%s\_%s", uc($group), $extension, );
-                my $ends_output = "$consolidated_input.$conf_name.ends";
-                my $avg_output = "$consolidated_input.$conf_name.ends.avg";
+                my $ends_base = basename($consolidated_input);
+                my $ends_output = catfile($ends_dir, $ends_base) . ".ends";
+                my $avg_output  = catfile($ends_dir, $ends_base) . ".ends.avg";
 
                 # concatenate files
                 if (! -f $consolidated_input && ! $opt_dry){

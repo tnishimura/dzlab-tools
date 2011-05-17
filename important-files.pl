@@ -36,18 +36,18 @@ find( sub {
         my $dirbase = basename($File::Find::dir);
 
         # default extensions
-        if (/log$/ || /table$/ || /freq$/ || /ends$/ || /avg$/ || /ratio\.txt$/){ 
+        if (/\.log$/ || /\.table$/ || /\.freq$/ || /\.ends$/ || /\.avg$/ || /ratio\.txt$/){ 
             $accum{$File::Find::name} = 1;
         }
         # if dir is windows is named 
-        if ($windows && $dirbase =~ /^windows$/){
+        if ($windows && $dirbase =~ /^windows/){
             $accum{$File::Find::name} = 1;
         }
         if ($singlec && $dirbase =~ /single-c/ && /gff.merged$/){
             $accum{$File::Find::name} = 1;
         }
         # non-single-c/non-window big files
-        if ($inter && $dirbase !~ /^windows$/ && $dirbase !~ /^single-c$/){ 
+        if ($inter && $dirbase !~ /^windows/ && $dirbase !~ /^single-c/){ 
             if (/gff$/ || /c2t$/ || /g2a$/ || /fa$/ || /eland3$/ || /eland3\.post$/){
                 $accum{$File::Find::name} = 1;
             }
