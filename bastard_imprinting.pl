@@ -69,15 +69,21 @@ else{
 }
 $logger->info("parallel: $opt_parallel");
 
-my $singlecdir = catfile($opt_output_directory, "single-c");
-my $windowdir = catfile($opt_output_directory, "windows");
+my $singlecdir_a = catfile($opt_output_directory, "single-c-$opt_ecotype_a");
+my $singlecdir_b = catfile($opt_output_directory, "single-c-$opt_ecotype_b");
+my $windowdir_a = catfile($opt_output_directory, "windows-$opt_ecotype_a");
+my $windowdir_b = catfile($opt_output_directory, "windows-$opt_ecotype_b");
 
 mkdir $opt_output_directory;
-mkdir $singlecdir;
-mkdir $windowdir;
+mkdir $singlecdir_a;
+mkdir $singlecdir_b;
+mkdir $windowdir_a;
+mkdir $windowdir_b;
 if (! -d $opt_output_directory){ $logger->logdie("can't create $opt_output_directory"); }
-if (! -d $singlecdir){ $logger->logdie("can't create $singlecdir"); }
-if (! -d $windowdir){ $logger->logdie("can't create $windowdir"); }
+if (! -d $singlecdir_a){ $logger->logdie("can't create $singlecdir_a"); }
+if (! -d $singlecdir_b){ $logger->logdie("can't create $singlecdir_b"); }
+if (! -d $windowdir_a){ $logger->logdie("can't create $windowdir_a"); }
+if (! -d $windowdir_b){ $logger->logdie("can't create $windowdir_b"); }
 
 my $basename = $opt_basename;
 if (! defined $basename){
@@ -254,8 +260,8 @@ $pm->wait_all_children;
 #######################################################################
 # count methyl
 
-launch("perl -S countMethylation_batch.pl -g $gff_a -s $singlecdir -w $windowdir -r $opt_reference_a -b $basename_base-vs-$opt_ecotype_a -l $logname -t $opt_parallel");
-launch("perl -S countMethylation_batch.pl -g $gff_b -s $singlecdir -w $windowdir -r $opt_reference_b -b $basename_base-vs-$opt_ecotype_b -l $logname -t $opt_parallel");
+launch("perl -S countMethylation_batch.pl -g $gff_a -s $singlecdir_a -w $windowdir_a -r $opt_reference_a -b $basename_base-vs-$opt_ecotype_a -l $logname -t $opt_parallel");
+launch("perl -S countMethylation_batch.pl -g $gff_b -s $singlecdir_b -w $windowdir_b -r $opt_reference_b -b $basename_base-vs-$opt_ecotype_b -l $logname -t $opt_parallel");
 
 =head1 NAME
 

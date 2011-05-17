@@ -43,7 +43,7 @@ find( sub {
         if ($windows && $dirbase =~ /^windows$/){
             $accum{$File::Find::name} = 1;
         }
-        if ($singlec && $dirbase =~ /^single-c$/ && /gff.merged$/){
+        if ($singlec && $dirbase =~ /single-c/ && /gff.merged$/){
             $accum{$File::Find::name} = 1;
         }
         # non-single-c/non-window big files
