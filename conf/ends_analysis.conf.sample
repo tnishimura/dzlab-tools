@@ -1,7 +1,47 @@
-bin-width      = 100
+<genes3>
+bin-width      = 100 
 distance       = 5000
 stop-flag      = 6 
-stop-distance  = 1500
-end            = 5
 extract-id     = ID
-gff-annotation = /path/to/annotation
+consolidate    = 1
+extension      = gff.merged
+end            = 3
+stop-distance  = 1500
+gff-annotation = /wip/tools/annotations/AT/gmod/TAIR8_genes.gff
+</genes3>
+
+<transposon3>
+    bin-width      = 100 
+    distance       = 5000
+    stop-flag      = 6 
+    extract-id     = ID
+    consolidate    = 1
+    extension      = gff.merged
+    end            = 3
+    stop-distance  = 250
+    gff-annotation = /wip/tools/annotations/AT/gmod/TAIR8_transposable-elements.gff
+</transposon3>
+    
+<genes5>
+    bin-width      = 100 
+    distance       = 5000
+    stop-flag      = 6 
+    extract-id     = ID
+    consolidate    = 1
+    extension      = gff.merged
+    end            = 5
+    stop-distance  = 1500
+    gff-annotation = /wip/tools/annotations/AT/gmod/TAIR8_genes.gff
+</genes5>
+    
+<transposon5>
+    bin-width      = 100 
+    distance       = 5000
+    stop-flag      = 6 
+    extract-id     = ID
+    consolidate    = 1
+    extension      = gff.merged
+    end            = 5
+    stop-distance  = 250
+    gff-annotation = /wip/tools/annotations/AT/gmod/TAIR8_transposable-elements.gff
+</transposon5>
