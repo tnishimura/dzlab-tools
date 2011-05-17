@@ -254,8 +254,8 @@ $pm->wait_all_children;
 #######################################################################
 # count methyl
 
-launch("perl -S countMethylation_batch.pl -g $gff_a -s $singlecdir -w $windowdir -r $opt_reference_a -b $basename_base-vs-$opt_ecotype_a");
-launch("perl -S countMethylation_batch.pl -g $gff_b -s $singlecdir -w $windowdir -r $opt_reference_b -b $basename_base-vs-$opt_ecotype_b");
+launch("perl -S countMethylation_batch.pl -g $gff_a -s $singlecdir -w $windowdir -r $opt_reference_a -b $basename_base-vs-$opt_ecotype_a -l $logname -t $opt_parallel");
+launch("perl -S countMethylation_batch.pl -g $gff_b -s $singlecdir -w $windowdir -r $opt_reference_b -b $basename_base-vs-$opt_ecotype_b -l $logname -t $opt_parallel");
 
 =head1 NAME
 

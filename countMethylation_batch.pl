@@ -11,17 +11,29 @@ use FindBin;
 use lib "$FindBin::Bin/lib";
 use Launch;
 use Log::Log4perl qw/:easy/;
-Log::Log4perl->easy_init( { 
-    level    => $DEBUG,
-    #file     => ">run.log",
-    layout   => '%d{HH:mm:ss} %p> (%L) %M - %m%n',
-} );
-my $logger = get_logger();
 use Parallel::ForkManager;
 my $pm = Parallel::ForkManager->new($opt_threads);
 
 pod2usage(-verbose => 99,-sections => [qw/NAME SYNOPSIS OPTIONS/]) 
-if !( $opt_gff && $opt_single_c_dir && $opt_windows_dir && $opt_reference && $opt_basename );
+if !( $opt_log_file && $opt_gff && $opt_single_c_dir && $opt_windows_dir && $opt_reference && $opt_basename );
+
+use Log::Log4perl qw/get_logger/;
+my $conf=qq/
+    log4perl.logger          = DEBUG, Print, File
+
+    log4perl.appender.Print        = Log::Log4perl::Appender::Screen
+    log4perl.appender.Print.layout = PatternLayout
+    log4perl.appender.Print.layout.ConversionPattern = %d{HH:mm:ss} %p> (%L) %M - %m%n
+
+    log4perl.appender.File          = Log::Log4perl::Appender::File
+    log4perl.appender.File.filename = $opt_log_file
+    log4perl.appender.File.layout   = PatternLayout
+    log4perl.appender.File.syswrite = 1
+    log4perl.appender.File.layout.ConversionPattern = %d{HH:mm:ss} %p> (%L) %M - %m%n
+/;
+Log::Log4perl::init( \$conf );
+
+my $logger = get_logger();
 
 #######################################################################
 # Split gff into chromosomes
@@ -103,6 +115,13 @@ Usage examples:
     ref.type:        readable
 
 =item  -b <basename> | --basename <basename>
+
+=item  -l <log> | --log-file <log>
+
+=item  -t <threads> | --threads <threads>
+
+=for Euclid
+    threads.default:     0
 
 =back
 
