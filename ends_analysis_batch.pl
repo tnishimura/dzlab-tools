@@ -14,14 +14,14 @@ use Launch;
 use List::Util qw/first/;
 use Log::Log4perl qw/:easy/;
 use Pod::Usage;
-use DZUtil qw/timestamp/;
+use DZUtil qw/basename_prefix timestamp/;
 use Parallel::ForkManager;
 
 my $pm = Parallel::ForkManager->new($opt_threads);
 
 pod2usage(-verbose => 99,-sections => [qw/NAME SYNOPSIS OPTIONS/]) if !$opt_conf;
 
-my $logname = $opt_base_dir . "-" . timestamp() . ".log";
+my $logname = "batch_ends" . join(",",@opt_base_dirs) . "-" . timestamp() . ".log";
 
 use Log::Log4perl qw/get_logger/;
 my $conf=qq/
@@ -58,35 +58,10 @@ my $logger = get_logger();
 
 my %config = ParseConfig($opt_conf);
 
-my @dirs;
-{
-    my @basedirs = split /,/, $opt_base_dir;
-    if (defined $opt_basename){
-        my @basenames = split /,/,$opt_basename;
-        if (@basenames != @basedirs){
-            $logger->logdie("number of comma-separated basenames should equal basedirs");
-        } else{
-            for (0 .. $#basedirs){
-                push @dirs, [ $basedirs[$_], $basenames[$_]];
-                #$dirs{$basedirs[$_]} = $basenames[$_];
-            }
-        }
-    }
-    else{
-        for (0 .. $#basedirs){
-            push @dirs, [ $basedirs[$_], $basedirs[$_]];
-            #%dirs = map { $_ => basename($_) } @basedirs;
-        }
-    }
-}
+$logger->info(Dumper \@opt_base_dirs);
 
-$logger->info(Dumper \@dirs);
-
-#while (my ($dir,$name) = each %dirs) {
-for my $pair (@dirs) {
-    my ($dir, $name) = @$pair;
+for my $dir (@opt_base_dirs) {
     $logger->info("basedir  - $dir");
-    $logger->info("basename - $name");
 
     for my $single_c_dir (find_single_c($dir)) {
         $logger->info("single-c directory - $single_c_dir");
@@ -116,9 +91,9 @@ for my $pair (@dirs) {
                     # $File::Find::name - filename relative to pwd
                     # $File::Find::dir  - dirname relative to pwd 
                     # $_                - filename relative to $File::Find::dir
-                    if (/^$name.*CG.$extension$/i)     { push @{$files{cg}}, $File::Find::name; }
-                    elsif (/^$name.*CHG.$extension$/i) { push @{$files{chg}}, $File::Find::name; }
-                    elsif (/^$name.*CHH.$extension$/i) { push @{$files{chh}}, $File::Find::name; }
+                    if (/CG.$extension$/i)     { push @{$files{cg}}, $File::Find::name; }
+                    elsif (/CHG.$extension$/i) { push @{$files{chg}}, $File::Find::name; }
+                    elsif (/CHH.$extension$/i) { push @{$files{chh}}, $File::Find::name; }
                 }, $single_c_dir);
 
             GROUPLOOP:
@@ -126,7 +101,7 @@ for my $pair (@dirs) {
                 $logger->info("context: $group");
                 $logger->info("files:\n" . join "\n", @$group_files);
 
-                my $consolidated_input  = catfile($single_c_dir, $name) .  sprintf("_all_%s\_%s", uc($group), $extension, );
+                my $consolidated_input  = catfile($single_c_dir, basename_prefix($group_files->[0])) .  sprintf("_all_%s\_%s", uc($group), $extension, );
                 my $ends_output = "$consolidated_input.$conf_name.ends";
                 my $avg_output = "$consolidated_input.$conf_name.ends.avg";
 
@@ -174,7 +149,7 @@ sub find_single_c{
     my $dir = shift;
     my %accum;
     find( sub {
-            if ($File::Find::dir =~ /single-c$/){
+            if (basename($File::Find::dir) =~ /^single-c/){
                 $accum{$File::Find::dir} = 1;
             }
         }, $dir);
@@ -197,15 +172,11 @@ Usage examples:
 
 =over
 
-=item  -d <dir> | --base-dir <dir>
+=item  -d <dir>... | --base-dirs <dir>...
 
-Root directory of bs-seq/etc run.  needs to contain a single-c directory.
+Root directories of bs-seq/etc run.  needs to contain a single-c* directory.
 
-=item  -b <basename> | --basename <basename>
-
-File name prefix for concatenated gff and ends file.  Defaults to base directory's basename.
-
-=item  --conf <config_file>
+=item  -c <config_file> | --conf <config_file>
 
 =for Euclid
     config_file.type:        readable
