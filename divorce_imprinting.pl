@@ -152,6 +152,9 @@ my $eland_filtered_b = "$basename_b.3.elfiltered";
 launch("perl -S split_on_mismatches_2.pl -a $eland_a -b $eland_b -oa $eland_filtered_a -ob $eland_filtered_b",
     expected => [ $eland_filtered_a, $eland_filtered_b]);
 
+launch("perl -S split_ratio.pl -o $basename.ratio.txt -ea $opt_ecotype_a -eb $opt_ecotype_b -a $eland_filtered_a -b $eland_filtered_b -m $opt_bowtie_mismatches",
+    expected => "$basename.ratio.txt");
+
 #######################################################################
 # Parse_eland.pl
 
