@@ -62,11 +62,20 @@ my @base_dirs = split /,/, $opt_base_dirs;
 
 $logger->info("base directories: " .  join ", ", @base_dirs);
 
-for my $dir (@base_dirs) {
+my %dirs = map { $_ => basename($_) } @base_dirs;
+
+while (my ($dir,$basename) = each %dirs) {
     $logger->info("basedir  - $dir");
     if (! -d $dir){
         $logger->logdie("$dir is not a readable directory?");
     }
+
+    # there's a possibly (from, say, a directory that was copied) that two
+    # .gff.merged files will have the same name in different single-c*
+    # directionries... so keep a list of ends files produced-- and check, so that
+    # we can detect this situation.  Otherwise threads will operate on same files
+    # at the same time and screw things up
+    my %ends_file_cache; 
 
     for my $single_c_dir (find_single_c($dir)) {
         $logger->info("single-c directory - $single_c_dir");
@@ -117,10 +126,16 @@ for my $dir (@base_dirs) {
                 $logger->info("context: $group");
                 $logger->info("files:\n" . join "\n", @$group_files);
 
-                my $consolidated_input  = catfile($single_c_dir, basename_prefix($group_files->[0])) .  sprintf("_all_%s\_%s", uc($group), $extension);
+                my $consolidated_input  = catfile($single_c_dir, $basename) .  sprintf("_all_%s\_single-c-%s", uc($group), $extension);
                 my $ends_base = basename($consolidated_input);
                 my $ends_output = catfile($ends_dir, $ends_base) . ".$conf_name.ends";
                 my $avg_output  = catfile($ends_dir, $ends_base) . ".$conf_name.ends.avg";
+
+                if (exists $ends_file_cache{$ends_output}){
+                    $logger->logdie("duplicate files in single-c? script is trying to produce $ends_output twice...");
+                } else{
+                    $ends_file_cache{$ends_output} = 1;
+                }
 
                 # concatenate files
                 if (! -f $consolidated_input && ! $opt_dry){
@@ -135,10 +150,10 @@ for my $dir (@base_dirs) {
                         close $infh;
                     }
                     close $outfh;
-                    $logger->info("concatenation done");
+                    $logger->info("concatenation done into $consolidated_input");
                 }
                 else{
-                    $logger->info("concatenation was already done");
+                    $logger->info("concatenation into $consolidated_input was already done...");
                 }
 
 
@@ -202,7 +217,7 @@ Comma separated Root directories of bs-seq/etc run.  needs to contain a single-c
 
 =item --force | -f
 
-=item  --threads <threads>
+=item  --threads <threads> | -t <threads>
 
 Number of simultaneous ends to perform.  Default 0 for no parallelization.
 
