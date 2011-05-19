@@ -14,7 +14,7 @@ use Launch;
 use List::Util qw/first/;
 use Log::Log4perl qw/:easy/;
 use Pod::Usage;
-use DZUtil qw/basename_prefix timestamp/;
+use DZUtil qw/common_prefix common_suffix timestamp/;
 use Parallel::ForkManager;
 
 my $pm = Parallel::ForkManager->new($opt_threads);
@@ -62,9 +62,7 @@ my @base_dirs = split /,/, $opt_base_dirs;
 
 $logger->info("base directories: " .  join ", ", @base_dirs);
 
-my %dirs = map { $_ => basename($_) } @base_dirs;
-
-while (my ($dir,$basename) = each %dirs) {
+for my $dir (@base_dirs) {
     $logger->info("basedir  - $dir");
     if (! -d $dir){
         $logger->logdie("$dir is not a readable directory?");
@@ -125,8 +123,14 @@ while (my ($dir,$basename) = each %dirs) {
             while (my ($group,$group_files) = each %files) {
                 $logger->info("context: $group");
                 $logger->info("files:\n" . join "\n", @$group_files);
+                
+                my @group_bases = map {basename($_)} @$group_files;
+                my $prefix = common_prefix(@group_bases);
+                my $suffix = common_suffix(@group_bases);
+                $prefix =~ s/\.$|\_$//;
+                $suffix =~ s/^\.|\^_//;
 
-                my $consolidated_input  = catfile($single_c_dir, $basename) .  sprintf("_all_%s\_single-c-%s", uc($group), $extension);
+                my $consolidated_input  = catfile($single_c_dir, $prefix) . ".all." . $suffix;
                 my $ends_base = basename($consolidated_input);
                 my $ends_output = catfile($ends_dir, $ends_base) . ".$conf_name.ends";
                 my $avg_output  = catfile($ends_dir, $ends_base) . ".$conf_name.ends.avg";
