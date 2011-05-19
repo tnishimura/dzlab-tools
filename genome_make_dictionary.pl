@@ -10,15 +10,19 @@ use Parallel::ForkManager;
 use Log::Log4perl qw/:easy/;
 use Pod::Usage;
 use Getopt::Long;
+use File::Basename;
+use File::Spec::Functions;
 
 my $help;
-my $conf;
+my $config_file;
+my $dry;
 my $result = GetOptions (
     "help"     => \$help,
-    "conf|c=s" => \$conf,
+    "conf|c=s" => \$config_file,
+    "dry|n" => \$dry,
 );
 pod2usage(-verbose => 99,-sections => [qw/NAME SYNOPSIS OPTIONS/]) 
-if ($help || !$result || !$conf);  
+if ($help || !$result || !$config_file);  
 
 Log::Log4perl->easy_init( { 
     level    => $DEBUG,
@@ -28,9 +32,8 @@ Log::Log4perl->easy_init( {
 my $logger = get_logger();
 my $pm = Parallel::ForkManager->new(4);
 
-my $dry = 1;
 use YAML qw/LoadFile DumpFile/;
-my $config = LoadFile("run.conf");
+my $config = LoadFile($config_file);
 
 my ($left,$right,$organism,$pairs) = @{$config}{qw/left right organism pairs/};
 
@@ -40,14 +43,14 @@ my $outfile_r2l = "$organism-$right-to-$left.alignment";
 my %globals;
 while (my ($chr,$pair) = each %$pairs) {
     my ($leftfile, $rightfile) = @$pair;
-    my $prefix = "$organism-$chr-$left-vs-$right";
+    my $prefix = basename($config_file,'.conf') . "-$organism-$chr-$left-vs-$right";
     my $delta = "$prefix.delta";
     my $global = "$prefix.global";
     $globals{$chr} = $global;
 
     $logger->info("$leftfile $rightfile $prefix $delta $global");
     $pm->start and next;
-    launch("nucmer -p $prefix $leftfile $rightfile",dryrun => $dry,expected => $delta);
+    launch("nucmer -p $prefix -f -g 0 --noextend $leftfile $rightfile",dryrun => $dry,expected => $delta);
     launch("delta-filter -g $delta > $global",dryrun => $dry,expected => $global);
 
     $pm->finish;
