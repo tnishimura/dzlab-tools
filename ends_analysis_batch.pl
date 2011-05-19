@@ -58,9 +58,9 @@ my $logger = get_logger();
 
 my %config = ParseConfig($opt_conf);
 
-$logger->info(Dumper \@opt_base_dirs);
-
 my @base_dirs = split /,/, $opt_base_dirs;
+
+$logger->info("base directories: " .  join ", ", @base_dirs);
 
 for my $dir (@base_dirs) {
     $logger->info("basedir  - $dir");
