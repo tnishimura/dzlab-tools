@@ -21,7 +21,7 @@ my $pm = Parallel::ForkManager->new($opt_threads);
 
 pod2usage(-verbose => 99,-sections => [qw/NAME SYNOPSIS OPTIONS/]) if !$opt_conf;
 
-my $logname = "batch_ends" . join(",",@opt_base_dirs) . "-" . timestamp() . ".log";
+my $logname = "batch_ends-" . timestamp() . ".log";
 
 use Log::Log4perl qw/get_logger/;
 my $conf=qq/
@@ -60,12 +60,18 @@ my %config = ParseConfig($opt_conf);
 
 $logger->info(Dumper \@opt_base_dirs);
 
-for my $dir (@opt_base_dirs) {
+my @base_dirs = split /,/, $opt_base_dirs;
+
+for my $dir (@base_dirs) {
     $logger->info("basedir  - $dir");
+    if (! -d $dir){
+        $logger->logdie("$dir is not a readable directory?");
+    }
 
     for my $single_c_dir (find_single_c($dir)) {
         $logger->info("single-c directory - $single_c_dir");
 
+        # create an ends/ directory along side single-c, if not already existing
         my $ends_dir = catfile(dirname($single_c_dir), "ends");
         if (! -d $ends_dir){
             mkdir $ends_dir;
@@ -73,7 +79,6 @@ for my $dir (@opt_base_dirs) {
                 $logger->logdie("can't create $ends_dir?");
             }
         }
-
 
         while (my ($conf_name,$conf_hash) = each %config) {
 
@@ -112,10 +117,10 @@ for my $dir (@opt_base_dirs) {
                 $logger->info("context: $group");
                 $logger->info("files:\n" . join "\n", @$group_files);
 
-                my $consolidated_input  = catfile($single_c_dir, basename_prefix($group_files->[0])) .  sprintf("_all_%s\_%s", uc($group), $extension, );
+                my $consolidated_input  = catfile($single_c_dir, basename_prefix($group_files->[0])) .  sprintf("_all_%s\_%s", uc($group), $extension);
                 my $ends_base = basename($consolidated_input);
-                my $ends_output = catfile($ends_dir, $ends_base) . ".ends";
-                my $avg_output  = catfile($ends_dir, $ends_base) . ".ends.avg";
+                my $ends_output = catfile($ends_dir, $ends_base) . ".$conf_name.ends";
+                my $avg_output  = catfile($ends_dir, $ends_base) . ".$conf_name.ends.avg";
 
                 # concatenate files
                 if (! -f $consolidated_input && ! $opt_dry){
@@ -178,15 +183,15 @@ batch_ends_analysis.pl - ...
 
 Usage examples:
 
- ends_analysis_batch.pl -d basedir [-b basename] [--dry|-n] [--force|-f] --conf ends.conf [--threads 4]
+ ends_analysis_batch.pl -d basedir1,basedir2 [-b basename] [--dry|-n] [--force|-f] --conf ends.conf [--threads 4]
 
 =head1 OPTIONS
 
 =over
 
-=item  -d <dir>... | --base-dirs <dir>...
+=item  -d <dir> | --base-dirs <dir>
 
-Root directories of bs-seq/etc run.  needs to contain a single-c* directory.
+Comma separated Root directories of bs-seq/etc run.  needs to contain a single-c* directory.
 
 =item  -c <config_file> | --conf <config_file>
 
