@@ -6,7 +6,7 @@ use feature 'say';
 use autodie;
 use FindBin;
 use lib "$FindBin::Bin/../lib";
-use DZUtil qw/chext split_names base_match/;
+use DZUtil qw/common_suffix common_prefix chext split_names base_match/;
 
 
 use Test::More qw(no_plan);
@@ -44,3 +44,12 @@ for (['a','D'], ['c','n'], ['c', 'y']){
 for (['n', 'a'], ['g','t']){
     ok(!base_match(@$_), '!base_match');
 }
+
+
+ok(common_prefix( "11234_", "1123_", "112_",) eq "112", 'common_prefix');
+ok(common_prefix( "", "1123_", "112_",) eq "", 'common_prefix');
+ok(common_prefix( 123, 12223, "112_",) eq 1, 'common_prefix');
+
+ok(common_suffix( "11234_", "1123_", "112_",) eq "_", 'common_suffix');
+ok(common_suffix( "", "1123_", "112_",) eq "", 'common_suffix');
+ok(common_suffix( 123, 12223, "11asdf223",) eq '23', 'common_suffix');
