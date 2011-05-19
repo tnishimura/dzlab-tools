@@ -48,13 +48,20 @@ my $commit_size         = 20000;
 my $counter             = 0;
 my $position            = tell $fh;
 
-while (defined(my $line = <$fh>)){
-    chomp $line;
-    $logger->logdie("malformatted line $line") unless $line =~ /^@/;
+while (defined(my $id = <$fh>)){
+    chomp $id;
+    $logger->logdie("malformatted line $id") unless $id =~ /^@/;
 
-    $line =~ s/^@//;
+    $id =~ s/^@//;
 
-    $sth->execute($line,$position);
+
+    my $sequence;
+    if (! defined($sequence = <$fh>)){
+        $logger->logdie("number of lines not a multiple of 4"); 
+    }
+    chomp $sequence;
+
+    $sth->execute($id,$sequence);
     if (++$counter % $commit_size == 0){
         #$logger->debug("$counter");
         $dbh->commit or $logger->logdie("Couldn't commit?");
@@ -63,11 +70,12 @@ while (defined(my $line = <$fh>)){
         $logger->debug(sprintf("%.2f%%" , 100 * $position / $size));
         $progress_checkpoint += $progress_step;
     }
-    for (1..3){
-        if (! defined <$fh>){
-            $logger->logdie("number of lines not a multiple of 4");
-        }
+
+    # skip quality lines
+    for (1..2){
+        if (! defined <$fh>){ $logger->logdie("number of lines not a multiple of 4"); }
     }
+
     $position = tell $fh;
 }
 $logger->debug("Done inserting. Creating index");
