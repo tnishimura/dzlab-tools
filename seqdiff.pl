@@ -15,13 +15,15 @@ if (length $ARGV[0] != length $ARGV[1]){
     exit 255;
 }
 my ($seqa, $seqb) = @ARGV;
+$seqa = uc $seqa;
+$seqb = uc $seqb;
 
 my @splita = split //, $seqa;
 my @splitb = split //, $seqb;
 
 print "\n";
 say $seqa;
-while (my $aa = shift @splita and my $bb = shift @splitb){
+while ((my $aa = shift @splita) && (my $bb = shift @splitb)){
     if ($aa eq $bb){
         print "-";
     } else {
@@ -44,3 +46,25 @@ for my $i (1 .. length $seqa) {
     }
 }
 print "\n";
+
+
+=head1 NAME
+
+seqdiff.pl - Visually compare two sequences of identical length.
+
+=head1 SYNOPSIS
+
+Usage examples:
+
+ seqdiff.pl acccct aCCCCt
+
+Output:
+ 
+ ACCCCT
+ ------
+ ACCCCT
+     |
+     5
+
+=cut
+
