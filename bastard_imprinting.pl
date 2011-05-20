@@ -30,7 +30,7 @@ my $conf=qq/
 
     log4perl.appender.Print                          = Log::Log4perl::Appender::Screen
     log4perl.appender.Print.layout                   = PatternLayout
-    log4perl.appender.Print.layout.ConversionPattern = %d{HH:mm:ss} %p> (%L) %M - %m%n
+    log4perl.appender.Print.layout.ConversionPattern = %d{HH:mm:ss}> %m%n
 
     log4perl.appender.File                          = Log::Log4perl::Appender::File
     log4perl.appender.File.filename                 = $logname
@@ -260,8 +260,8 @@ $pm->wait_all_children;
 #######################################################################
 # count methyl
 
-launch("perl -S countMethylation_batch.pl -g $gff_a -s $singlecdir_a -w $windowdir_a -r $opt_reference_a -b $basename_base-vs-$opt_ecotype_a -l $logname -t $opt_parallel");
-launch("perl -S countMethylation_batch.pl -g $gff_b -s $singlecdir_b -w $windowdir_b -r $opt_reference_b -b $basename_base-vs-$opt_ecotype_b -l $logname -t $opt_parallel");
+launch("perl -S countMethylation_batch.pl -g $gff_a -s $singlecdir_a -w $windowdir_a -r $opt_reference_a -b $basename_base-vs-$opt_ecotype_a -t $opt_parallel");
+launch("perl -S countMethylation_batch.pl -g $gff_b -s $singlecdir_b -w $windowdir_b -r $opt_reference_b -b $basename_base-vs-$opt_ecotype_b -t $opt_parallel");
 
 launch("collect-freqs.pl -o $basename.freq $opt_output_directory");
 
