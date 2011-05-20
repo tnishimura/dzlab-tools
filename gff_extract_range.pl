@@ -31,9 +31,15 @@ while (defined(my $gff = $p->next())){
         if (($opt_threshold == 0   && $overlap) || # handle extreme cases separately so no rounding errors
             ($opt_threshold == 100 && $overlap == $targetlen) || 
             ($overlap / $targetlen > ($opt_threshold / 100))){
+            if  (!$opt_invert){
+                say $gff->to_string();
+            }
+        }
+        elsif ($opt_invert){
             say $gff->to_string();
         }
     }
+
 }
 
 =head1 NAME
@@ -59,17 +65,21 @@ Query range.
 =item  -t <percentage> | --threshold <percentage>
 
 Percent of target window which needs to be covered by the query range in order
-to be reported.  If set to 0 (which is the default, any target windows with any
-overlap will be reported.
+to be reported.  If set to 0, any target windows with any overlap will be
+reported. Default 100.
 
 =for Euclid
-    percentage.default: 0
+    percentage.default: 100
     percentage.type:    int, percentage >= 0 && percentage <= 100
 
 =item -o <file> | --output <file>
 
 =for Euclid
     file.default: '-'
+
+=item  -i  | --invert
+
+Print lines that do NOT match the filtering criteria.
 
 =item <input>
 
