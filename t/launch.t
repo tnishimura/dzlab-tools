@@ -21,4 +21,3 @@ Log::Log4perl::init( \$conf );
 
 ok(launch('sleep 1') );
 
-plaunch(2, ['echo 1',force => 1], ['echo 1',force => 1],);

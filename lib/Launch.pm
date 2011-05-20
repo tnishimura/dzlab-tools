@@ -6,15 +6,15 @@ use Data::Dumper;
 use feature 'say';
 use Carp;
 use Cwd;
-use IPC::Open3;
 use Log::Log4perl qw/get_logger/;
 use Parallel::ForkManager;
 use File::Temp qw/mktemp/;
+use IPC::Cmd qw/run_forked/;
 
 require Exporter;
 our @ISA = qw(Exporter);
 our @EXPORT_OK = qw();
-our @EXPORT = qw(launch plaunch);
+our @EXPORT = qw(launch);
 
 =head2 launch
 
@@ -26,7 +26,12 @@ our @EXPORT = qw(launch plaunch);
 
 sub launch{
     my ($cmd, %opt) = @_;
+
     my $logger    = get_logger("PipeLine");
+
+    if (!IPC::Cmd->can_use_run_forked()){
+        $logger->logdie("can't run forked?");
+    }
 
     my $force     = delete $opt{force} // 0;
     my $dryrun    = delete $opt{dryrun} // 0;
@@ -61,7 +66,7 @@ sub launch{
         if (! @expected){
             # none expected
         } elsif(@expected && grep {-f} @expected){
-            $logger->info("Already done, skipping: '$cmd' ");
+            $logger->info("Already done, skipping: [$cmd] ");
             return 1;
         }
     }
@@ -69,8 +74,14 @@ sub launch{
         $logger->info("Dryrun, exiting");
         return;
     }
+
+    my $rv = run_forked($cmd, {
+            discard_output => 1,
+            stdout_handler => sub{ $logger->debug("stdout: " . shift); },
+            stderr_handler => sub{ $logger->debug("stderr: " . shift); },
+        });
     
-    if (0==system($cmd)){
+    if ($rv->{exit_code} == 0){
         my $exp = join ", ", @expected;
         if (! @expected){
             $logger->info("Successfully launched and finished [$cmd]");
@@ -91,17 +102,5 @@ sub launch{
     } else {
         $logger->logdie("failed to run, dying: [$cmd]");
     }
-}
-sub plaunch{
-    my ($numprocs, @jobs) = @_;
-    # Max 30 processes for parallel download
-    my $pm = new Parallel::ForkManager($numprocs);
-
-    foreach my $j (@jobs) {
-        $pm->start and next; # do the fork
-        launch(@$j);
-        $pm->finish; # do the exit in the child process
-    }
-    $pm->wait_all_children;
 }
 1;
