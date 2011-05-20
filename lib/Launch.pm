@@ -9,6 +9,7 @@ use Cwd;
 use IPC::Open3;
 use Log::Log4perl qw/get_logger/;
 use Parallel::ForkManager;
+use File::Temp qw/mktemp/;
 
 require Exporter;
 our @ISA = qw(Exporter);
@@ -42,6 +43,18 @@ sub launch{
         delete $opt{expected}
     }
 
+    my $placeholder = $cmd =~ /\?\?/;
+    my $tempfile;
+    if ($placeholder){
+        if (@expected == 1){
+            $tempfile = mktemp($expected[0] . '.tmpXXXXX');
+            $cmd =~ s/\?\?/$tempfile/;
+        }
+        else {
+            $logger->logdie("If placeholder <?> is used, exactly one expected file can be given");
+        }
+    }
+
     die "unknown parameters passed to doit" . Dumper \%opt if (%opt);
 
     if (!$force){
@@ -61,9 +74,18 @@ sub launch{
         my $exp = join ", ", @expected;
         if (! @expected){
             $logger->info("Successfully launched and finished [$cmd]");
-        } elsif (grep {-f} @expected){ 
+        } 
+        elsif ($placeholder && -f $tempfile){
+            rename $tempfile, $expected[0];
+            $logger->info("Successfully launched and finished. Produced $expected[0] [$cmd]");
+        } 
+        elsif ($placeholder && ! -f $tempfile){
+            $logger->logdie("command seems to have run but expected files $exp not produced [$cmd]");
+        } 
+        elsif (grep {-f} @expected){ 
             $logger->info("Successfully launched and finished. Produced $exp [$cmd]");
-        } else {
+        } 
+        else {
             $logger->logdie("command seems to have run but expected files $exp not produced [$cmd]");
         }
     } else {
