@@ -236,6 +236,17 @@ else {
 #######################################################################
 # Count and calc ratios and stuff
 
+# if double sided, calculate the ratios for the left/right individually as well.
+if (!$single_sided){
+    launch("perl -S split_ratio.pl -o $basename.left.ratio.txt -ea $opt_ecotype_a -eb $opt_ecotype_b " 
+        . " -a $left_eland_filtered_a -b $left_eland_filtered_b -m $opt_bowtie_mismatches",
+        expected => "$basename.left.ratio.txt");
+
+    launch("perl -S split_ratio.pl -o $basename.right.ratio.txt -ea $opt_ecotype_a -eb $opt_ecotype_b " 
+        . " -a $right_eland_filtered_a -b $right_eland_filtered_b -m $opt_bowtie_mismatches",
+        expected => "$basename.right.ratio.txt");
+}
+
 launch("perl -S split_ratio.pl -o $basename.ratio.txt -ea $opt_ecotype_a -eb $opt_ecotype_b -a $eland_union_a -b $eland_union_b -m $opt_bowtie_mismatches",
     expected => "$basename.ratio.txt");
 
