@@ -30,7 +30,7 @@ my $conf=qq/
 
     log4perl.appender.Print                          = Log::Log4perl::Appender::Screen
     log4perl.appender.Print.layout                   = PatternLayout
-    log4perl.appender.Print.layout.ConversionPattern = %d{HH:mm:ss}> %m%n
+    log4perl.appender.Print.layout.ConversionPattern = %d{HH:mm:ss} %p> %m%n
 
     log4perl.appender.File                          = Log::Log4perl::Appender::File
     log4perl.appender.File.filename                 = $logname
@@ -238,43 +238,97 @@ else {
 
 # if double sided, calculate the ratios for the left/right individually as well.
 if (!$single_sided){
-    launch("perl -S split_ratio.pl -o $basename.left.ratio.txt -ea $opt_ecotype_a -eb $opt_ecotype_b " 
+    launch("perl -S split_ratio.pl -o $basename.ratio.left.txt -ea $opt_ecotype_a -eb $opt_ecotype_b " 
         . " -a $left_eland_filtered_a -b $left_eland_filtered_b -m $opt_bowtie_mismatches",
-        expected => "$basename.left.ratio.txt");
+        expected => "$basename.ratio.left.txt");
 
-    launch("perl -S split_ratio.pl -o $basename.right.ratio.txt -ea $opt_ecotype_a -eb $opt_ecotype_b " 
+    launch("perl -S split_ratio.pl -o $basename.ratio.right.txt -ea $opt_ecotype_a -eb $opt_ecotype_b " 
         . " -a $right_eland_filtered_a -b $right_eland_filtered_b -m $opt_bowtie_mismatches",
-        expected => "$basename.right.ratio.txt");
+        expected => "$basename.ratio.right.txt");
 }
 
 launch("perl -S split_ratio.pl -o $basename.ratio.txt -ea $opt_ecotype_a -eb $opt_ecotype_b -a $eland_union_a -b $eland_union_b -m $opt_bowtie_mismatches",
     expected => "$basename.ratio.txt");
 
-#######################################################################
-# correlate
 
-my $gff_a = "$basename_a.4.gff";
-my $gff_b = "$basename_b.4.gff";
+if (! $opt_no_fracmeth){
+    #######################################################################
+    # correlate
 
-# make sure reads map together
+    my $gff_a = "$basename_a.4.gff";
+    my $gff_b = "$basename_b.4.gff";
 
-if ($pm->start == 0){
-    launch("perl -S correlateSingleEnds.pl -rnd 1 -e $eland_union_a -f $opt_reference_a -o $gff_a", expected => $gff_a);
-    $pm->finish;
+    # make sure reads map together
+
+    if ($pm->start == 0){
+        launch("perl -S correlateSingleEnds.pl -rnd 1 -e $eland_union_a -f $opt_reference_a -o $gff_a", expected => $gff_a);
+        $pm->finish;
+    }
+    if ($pm->start == 0){
+        launch("perl -S correlateSingleEnds.pl -rnd 1 -e $eland_union_b -f $opt_reference_b -o $gff_b", expected => $gff_b);
+        $pm->finish;
+    }
+    $pm->wait_all_children;
+
+    #######################################################################
+    # count methyl
+
+    launch("perl -S countMethylation_batch.pl -g $gff_a -s $singlecdir_a -w $windowdir_a -r $opt_reference_a -b $basename_base-vs-$opt_ecotype_a -t $opt_parallel");
+    launch("perl -S countMethylation_batch.pl -g $gff_b -s $singlecdir_b -w $windowdir_b -r $opt_reference_b -b $basename_base-vs-$opt_ecotype_b -t $opt_parallel");
+
+    launch("collect-freqs.pl -o $basename.freq $opt_output_directory");
 }
-if ($pm->start == 0){
-    launch("perl -S correlateSingleEnds.pl -rnd 1 -e $eland_union_b -f $opt_reference_b -o $gff_b", expected => $gff_b);
-    $pm->finish;
-}
-$pm->wait_all_children;
 
 #######################################################################
-# count methyl
+# split_on_mismatches WITH coord checking. 
 
-launch("perl -S countMethylation_batch.pl -g $gff_a -s $singlecdir_a -w $windowdir_a -r $opt_reference_a -b $basename_base-vs-$opt_ecotype_a -t $opt_parallel");
-launch("perl -S countMethylation_batch.pl -g $gff_b -s $singlecdir_b -w $windowdir_b -r $opt_reference_b -b $basename_base-vs-$opt_ecotype_b -t $opt_parallel");
+if ($opt_check_coord_ratio){
+    # Split on mismatches
+    $logger->info("split_on_mismatch.pl");
+    my $cc_left_eland_filtered_a = "$left_basename_a.2.check_coord.elfiltered";
+    my $cc_left_eland_filtered_b = "$left_basename_b.2.check_coord.elfiltered";
+    my $cc_right_eland_filtered_a = "$right_basename_a.2.check_coord.elfiltered";
+    my $cc_right_eland_filtered_b = "$right_basename_b.2.check_coord.elfiltered";
 
-launch("collect-freqs.pl -o $basename.freq $opt_output_directory");
+    launch("perl -S split_on_mismatches_2.pl --check-coord -a $left_eland_a -b $left_eland_b -oa $cc_left_eland_filtered_a -ob $cc_left_eland_filtered_b",
+        expected => [ $cc_left_eland_filtered_a, $cc_left_eland_filtered_b]);
+
+    if (! $single_sided){
+        launch("perl -S split_on_mismatches_2.pl --check-coord -a $right_eland_a -b $right_eland_b -oa $cc_right_eland_filtered_a -ob $cc_right_eland_filtered_b",
+            expected => [ $cc_right_eland_filtered_a, $cc_right_eland_filtered_b]);
+    }
+
+    # Unionize left and right
+    my $cc_eland_union_a = "$basename_a.3.check_coord.union";
+    my $cc_eland_union_b = "$basename_b.3.check_coord.union";
+
+    if ($single_sided){
+        $cc_eland_union_a = $cc_left_eland_filtered_a;
+        $cc_eland_union_b = $cc_left_eland_filtered_b;
+    }
+    else {
+        launch("eland_unionize.pl -l $cc_left_eland_filtered_a -r $cc_right_eland_filtered_a -o $cc_eland_union_a", expected => $cc_eland_union_a);
+        launch("eland_unionize.pl -l $cc_left_eland_filtered_b -r $cc_right_eland_filtered_b -o $cc_eland_union_b", expected => $cc_eland_union_b);
+    }
+
+    # Count and calc ratios and stuff
+
+    # if double sided, calculate the ratios for the left/right individually as well.
+    if (!$single_sided){
+        launch("perl -S split_ratio.pl -o $basename.ratio.check_coord.left.txt -ea $opt_ecotype_a -eb $opt_ecotype_b " 
+            . " -a $cc_left_eland_filtered_a -b $cc_left_eland_filtered_b -m $opt_bowtie_mismatches",
+            expected => "$basename.ratio.check_coord.left.txt");
+
+        launch("perl -S split_ratio.pl -o $basename.ratio.check_coord.right.txt -ea $opt_ecotype_a -eb $opt_ecotype_b " 
+            . " -a $cc_right_eland_filtered_a -b $cc_right_eland_filtered_b -m $opt_bowtie_mismatches",
+            expected => "$basename.ratio.check_coord.right.txt");
+    }
+
+    launch("perl -S split_ratio.pl -o $basename.ratio.check_coord.txt -ea $opt_ecotype_a -eb $opt_ecotype_b -a $cc_eland_union_a -b $cc_eland_union_b -m $opt_bowtie_mismatches",
+        expected => "$basename.ratio.check_coord.txt");
+
+}
+
 
 =head1 NAME
 
@@ -371,6 +425,14 @@ Level of forcefulness in doing jobs.  1 = Redo all run-specifics.  2 = Redo bowt
     level.type:        int, level >= 0
 
 =item  --merge 
+
+=item  -cc | --check-coord-ratio
+
+Enabling this option will create a second set of filtered eland and resulting
+ratio files with coordinate checking on split_on_mismatches_2.pl enabled.  You
+probably don't need this. 
+
+=item --no-fracmeth
 
 =back
 
