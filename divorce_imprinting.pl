@@ -155,6 +155,17 @@ launch("perl -S split_on_mismatches_2.pl -a $eland_a -b $eland_b -oa $eland_filt
 launch("perl -S split_ratio.pl -o $basename.ratio.txt -ea $opt_ecotype_a -eb $opt_ecotype_b -a $eland_filtered_a -b $eland_filtered_b -m $opt_bowtie_mismatches",
     expected => "$basename.ratio.txt");
 
+if ($opt_check_coord_ratio){
+    my $cc_eland_filtered_a = "$basename_a.3.check_coord.elfiltered";
+    my $cc_eland_filtered_b = "$basename_b.3.check_coord.elfiltered";
+
+    launch("perl -S split_on_mismatches_2.pl --check-coord -a $eland_a -b $eland_b -oa $cc_eland_filtered_a -ob $cc_eland_filtered_b",
+        expected => [ $cc_eland_filtered_a, $cc_eland_filtered_b]);
+
+    launch("perl -S split_ratio.pl -o $basename.ratio.check_coord.txt -ea $opt_ecotype_a -eb $opt_ecotype_b -a $cc_eland_filtered_a -b $cc_eland_filtered_b -m $opt_bowtie_mismatches",
+        expected => "$basename.ratio.check_coord.txt");
+}
+
 #######################################################################
 # Parse_eland.pl
 
@@ -218,11 +229,11 @@ $pm->wait_all_children;
 
 $logger->info("filter_repeats");
 
-my $w50_a = "$basename_a.7.w50.gff";
-my $w50_b = "$basename_b.7.w50.gff";
+my $w50_a = "$basename_a.7.win-anno.gff";
+my $w50_b = "$basename_b.7.win-anno.gff";
 
-my $w50_filtered_a = "$basename_a.7.w50-filtered.gff";
-my $w50_filtered_b = "$basename_b.7.w50-filtered.gff";
+my $w50_filtered_a = "$basename_a.7.win-anno-filtered.gff";
+my $w50_filtered_b = "$basename_b.7.win-anno-filtered.gff";
 
 if ($pm->start == 0){
     launch("perl -S window_gff.pl -t $opt_locus_tag $gff_sorted_a -g $opt_annotation -k -c sum -o $w50_a -r", expected => $w50_a);
@@ -343,6 +354,12 @@ Locus tag in the annotation file. Default: ID.
 
 =for Euclid
     tag.default:     'ID'
+
+=item  -cc | --check-coord-ratio
+
+Enabling this option will create a second set of filtered eland and resulting
+ratio files with coordinate checking on split_on_mismatches_2.pl enabled.  You
+probably don't need this. 
 
 =back
 
