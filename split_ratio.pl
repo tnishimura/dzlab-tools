@@ -26,6 +26,7 @@ my $logger = get_logger();
 
 my %counts = ($opt_ecotype_a => {}, $opt_ecotype_b => {});
 my @chromosomes = qw/ chr3 chr1 chr4 chrc chr2 chrm chr5/;
+my @core_chromosomes = qw/ chr3 chr1 chr4 chr5 chr2/;
 for my $c (@chromosomes) {
     for my $mm (0..$opt_bowtie_mismatches, 'total') {
         $counts{$opt_ecotype_a}{$c}{$mm} = 0;
@@ -65,9 +66,9 @@ for my $mm (0 .. $opt_bowtie_mismatches, 'total') {
             ($counts{$opt_ecotype_a}{$c}{$mm} / $counts{$opt_ecotype_b}{$c}{$mm})
             : "inf" );
     }
-    my $total_a = sum map { $counts{$opt_ecotype_a}{$_}{$mm} } @chromosomes;
-    my $total_b = sum map { $counts{$opt_ecotype_b}{$_}{$mm} } @chromosomes;
-    say $ratiofh "total: \t $total_a / $total_b = " . ( $total_b > 0 ?  $total_a / $total_b  : 'inf');
+    my $total_a = sum map { $counts{$opt_ecotype_a}{$_}{$mm} } @core_chromosomes;
+    my $total_b = sum map { $counts{$opt_ecotype_b}{$_}{$mm} } @core_chromosomes;
+    say $ratiofh "total (no c/m): \t $total_a / $total_b = " . ( $total_b > 0 ?  $total_a / $total_b  : 'inf');
 }
 
 
