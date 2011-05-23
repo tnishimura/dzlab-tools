@@ -38,7 +38,7 @@ find( sub {
         my $dirbase = basename($File::Find::dir);
 
         # default extensions
-        if (/\.log$/ || /\.table.txt$/ || /\.freq$/ || /\.ends$/ || /\.avg$/ || /ratio\.txt$/){ 
+        if (/\.log$/ || /\.table.txt$/ || /\.freq$/ || /\.ends$/ || /\.avg$/ || /ratio\.txt$/ || /ratio\.check_coord\.txt$/){ 
             $accum{$File::Find::name} = 1;
         }
         # if dir is windows is named 
