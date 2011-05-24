@@ -276,8 +276,15 @@ if (! $opt_no_fracmeth){
     #######################################################################
     # count methyl
 
-    launch("perl -S countMethylation_batch.pl -g $gff_a -s $singlecdir_a -w $windowdir_a -r $opt_reference_a -b $basename_base-vs-$opt_ecotype_a$nocc -t $opt_parallel");
-    launch("perl -S countMethylation_batch.pl -g $gff_b -s $singlecdir_b -w $windowdir_b -r $opt_reference_b -b $basename_base-vs-$opt_ecotype_b$nocc -t $opt_parallel");
+    if ($pm->start == 0){
+        launch("perl -S countMethylation_batch.pl -g $gff_a -s $singlecdir_a -w $windowdir_a -r $opt_reference_a -b $basename_base-vs-$opt_ecotype_a$nocc");
+        $pm->finish;
+    }
+    if ($pm->start == 0){
+        launch("perl -S countMethylation_batch.pl -g $gff_b -s $singlecdir_b -w $windowdir_b -r $opt_reference_b -b $basename_base-vs-$opt_ecotype_b$nocc");
+        $pm->finish;
+    }
+    $pm->wait_all_children;
 
     launch("collect-freqs.pl -o $basename.freq $opt_output_directory");
 }

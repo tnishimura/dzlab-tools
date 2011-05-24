@@ -12,7 +12,6 @@ use lib "$FindBin::Bin/lib";
 use Launch;
 use Log::Log4perl qw/:easy/;
 use Parallel::ForkManager;
-my $pm = Parallel::ForkManager->new($opt_threads);
 
 pod2usage(-verbose => 99,-sections => [qw/NAME SYNOPSIS OPTIONS/]) 
 if !( $opt_gff && $opt_single_c_dir && $opt_windows_dir && $opt_reference && $opt_basename );
@@ -60,13 +59,10 @@ while (my ($chr,$split) = each %split_gff) {
     while (my ($context,$singlec) = each %singlec_contexts) {
         my $merged = "$singlec.merged";
         my $window = catfile($opt_windows_dir, $opt_basename) . ".$chr.w50-$context.gff";
-        $pm->start and next;
-        launch("perl -S compile_gff.pl -v -o $merged $singlec", expected => $merged);
+        launch("perl -S compile_gff.pl -o $merged $singlec", expected => $merged);
         launch("perl -S window_gff.pl -w 50 -s 50 -o $window --no-skip $merged", expected => $window);
-        $pm->finish;
     }
 }
-$pm->wait_all_children;
 
 
 =head1 NAME
@@ -105,10 +101,6 @@ Usage examples:
 
 =item  -b <basename> | --basename <basename>
 
-=item  -t <threads> | --threads <threads>
-
-=for Euclid
-    threads.default:     0
 
 =back
 
