@@ -171,7 +171,8 @@ catch_up( $previous, $unmatched, @splice )
             my %unmatched = ( header => $header, sequence => $sequence );
 
             # if potentially unmatched read is not current bowtie read
-            if ( $unmatched{header} !~ m/$current->{read_id}/ ) {
+            #if ( $unmatched{header} !~ m/$current->{read_id}/ ) { # BUG. why regexp?
+            if ( $unmatched{header} ne $current->{read_id} ) {
 
                 $unmatched{sequence} = substr $unmatched{sequence},
                     ( $splice[0] - 1 ), ( $splice[1] - $splice[0] + 1 )
