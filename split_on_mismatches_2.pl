@@ -39,7 +39,10 @@ while (defined (my $a_record = <$ain>) and
     my ($a_id, $a_strand, $a_mm, $a_rawcoord) = (split /\t/, $a_record)[0..3];
     my ($b_id, $b_strand, $b_mm, $b_rawcoord) = (split /\t/, $b_record)[0..3];
 
-    die "$opt_input_a or $opt_input_b not sorted??" if ($a_id ne $b_id); 
+
+    if ($a_id ne $b_id){
+        die("$opt_input_a ($a_id) or $opt_input_b ($b_id) not sorted??");
+    }
 
     $a_mm = get_score ($a_mm);
     $b_mm = get_score ($b_mm);
@@ -53,8 +56,8 @@ while (defined (my $a_record = <$ain>) and
     elsif (defined $a_mm && defined $b_mm ){
 
         if ($opt_check_coord){
-            if ($a_rawcoord =~ s/.*chr\w:(\d+).*/$1/xmsi &&
-                $b_rawcoord =~ s/.*chr\w:(\d+).*/$1/ixms){
+            if ($a_rawcoord =~ s/.*chr\w+:(\d+).*/$1/xmsi &&
+                $b_rawcoord =~ s/.*chr\w+:(\d+).*/$1/ixms){
 
                 # both mapped somewhere
                 if ($a_rawcoord == $b_rawcoord && $a_strand eq $b_strand){
