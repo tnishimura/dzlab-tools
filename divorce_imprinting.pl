@@ -54,6 +54,9 @@ $logger->info("ecotype A: $opt_ecotype_a");
 $logger->info("ecotype B: $opt_ecotype_b");
 $logger->info("splice: " . join ',', @opt_splice{qw/start end/});
 
+my $nocc = $opt_no_cc ? ".no_coord_check" : "";
+my $nocc_flag = $opt_no_cc ? "" : "--check-coord";
+
 mkdir $opt_output_directory;
 if (! -d $opt_output_directory){
     $logger->logdie("can't create $opt_output_directory");
@@ -146,33 +149,23 @@ $pm->wait_all_children;
 # Split on mismatches
 
 $logger->info("split_on_mismatch.pl");
-my $eland_filtered_a = "$basename_a.3.elfiltered";
-my $eland_filtered_b = "$basename_b.3.elfiltered";
+my $eland_filtered_a = "$basename_a.3.elfiltered$nocc";
+my $eland_filtered_b = "$basename_b.3.elfiltered$nocc";
+my $ratio_file = "$basename.ratio.txt$nocc";
 
-launch("perl -S split_on_mismatches_2.pl -a $eland_a -b $eland_b -oa $eland_filtered_a -ob $eland_filtered_b",
+launch("perl -S split_on_mismatches_2.pl $nocc_flag -a $eland_a -b $eland_b -oa $eland_filtered_a -ob $eland_filtered_b",
     expected => [ $eland_filtered_a, $eland_filtered_b]);
 
-launch("perl -S split_ratio.pl -o $basename.ratio.txt -ea $opt_ecotype_a -eb $opt_ecotype_b -a $eland_filtered_a -b $eland_filtered_b -m $opt_bowtie_mismatches",
-    expected => "$basename.ratio.txt");
-
-if ($opt_check_coord_ratio){
-    my $cc_eland_filtered_a = "$basename_a.3.check_coord.elfiltered";
-    my $cc_eland_filtered_b = "$basename_b.3.check_coord.elfiltered";
-
-    launch("perl -S split_on_mismatches_2.pl --check-coord -a $eland_a -b $eland_b -oa $cc_eland_filtered_a -ob $cc_eland_filtered_b",
-        expected => [ $cc_eland_filtered_a, $cc_eland_filtered_b]);
-
-    launch("perl -S split_ratio.pl -o $basename.ratio.check_coord.txt -ea $opt_ecotype_a -eb $opt_ecotype_b -a $cc_eland_filtered_a -b $cc_eland_filtered_b -m $opt_bowtie_mismatches",
-        expected => "$basename.ratio.check_coord.txt");
-}
+launch("perl -S split_ratio.pl -o $ratio_file -ea $opt_ecotype_a -eb $opt_ecotype_b -a $eland_filtered_a -b $eland_filtered_b -m $opt_bowtie_mismatches",
+    expected => "$ratio_file");
 
 #######################################################################
 # Parse_eland.pl
 
 $logger->info("Parse eland to gff");
 
-my $gff_a = "$basename_a.4.gff";
-my $gff_b = "$basename_b.4.gff";
+my $gff_a = "$basename_a.4.gff$nocc";
+my $gff_b = "$basename_b.4.gff$nocc";
 
 
 if ($pm->start == 0){
@@ -190,8 +183,8 @@ $pm->wait_all_children;
 
 $logger->info("sort the gff's");
 
-my $gff_sorted_a = "$basename_a.5.sorted.gff";
-my $gff_sorted_b = "$basename_b.5.sorted.gff";
+my $gff_sorted_a = "$basename_a.5.sorted.gff$nocc";
+my $gff_sorted_b = "$basename_b.5.sorted.gff$nocc";
 
 if ($pm->start == 0){
     launch("sort -k 1,1 -k 4,4n -k 5,5n -k 7,7 -S 100M $gff_a -o $gff_sorted_a", expected => $gff_sorted_a);
@@ -208,11 +201,11 @@ $pm->wait_all_children;
 
 $logger->info("filter_repeats");
 
-my $gff_filtered_a = "$basename_a.6.filtered.gff";
-my $gff_filtered_b = "$basename_b.6.filtered.gff";
+my $gff_filtered_a = "$basename_a.6.filtered.gff$nocc";
+my $gff_filtered_b = "$basename_b.6.filtered.gff$nocc";
 
-my $gff_repeats_a = "$basename_a.6.repeats.gff";
-my $gff_repeats_b = "$basename_b.6.repeats.gff";
+my $gff_repeats_a = "$basename_a.6.repeats.gff$nocc";
+my $gff_repeats_b = "$basename_b.6.repeats.gff$nocc";
 
 if ($pm->start == 0){
     launch("perl -S filter_repeats.pl $gff_sorted_a -o $gff_filtered_a 2> $gff_repeats_a", expected => $gff_filtered_a);
@@ -229,11 +222,11 @@ $pm->wait_all_children;
 
 $logger->info("filter_repeats");
 
-my $w50_a = "$basename_a.7.win-anno.gff";
-my $w50_b = "$basename_b.7.win-anno.gff";
+my $w50_a = "$basename_a.7.win-anno.gff$nocc";
+my $w50_b = "$basename_b.7.win-anno.gff$nocc";
 
-my $w50_filtered_a = "$basename_a.7.win-anno-filtered.gff";
-my $w50_filtered_b = "$basename_b.7.win-anno-filtered.gff";
+my $w50_filtered_a = "$basename_a.7.win-anno-filtered.gff$nocc";
+my $w50_filtered_b = "$basename_b.7.win-anno-filtered.gff$nocc";
 
 if ($pm->start == 0){
     launch("perl -S window_gff.pl -t $opt_locus_tag $gff_sorted_a -g $opt_annotation -k -c sum -o $w50_a -r", expected => $w50_a);
@@ -247,7 +240,7 @@ if ($pm->start == 0){
 }
 $pm->wait_all_children;
 
-my $table = "$basename.table.txt";
+my $table = "$basename.table.txt$nocc";
 
 launch("perl -S divorce_gene_table.pl -a $opt_annotation -f $w50_a $w50_filtered_a $w50_b $w50_filtered_b -o $table", expected => $table);
 
@@ -355,7 +348,7 @@ Locus tag in the annotation file. Default: ID.
 =for Euclid
     tag.default:     'ID'
 
-=item  -cc | --check-coord-ratio
+=item  --no-cc
 
 Enabling this option will create a second set of filtered eland and resulting
 ratio files with coordinate checking on split_on_mismatches_2.pl enabled.  You
