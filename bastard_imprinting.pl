@@ -30,18 +30,19 @@ my $conf=qq/
 
     log4perl.appender.Print                          = Log::Log4perl::Appender::Screen
     log4perl.appender.Print.layout                   = PatternLayout
-    log4perl.appender.Print.layout.ConversionPattern = %d{HH:mm:ss} %p> %m%n
+    log4perl.appender.Print.layout.ConversionPattern = %d{HH:mm:ss} %.1p> %m%n
 
     log4perl.appender.File                          = Log::Log4perl::Appender::File
     log4perl.appender.File.filename                 = $logname
     log4perl.appender.File.layout                   = PatternLayout
-    log4perl.appender.File.layout.ConversionPattern = %d{HH:mm:ss} %p> (%L) %M - %m%n
+    log4perl.appender.File.layout.ConversionPattern = %d{HH:mm:ss} %.1p> - %m%n
 /;
 Log::Log4perl::init( \$conf );
 
 my $logger = get_logger($opt_debug ? "" : "PipeLine");
 
 my $single_sided = ! scalar %opt_right_splice;
+my $whole_flag = $opt_whole ? '-w' : '';
 
 #################################################################################
 
@@ -176,23 +177,23 @@ my $right_eland_b = "$right_basename_b.1.eland";
 
 
 if ($pm->start == 0){
-    launch("perl -S parse_bowtie.pl -w -u $rawfas -s @opt_left_splice{qw/start end/} $left_bowtie_a -o $left_eland_a",
+    launch("perl -S parse_bowtie.pl $whole_flag -u $rawfas -s @opt_left_splice{qw/start end/} $left_bowtie_a -o $left_eland_a",
         expected => $left_eland_a, force => $opt_force);
     $pm->finish;
 }
 if ($pm->start == 0){
-    launch("perl -S parse_bowtie.pl -w -u $rawfas -s @opt_left_splice{qw/start end/} $left_bowtie_b -o $left_eland_b",
+    launch("perl -S parse_bowtie.pl $whole_flag -u $rawfas -s @opt_left_splice{qw/start end/} $left_bowtie_b -o $left_eland_b",
         expected => $left_eland_b, force => $opt_force);
     $pm->finish;
 }
 if (!$single_sided){
     if ($pm->start == 0){
-        launch("perl -S parse_bowtie.pl -w -u $rawfas -s @opt_right_splice{qw/start end/} $right_bowtie_a -o $right_eland_a",
+        launch("perl -S parse_bowtie.pl $whole_flag -u $rawfas -s @opt_right_splice{qw/start end/} $right_bowtie_a -o $right_eland_a",
             expected => $right_eland_a, force => $opt_force);
         $pm->finish;
     }
     if ($pm->start == 0){
-        launch("perl -S parse_bowtie.pl -w -u $rawfas -s @opt_right_splice{qw/start end/} $right_bowtie_b -o $right_eland_b",
+        launch("perl -S parse_bowtie.pl $whole_flag -u $rawfas -s @opt_right_splice{qw/start end/} $right_bowtie_b -o $right_eland_b",
             expected => $right_eland_b, force => $opt_force);
         $pm->finish;
     }
@@ -431,6 +432,8 @@ Level of forcefulness in doing jobs.  1 = Redo all run-specifics.  2 = Redo bowt
 Enabling this option will create a second set of filtered eland and resulting
 ratio files with coordinate checking on split_on_mismatches_2.pl enabled.  You
 probably don't need this. 
+
+=item  -w | --whole
 
 =item --no-fracmeth
 
