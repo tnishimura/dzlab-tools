@@ -216,6 +216,22 @@ while (<$GFF>) { ### Indexing...
     # "@HWI-EAS105_0001:2:1:1050:9974#0" and read id is "1" for left, "2" for
     # right.  This naming is probably backwards, 
     my ($pair_id, $read_id) = $record{'feature'} =~ m/(^.*?)\/([12]):[ACGTN]+/;
+
+    # T: IF we were every to support reads without a /1 or /2, below would be the code to use... HOWEVER
+    # countMethylation expects /1 or /2 in the field elsewhere (search for /1 or /2 in this script), so be 
+    # careful. -- May 23, 2011
+    # my ($pair_id, $read_id);
+    # if ($record{'feature'} =~ m{(^.*?)/([12]):[ACGTN]+}){
+    #     ($pair_id, $read_id) = ($1,$2);
+    # }
+    # elsif ($record{'feature'} =~ m{(^.*?):[ACGTN]+}){
+    #     $pair_id = $1;
+    #     $read_id = 1;
+    # } 
+    # else {
+    #     die "feature malformed?";
+    # }
+
     my $overlap = 0; # array reference with overlap start coord, end coord
 
     # if matching pair (ie, the read from the other side) has not been seen,
