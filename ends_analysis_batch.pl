@@ -29,13 +29,13 @@ my $conf=qq/
 
     log4perl.appender.Print        = Log::Log4perl::Appender::Screen
     log4perl.appender.Print.layout = PatternLayout
-    log4perl.appender.Print.layout.ConversionPattern = %d{HH:mm:ss} %p> (%L) %M - %m%n
+    log4perl.appender.Print.layout.ConversionPattern = %d{HH:mm:ss} %.1p> - %m%n
 
     log4perl.appender.File          = Log::Log4perl::Appender::File
     log4perl.appender.File.filename = $logname
     log4perl.appender.File.layout   = PatternLayout
     log4perl.appender.File.syswrite = 1
-    log4perl.appender.File.layout.ConversionPattern = %d{HH:mm:ss} %p> (%L) %M - %m%n
+    log4perl.appender.File.layout.ConversionPattern = %d{HH:mm:ss} %.1p> - %m%n
 /;
 Log::Log4perl::init( \$conf );
 my $logger = get_logger();
