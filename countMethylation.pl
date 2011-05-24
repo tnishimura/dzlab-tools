@@ -656,12 +656,16 @@ sub count_freq {
 
         next if ($_ =~ m/^#.*$|^\s*$/);
         my ($context, $attribute) = (split /\t/, $_)[2, -1];
+        
         my ($c, $t) = (split /;/, $attribute);
 
-        my $filter = 1 if $t =~ m/\*$/;
+        #my $filter = 1 if $t =~ m/\*$/;
+        my $filter = 1 if $attribute =~ m/\*$/;
 
-        ($c) = $c =~ m/c=(\d+)/;
-        ($t) = $t =~ m/t=(\d+)/;
+        if ($c =~ m/c=(\d+)/){ $c = $1 } else { $c = 0 }
+        if ($t =~ m/c=(\d+)/){ $t = $1 } else { $t = 0 }
+        #($c) = $c =~ m/c=(\d+)/;
+        #($t) = $t =~ m/t=(\d+)/;
 
         $unfiltered{$context}{c} = 0 unless defined $unfiltered{$context}{c};
         $unfiltered{$context}{t} = 0 unless defined $unfiltered{$context}{t};
