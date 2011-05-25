@@ -70,7 +70,7 @@ sub slurp {
     my @buffer;
     while (defined(my $line = scalar readline $fh)) {
         $line =~ tr/\r\n//d;
-        if ($line =~ /^>(\w+)/){
+        if ($line =~ /^>([^\s]+)/){
             if ($current){
                 $self->set_full($current => join(q{}, @buffer));
                 @buffer = ();
