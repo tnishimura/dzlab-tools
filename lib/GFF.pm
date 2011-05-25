@@ -6,6 +6,7 @@ use feature 'say';
 use Moose;
 use Carp;
 use autodie;    
+use URI::Escape;
 
 has asterisk         => ( is => 'rw', isa => 'Bool', default => 0 );
 # type constraints very slow? removed.
@@ -39,6 +40,14 @@ sub _build_attr_hash{
             $self->asterisk(1);
             $self->attribute_string($attrstr);
         }
+
+        # remove outer most quote pair if it exists.
+        $attrstr =~ s/^"(.*)"$/$1/;
+        
+        # for any remaining quote pair, escape it.
+        $attrstr =~ s/"([^"]+?)"/uri_escape($1)/ge;
+        
+        $attrstr =~ tr/"//d;
         for (split /;/, $attrstr){
             my ($key, $val) = split /=/, $_;
             $key =~ s/^\s+//;
