@@ -35,7 +35,7 @@ sub slurp_fasta {
     my @buffer;
     while (defined(my $line = <$fh>)) {
         $line =~ tr/\r\n//d;
-        if ($line =~ /^>(\w+)/){
+        if ($line =~ /^>([\w\.]+)/){
             if ($current){
                 $accum{$current} = join q{}, @buffer;
                 @buffer = ();
