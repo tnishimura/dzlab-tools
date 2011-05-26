@@ -216,7 +216,8 @@ for my $context (0 .. @contexts - 1) {
         run_cmd ("perl -S split_gff.pl --feature all $files{freq}->{$group}") 
 		unless file_exists($files{cont}->[$context]{$group});
         unless ($no_windowing){
-            run_cmd ("perl -S window_gff.pl $files{cont}->[$context]{$group} --width 1 --step 1 --output $files{cont}->[$context]{$group}.merged") 
+            #run_cmd ("perl -S window_gff.pl $files{cont}->[$context]{$group} --width 1 --step 1 --output $files{cont}->[$context]{$group}.merged") 
+            run_cmd ("perl -S compile_gff.pl -o $files{cont}->[$context]{$group}.merged $files{cont}->[$context]{$group}") 
             unless file_exists("$files{cont}->[$context]{$group}.merged");
             run_cmd ("perl -S window_gff.pl $files{cont}->[$context]{$group}.merged --width $window_size --step $window_size --output $files{wcont}->[$context]{$group} --no-skip") 
             unless file_exists($files{wcont}->[$context]{$group});
