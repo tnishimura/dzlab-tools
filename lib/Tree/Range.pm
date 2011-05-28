@@ -184,12 +184,12 @@ sub finalize{
     $self->root($current_level[0]);
 }
 
-sub dump{
+sub _dump{
     my $self = shift;
-    _dump($self->root);
+    _dump_helper($self->root);
 }
 
-sub _dump{
+sub _dump_helper{
     my ($node,$level) = @_;
     $level //= 0;
 
@@ -198,8 +198,8 @@ sub _dump{
     }
     else{
         printf("%s%d => %d\n", " " x $level, $node->start, $node->end);
-        _dump($node->left, $level+1);
-        _dump($node->right, $level+1);
+        _dump_helper($node->left, $level+1);
+        _dump_helper($node->right, $level+1);
     }
 }
 
@@ -271,26 +271,29 @@ Perhaps a little code snippet.
     my $foo = Tree::Range->new();
     ...
 
-=head1 EXPORT
-
-A list of functions that can be exported.  You can delete this section
-if you don't export anything, such as for a purely object-oriented module.
-
 =head1 SUBROUTINES/METHODS
 
-=head2 function1
+=head2 add $start, $end, $item
 
-=cut
+Add an $item on range [$start, $end]. Note that you must finalize() before searching.
 
-sub function1 {
-}
+=head2 finalize
 
-=head2 function2
+Lock the tree from further add()-ing and build the tree internally. 
 
-=cut
+=head2 search $start, $end
 
-sub function2 {
-}
+ $tr->search_overlap($start, $end)
+
+Returns a list of $item's that you added with add().
+
+=head2 search_overlap $start, $end
+
+ $tr->search_overlap($start, $end)
+
+Returns:
+ 
+ { item => $item, overlap => $size_of_query_overlapped }
 
 =head1 AUTHOR
 
