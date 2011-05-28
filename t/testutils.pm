@@ -12,7 +12,7 @@ use List::Util qw/min max/;
 require Exporter;
 our @ISA = qw(Exporter);
 our @EXPORT_OK = qw();
-our @EXPORT = qw(overlap sort_results tree_range_from_lib gen_rand_library search_linear randrange);
+our @EXPORT = qw(overlap sort_results gen_rand_tree search_linear randrange);
 
 my $max = 100000;
 my $N   =   1000;
@@ -25,44 +25,18 @@ sub randrange{
     return ($start, $start + randlen());
 }
 
-sub gen_rand_library{
+sub gen_rand_tree{
     my $num = shift // $N;
-    my @accum;
+    my $sr = Tree::Range->new();
     for (1..$num){
         my ($start, $end) = randrange();
         my $label = "$start -> $end";
-        push @accum, [$start,$end, $label];
-    }
-    return \@accum;
-}
-
-sub search_linear{
-    my ($library, $start, $end) = @_;
-    my $query = [$start, $end];
-    my @results;
-
-    for my $range (@$library) {
-        if (my $cover = overlap($range, $query)){
-            push @results, {
-                overlap => $cover,
-                item => $range->[2],
-            };
-        }
-    }
-    return @results;
-}
-
-sub tree_range_from_lib{
-    my $lib = shift;
-
-    my $sr = Tree::Range->new();
-
-    for my $range (@$lib) {
-        $sr->add(@$range);
+        $sr->add( $start,$end, $label);
     }
     $sr->finalize();
     return $sr;
 }
+
 
 sub sort_results{
     return [sort {$a->{item} cmp $b->{item}} @_];

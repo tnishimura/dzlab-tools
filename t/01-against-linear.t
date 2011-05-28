@@ -14,11 +14,10 @@ use testutils;
 for (1..10){
     my @range = randrange();
 
-    my $lib = gen_rand_library();
-    my $sr = tree_range_from_lib($lib);
+    my $sr = gen_rand_tree();
 
     my $binary_results = sort_results($sr->search_overlap(@range));
-    my $linear_results = sort_results(search_linear($lib, @range));
+    my $linear_results = sort_results($sr->_linear_search_overlap(@range));
 
     #say Dumper $binary_results;
     #say Dumper $linear_results;
@@ -27,12 +26,6 @@ for (1..10){
         say "=========== Found a bug =============="; 
 
         say "===search range @range";
-        say "===original library:";
-        for my $r (@$lib) {
-            my $start = min($r->[0], $r->[1]);
-            my $end   = max($r->[0], $r->[1]);
-            say "$start\t=>\t$end";
-        }
         say "===\$sr->dump:";
         $sr->dump;
         say "===linear:";

@@ -35,6 +35,17 @@ sub finalize{
         $self->get_tree($g)->finalize();
     }
 }
+sub _linear_search_overlap{
+    my ($self, $tree_name, $start, $end) = @_;
+
+    if ($self->has_tree($tree_name)){
+        return $self->get_tree($tree_name)->_linear_search_overlap($start,$end);
+    }
+    else{
+        carp "search_overlap called on non-existant group $tree_name";
+        return;
+    }
+}
 sub search_overlap{
     my ($self, $tree_name, $start, $end) = @_;
 

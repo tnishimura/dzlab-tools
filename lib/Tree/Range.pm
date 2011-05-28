@@ -229,14 +229,23 @@ sub _search_overlap{
     }
 }
 
+# for debugging/benchmarking purposes
+sub _linear_search_overlap{
+    my ($self, $start, $end) = @_;
+
+    my @accum;
+    for my $l ($self->get_leaves()) {
+        if (my $o = $l->overlap($start,$end)){
+            push @accum, {item => $l->item, overlap => $o};
+        }
+    }
+    return @accum;
+}
+
 no Moose;
 __PACKAGE__->meta->make_immutable;
 
 1;
-
-
-
-
 
 =head1 NAME
 
