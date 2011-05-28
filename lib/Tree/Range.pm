@@ -152,13 +152,24 @@ has root => (
     is => 'rw',
 );
 
+has finalized => (
+    is => 'rw',
+    default => 0,
+);
+
 sub add{
     my ($self,$start,$end,$item) = @_;
+    if ($self->finalized()){
+        croak "Cannot add after finalize()-ing";
+    }
     $self->add_leaf(Tree::Range::Leaf->new($start,$end, $item));
 }
 
 sub finalize{
     my $self = shift;
+    if ($self->finalized()){
+        carp "Finalized twice?";
+    }
 
     # flip around the sorting every time so that when there is an odd number of items like 2**N + 1, 
     # that last item is included at a deeper level.
@@ -181,6 +192,7 @@ sub finalize{
         @current_level = @next_level;
     }
 
+    $self->finalized(1);
     $self->root($current_level[0]);
 }
 
@@ -205,10 +217,16 @@ sub _dump_helper{
 
 sub search{
     my ($self, $start, $end) = @_;
+    if (!$self->finalized()){
+        croak "Cannot search until finalized";
+    }
     return map {$_->{item}} $self->search_overlap($start,$end);
 }
 sub search_overlap{
     my ($self, $start, $end) = @_;
+    if (!$self->finalized()){
+        croak "Cannot search_overlap until finalized";
+    }
 
     my @accum = ();
     _search_overlap($self->root, $start, $end, \@accum);
@@ -249,7 +267,7 @@ __PACKAGE__->meta->make_immutable;
 
 =head1 NAME
 
-Tree::Range - The great new Tree::Range!
+Tree::Range - A binary search tree for ranges.
 
 =head1 VERSION
 
@@ -259,17 +277,20 @@ Version 0.01
 
 our $VERSION = '0.01';
 
-
 =head1 SYNOPSIS
 
-Quick summary of what the module does.
+ use Tree::Range;
 
-Perhaps a little code snippet.
+ my $tr = Tree::Range->new();
+ 
+ $tr->add(10,20,"a");
+ $tr->add(15,25,"b");
+ $tr->add(50,67,"c");
+ $tr->add(22,49,"d");
 
-    use Tree::Range;
+ $tr->finalize();
 
-    my $foo = Tree::Range->new();
-    ...
+ $tr->search(19,23);
 
 =head1 SUBROUTINES/METHODS
 
@@ -283,7 +304,7 @@ Lock the tree from further add()-ing and build the tree internally.
 
 =head2 search $start, $end
 
- $tr->search_overlap($start, $end)
+ $tr->search($start, $end)
 
 Returns a list of $item's that you added with add().
 
@@ -295,9 +316,23 @@ Returns:
  
  { item => $item, overlap => $size_of_query_overlapped }
 
+=head1 DEPENDENCIES
+
+=over 
+
+=item *
+
+Moose
+
+=item *
+
+List::Util
+
+=back
+
 =head1 AUTHOR
 
-<Author>, C<< <<email at localhost>> >>
+Tom Burns, C<< <tom@burns.org> >>
 
 =head1 BUGS
 
@@ -317,11 +352,31 @@ You can also look for information at:
 
 Copyright 2011 <Author>.
 
-This program is free software; you can redistribute it and/or modify it
-under the terms of either: the GNU General Public License as published
-by the Free Software Foundation; or the Artistic License.
+This module is free software; you can redistribute it and/or
+modify it under the same terms as Perl itself.
 
-See http://dev.perl.org/licenses/ for more information.
+=head1 DISCLAIMER OF WARRANTY
+
+BECAUSE THIS SOFTWARE IS LICENSED FREE OF CHARGE, THERE IS NO WARRANTY
+FOR THE SOFTWARE, TO THE EXTENT PERMITTED BY APPLICABLE LAW. EXCEPT WHEN
+OTHERWISE STATED IN WRITING THE COPYRIGHT HOLDERS AND/OR OTHER PARTIES
+PROVIDE THE SOFTWARE "AS IS" WITHOUT WARRANTY OF ANY KIND, EITHER
+EXPRESSED OR IMPLIED, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE. THE
+ENTIRE RISK AS TO THE QUALITY AND PERFORMANCE OF THE SOFTWARE IS WITH
+YOU. SHOULD THE SOFTWARE PROVE DEFECTIVE, YOU ASSUME THE COST OF ALL
+NECESSARY SERVICING, REPAIR, OR CORRECTION.
+
+IN NO EVENT UNLESS REQUIRED BY APPLICABLE LAW OR AGREED TO IN WRITING
+WILL ANY COPYRIGHT HOLDER, OR ANY OTHER PARTY WHO MAY MODIFY AND/OR
+REDISTRIBUTE THE SOFTWARE AS PERMITTED BY THE ABOVE LICENCE, BE
+LIABLE TO YOU FOR DAMAGES, INCLUDING ANY GENERAL, SPECIAL, INCIDENTAL,
+OR CONSEQUENTIAL DAMAGES ARISING OUT OF THE USE OR INABILITY TO USE
+THE SOFTWARE (INCLUDING BUT NOT LIMITED TO LOSS OF DATA OR DATA BEING
+RENDERED INACCURATE OR LOSSES SUSTAINED BY YOU OR THIRD PARTIES OR A
+FAILURE OF THE SOFTWARE TO OPERATE WITH ANY OTHER SOFTWARE), EVEN IF
+SUCH HOLDER OR OTHER PARTY HAS BEEN ADVISED OF THE POSSIBILITY OF
+SUCH DAMAGES.
 
 =cut
 
