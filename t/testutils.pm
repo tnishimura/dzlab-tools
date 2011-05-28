@@ -12,18 +12,24 @@ use List::Util qw/min max/;
 require Exporter;
 our @ISA = qw(Exporter);
 our @EXPORT_OK = qw();
-our @EXPORT = qw(_range_overlap sort_results tree_range_from_lib gen_rand_library search_linear randcoord);
+our @EXPORT = qw(overlap sort_results tree_range_from_lib gen_rand_library search_linear randrange);
 
-my $max = 10000;
-my $N = 5000;
+my $max = 100000;
+my $N   =   1000;
 
-sub randcoord{ return int(rand($max))-$max/2; }
+sub randcoord{ return int(rand($max))-int($max/2); }
+sub randlen{ return int(rand($max/100)) }
+
+sub randrange{
+    my $start = randcoord();
+    return ($start, $start + randlen());
+}
 
 sub gen_rand_library{
+    my $num = shift // $N;
     my @accum;
-    for (1..$N){
-        my $start = randcoord();
-        my $end = randcoord();
+    for (1..$num){
+        my ($start, $end) = randrange();
         my $label = "$start -> $end";
         push @accum, [$start,$end, $label];
     }
@@ -36,7 +42,7 @@ sub search_linear{
     my @results;
 
     for my $range (@$library) {
-        if (my $cover = _range_overlap($range, $query)){
+        if (my $cover = overlap($range, $query)){
             push @results, {
                 overlap => $cover,
                 item => $range->[2],
@@ -63,7 +69,7 @@ sub sort_results{
 }
 
 # utility. return number of units overlapped but $x, $y. 
-sub _range_overlap{
+sub overlap{
     my ($x,$y) = @_;
     my $start1 = min($x->[0], $x->[1]);
     my $end1   = max($x->[0], $x->[1]);

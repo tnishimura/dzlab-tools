@@ -11,10 +11,8 @@ use FindBin;
 use lib "$FindBin::Bin";
 use testutils;
 
-
-
 for (1..10){
-    my @range = (randcoord,randcoord);
+    my @range = randrange();
 
     my $lib = gen_rand_library();
     my $sr = tree_range_from_lib($lib);
@@ -27,7 +25,6 @@ for (1..10){
 
     if (!is_deeply($binary_results, $linear_results,"search_indices $_")){
         say "=========== Found a bug =============="; 
-
 
         say "===search range @range";
         say "===original library:";
