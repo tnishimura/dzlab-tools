@@ -41,8 +41,7 @@ use List::Util qw/min max/;
 
 around BUILDARGS => sub{
     my ($orig, $class, $start, $end, $item) = @_;
-    $start = min($start,$end);
-    $end   = max($start,$end);
+    ($start,$end) = (min($start,$end), max($start,$end));
     return $class->$orig(start => $start, end => $end, item => $item, midpoint => ($start + $end)/2);
 };
 
@@ -221,7 +220,7 @@ sub _search_overlap{
 
     if (my $o = $node->overlap($start,$end)){
         if ($node->is_leaf){
-            push @$accum, {item => $node->to_string, overlap => $o};
+            push @$accum, {item => $node->item, overlap => $o};
         }
         else{
             _search_overlap($node->left, $start, $end, $accum);
@@ -229,20 +228,6 @@ sub _search_overlap{
         }
     }
 }
-
-#sub _search_overlap{
-#    my ($node, $start, $end) = @_;
-#
-#    if (my $o = $node->overlap($start,$end)){
-#        if ($node->is_leaf){
-#            say $node->to_string;
-#        }
-#        else{
-#            _search_overlap($node->left, $start, $end);
-#            _search_overlap($node->right, $start, $end);
-#        }
-#    }
-#}
 
 no Moose;
 __PACKAGE__->meta->make_immutable;
