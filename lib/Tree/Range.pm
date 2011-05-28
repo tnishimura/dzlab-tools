@@ -217,22 +217,39 @@ sub _dump_helper{
 
 sub search{
     my ($self, $start, $end) = @_;
+
     if (!$self->finalized()){
         croak "Cannot search until finalized";
     }
+
+    if (!defined $start){
+        croak "search needs at least a start";
+    }
+    $end //= $start; # allow querying for a single point
+
     return map {$_->{item}} $self->search_overlap($start,$end);
 }
+
 sub search_overlap{
     my ($self, $start, $end) = @_;
+
     if (!$self->finalized()){
         croak "Cannot search_overlap until finalized";
     }
+
+    if (!defined $start && !defined $end){
+        croak "search_overlap needs a range...";
+    }
+    # don't allow for single point here b/c there's no point... single point
+    # will always be full overlap
+    
 
     my @accum = ();
     _search_overlap($self->root, $start, $end, \@accum);
 
     return @accum;
 }
+
 sub _search_overlap{
     my ($node, $start, $end, $accum) = @_;
 
