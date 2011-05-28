@@ -5,8 +5,26 @@ package Tree::Range::Node;
 use strict;
 use warnings;
 use Moose::Role;
+use List::Util qw/min max/;
 
-requires qw/start end midpoint/;
+# utility. return number of units overlapped but $x, $y. 
+sub overlap{
+    my ($self,$x,$y) = @_;
+    my $start1 = $self->start;
+    my $end1   = $self->end;
+
+    my $start2 = min($x,$y);
+    my $end2   = max($x,$y);
+
+    if ($end1 >= $start2 && $end2 >= $start1){
+        return min($end1, $end2) - max($start1, $start2)  + 1;
+    }
+    else {
+        return 0;
+    }
+}
+
+requires qw/start end midpoint is_leaf/;
 
 #######################################################################
 # Leaf Class
@@ -33,6 +51,7 @@ has end => ( is => 'ro', required => 1);
 has item => ( is => 'ro', required => 1);
 has midpoint => (is => 'ro', isa => 'Num', required => 1);
 
+has is_leaf => (is => 'ro', default => 1);
 
 sub to_string{
     my $self = shift;
@@ -80,6 +99,8 @@ has end => (
     isa => 'Num',
 );
 
+has is_leaf => (is => 'ro', default => 0);
+
 has midpoint => (is => 'ro', lazy_build => 1, isa => 'Num');
 
 sub _build_start{
@@ -114,6 +135,7 @@ use feature 'say';
 use Moose;
 use Carp;
 use autodie;    
+use List::Util qw/min max/;
 
 has leaves => (
     traits  => ['Array'],
@@ -182,6 +204,46 @@ sub _dump{
     }
 }
 
+sub search{
+    my ($self, $start, $end) = @_;
+    return map {$_->{item}} $self->search_overlap($start,$end);
+}
+sub search_overlap{
+    my ($self, $start, $end) = @_;
+
+    my @accum = ();
+    _search_overlap($self->root, $start, $end, \@accum);
+
+    return @accum;
+}
+sub _search_overlap{
+    my ($node, $start, $end, $accum) = @_;
+
+    if (my $o = $node->overlap($start,$end)){
+        if ($node->is_leaf){
+            push @$accum, {item => $node->to_string, overlap => $o};
+        }
+        else{
+            _search_overlap($node->left, $start, $end, $accum);
+            _search_overlap($node->right, $start, $end, $accum);
+        }
+    }
+}
+
+#sub _search_overlap{
+#    my ($node, $start, $end) = @_;
+#
+#    if (my $o = $node->overlap($start,$end)){
+#        if ($node->is_leaf){
+#            say $node->to_string;
+#        }
+#        else{
+#            _search_overlap($node->left, $start, $end);
+#            _search_overlap($node->right, $start, $end);
+#        }
+#    }
+#}
+
 no Moose;
 __PACKAGE__->meta->make_immutable;
 
@@ -246,41 +308,13 @@ Please report any bugs or feature requests to C<bug-tree-range at rt.cpan.org>, 
 the web interface at L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=Tree-Range>.  I will be notified, and then you'll
 automatically be notified of progress on your bug as I make changes.
 
-
-
-
 =head1 SUPPORT
 
 You can find documentation for this module with the perldoc command.
 
     perldoc Tree::Range
 
-
 You can also look for information at:
-
-=over 4
-
-=item * RT: CPAN's request tracker (report bugs here)
-
-L<http://rt.cpan.org/NoAuth/Bugs.html?Dist=Tree-Range>
-
-=item * AnnoCPAN: Annotated CPAN documentation
-
-L<http://annocpan.org/dist/Tree-Range>
-
-=item * CPAN Ratings
-
-L<http://cpanratings.perl.org/d/Tree-Range>
-
-=item * Search CPAN
-
-L<http://search.cpan.org/dist/Tree-Range/>
-
-=back
-
-
-=head1 ACKNOWLEDGEMENTS
-
 
 =head1 LICENSE AND COPYRIGHT
 
@@ -291,7 +325,6 @@ under the terms of either: the GNU General Public License as published
 by the Free Software Foundation; or the Artistic License.
 
 See http://dev.perl.org/licenses/ for more information.
-
 
 =cut
 
