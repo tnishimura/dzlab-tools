@@ -243,7 +243,6 @@ sub search_overlap{
     # don't allow for single point here b/c there's no point... single point
     # will always be full overlap
     
-
     my @accum = ();
     _search_overlap($self->root, $start, $end, \@accum);
 
@@ -309,29 +308,63 @@ our $VERSION = '0.01';
 
  $tr->search(19,23);
 
+=head1 DESCRIPTION
+
+Tree::Range implements a binary tree for ranges.  Given a list of ranges [x,y]
+and associated items, it allows searching for all ranges which overlap with a
+query range.  
+
+The tree is constructed by sorting the leaf ranges by midpoints, joining
+adjacent leaves into new nodes with a range just big enough to encompass both,
+and repeating.  The idea is that each node fully covers any descendant nodes.
+
+Search is done depth-first, only traversing nodes that overlap (at least
+partially with the query range.
+
+                                |---------------------------------------|
+ |-----------------|                   |----------|           |-------|
+             |-----------------| |-------|                         
+
+         |            |              |      |       |             |
+         +------------+              +------+       +-------------+
+               |                        |                  |
+               |                        +------------------+
+               |                                 |
+               +---------------------------------+
+                                |
+
 =head1 SUBROUTINES/METHODS
 
-=head2 add $start, $end, $item
+=head2 add 
+
+ $tr->add($start, $end, $item);
 
 Add an $item on range [$start, $end]. Note that you must finalize() before searching.
 
 =head2 finalize
 
+ $tr->finalize()
+
 Lock the tree from further add()-ing and build the tree internally. 
 
-=head2 search $start, $end
+=head2 search 
 
  $tr->search($start, $end)
+ $tr->search($point)
 
-Returns a list of $item's that you added with add().
+Returns a list of $item's that you added with add(). Need to finalize() before calling.
 
-=head2 search_overlap $start, $end
+=head2 search_overlap
 
  $tr->search_overlap($start, $end)
 
-Returns:
- 
- { item => $item, overlap => $size_of_query_overlapped }
+Returns a list of hashrefs, each with two keys: 'item', pointing to the
+original objected added with add(), and 'overlap', which is the size of the
+query overlapped by the result.  (For example, if [$start,$end] is [10,20] and
+the tree has the range [19,21], overlap will be 2 (at 19 and 20)).  Need to
+finalize() before calling.
+
+ [{ item => $item, overlap => $size_of_query_overlapped }, ...]
 
 =head1 DEPENDENCIES
 
@@ -341,10 +374,6 @@ Returns:
 
 Moose
 
-=item *
-
-List::Util
-
 =back
 
 =head1 AUTHOR
@@ -353,9 +382,7 @@ Tom Burns, C<< <tom@burns.org> >>
 
 =head1 BUGS
 
-Please report any bugs or feature requests to C<bug-tree-range at rt.cpan.org>, or through
-the web interface at L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=Tree-Range>.  I will be notified, and then you'll
-automatically be notified of progress on your bug as I make changes.
+Probably...
 
 =head1 SUPPORT
 
