@@ -10,9 +10,8 @@ my $builder = Module::Build->new(
     dist_version_from   => 'lib/Tree/Range.pm',
     build_requires => {
         'Test::More' => 0,
-    },
-    requires => {
-        'perl' => 5.006,
+        'perl' => 5.010,
+        'Moose' => 0,
     },
     add_to_cleanup      => [ 'Tree-Range-*' ],
     create_makefile_pl => 'traditional',

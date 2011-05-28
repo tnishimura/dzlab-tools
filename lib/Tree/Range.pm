@@ -6,6 +6,7 @@ use strict;
 use warnings;
 use Moose::Role;
 use List::Util qw/min max/;
+use 5.010;
 
 # utility. return number of units overlapped but $x, $y. 
 sub overlap{
@@ -38,6 +39,7 @@ use Moose;
 use Carp;
 use autodie;    
 use List::Util qw/min max/;
+use 5.010;
 
 around BUILDARGS => sub{
     my ($orig, $class, $start, $end, $item) = @_;
@@ -76,6 +78,7 @@ use Moose;
 use Carp;
 use autodie;    
 use List::Util qw/min max/;
+use 5.010;
 
 has left => (
     is => 'ro',
@@ -135,6 +138,7 @@ use Moose;
 use Carp;
 use autodie;    
 use List::Util qw/min max/;
+use 5.010;
 
 has leaves => (
     traits  => ['Array'],
@@ -321,7 +325,7 @@ and repeating.  The idea is that each node fully covers any descendant nodes.
 Search is done depth-first, only traversing nodes that overlap (at least
 partially with the query range.
 
-                                |---------------------------------------|
+                                        |-----------------------|
  |-----------------|                   |----------|           |-------|
              |-----------------| |-------|                         
 
@@ -332,6 +336,14 @@ partially with the query range.
                |                                 |
                +---------------------------------+
                                 |
+
+Performance note: when there are no overlaps between the ranges, this data
+structure provides O(log n) search time.  As the number of overlaps increase
+and as the ranges clump closer together, performance 
+degrades to O(N).  
+
+Also note: this module currently assumes that the coordindates are integers,
+and the width of a singleton interval [$n, $n] is 1, not 0.
 
 =head1 SUBROUTINES/METHODS
 
