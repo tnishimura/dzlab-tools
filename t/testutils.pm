@@ -3,7 +3,6 @@ use version; our $VERSION = qv('0.0.1');
 use strict;
 use warnings;
 use Data::Dumper;
-use feature 'say';
 use Carp;
 use autodie;
 use Tree::Range;

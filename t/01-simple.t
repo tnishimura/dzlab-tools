@@ -2,7 +2,6 @@
 use strict;
 use warnings;
 use Data::Dumper;
-use feature 'say';
 use autodie;
 use Tree::Range;
 use Test::More qw(no_plan);

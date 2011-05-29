@@ -2,7 +2,6 @@
 use strict;
 use warnings;
 use Data::Dumper;
-use feature 'say';
 use autodie;
 use Test::More tests => 10;
 use Tree::Range;
@@ -19,19 +18,16 @@ for (1..10){
     my $binary_results = sort_results($sr->search_overlap(@range));
     my $linear_results = sort_results($sr->_linear_search_overlap(@range));
 
-    #say Dumper $binary_results;
-    #say Dumper $linear_results;
-
     if (!is_deeply($binary_results, $linear_results,"search_indices $_")){
-        say "=========== Found a bug =============="; 
+        print "=========== Found a bug ==============\n"; 
 
-        say "===search range @range";
-        say "===\$sr->dump:";
+        print "===search range @range\n";
+        print "===\$sr->dump:\n";
         $sr->dump;
-        say "===linear:";
-        say Dumper $linear_results;
-        say "===binary:";
-        say Dumper $binary_results;
+        print "===linear:\n";
+        print Dumper $linear_results;
+        print "===binary:\n";
+        print Dumper $binary_results;
         die "ERROR";
     }
 }
