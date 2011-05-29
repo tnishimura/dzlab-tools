@@ -7,16 +7,54 @@ use autodie;
 use Tree::Range;
 use Test::More qw(no_plan);
 use List::Util qw/first/;
+use FindBin;
+use lib "$FindBin::Bin";
+use testutils;
 
-my $tr = Tree::Range->new();
+my $datatr = Tree::Range->new();
 while (<DATA>){
     chomp;
-    $tr->add(split /\t/);
+    $datatr->add(split /\t/);
 }
-$tr->finalize();
+$datatr->finalize();
 
-is(($tr->search(87000))[0],'AT1G01200');
+is(($datatr->search(87000))[0],'AT1G01200', "simple point test");
 
+is(($datatr->search(87000.1))[0],'AT1G01200', "non-integer point test");
+
+ok(!scalar($datatr->search(-1000)), "non-existent");
+
+is_deeply(
+    sort_results($datatr->search_overlap(180000,200000)),    
+    sort_results(
+        { overlap => (182358-180059+1), item => 'AT1G01490' },
+        { overlap => (186923-185133+1), item => 'AT1G01500' },
+        { overlap => (190056-187211+1), item => 'AT1G01510' },
+        { overlap => (192139-190596+1), item => 'AT1G01520' },
+        { overlap => (193670-192640+1), item => 'AT1G01530' },
+        { overlap => (198684-195780+1), item => 'AT1G01540' },
+        { overlap => (200000-199639+1), item => 'AT1G01550' },
+    ),
+    "deep test"
+);
+
+{
+    my $tr = Tree::Range->new();
+    eval { $tr->search(123,456) };
+    ok(defined $@, "croaks when searched on empty/before finalization");
+}
+
+{
+    my $tr = Tree::Range->new();
+    $tr->add(100,150, "foo");
+    eval { $tr->search(123,456) };
+    ok(defined $@, "croaks when searched before finalize");
+}
+
+
+# the real-life test data below are the gene locations for chromosome 1 
+# of arabidopsis thaliana, a plant used in genetics/genomcis.  Grabbed from
+# arabidopsis.org
 __DATA__
 3631	5899	AT1G01010
 6790	8737	AT1G01020

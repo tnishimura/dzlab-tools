@@ -38,12 +38,22 @@ use feature 'say';
 use Moose;
 use Carp;
 use autodie;    
+use Scalar::Util qw/looks_like_number/;
 use List::Util qw/min max/;
 use 5.010;
 
 around BUILDARGS => sub{
     my ($orig, $class, $start, $end, $item) = @_;
+    if (!(defined $start && defined $end && defined $item && 
+            looks_like_number($start) && looks_like_number($end))){
+        croak "argument error in add()";
+    }
+    # round to integers
+    $start = int($start+.5);
+    $end = int($end+.5);
+
     ($start,$end) = (min($start,$end), max($start,$end));
+
     return $class->$orig(start => $start, end => $end, item => $item, midpoint => ($start + $end)/2);
 };
 
@@ -351,13 +361,15 @@ and the width of a singleton interval [$n, $n] is 1, not 0.
 
  $tr->add($start, $end, $item);
 
-Add an $item on range [$start, $end]. Note that you must finalize() before searching.
+Add an $item on range [$start, $end]. $start and $end are rounded to the nearest integers.
+Note that you must finalize() before searching.
 
 =head2 finalize
 
  $tr->finalize()
 
-Lock the tree from further add()-ing and build the tree internally. 
+Lock the tree from further add()-ing and build the tree internally. (TODO:
+build tree incrementally instead).
 
 =head2 search 
 
