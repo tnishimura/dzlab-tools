@@ -1,0 +1,33 @@
+Tree::Range
+
+Tree::Range implements a binary tree for ranges.  Given a list of ranges [x,y]
+and associated items, it allows searching for all ranges which overlap with a
+query range.  
+
+INSTALLATION
+
+To install this module, run the following commands:
+
+	perl Build.PL
+	./Build
+	./Build test
+	./Build install
+
+SUPPORT AND DOCUMENTATION
+
+After installing, you can find documentation for this module with the
+perldoc command.
+
+    perldoc Tree::Range
+
+DEPENDENCIES
+
+Moose
+List::Util
+
+LICENSE AND COPYRIGHT
+
+Copyright (C) 2011 <Author>
+
+This library is free software; you can redistribute it and/or modify
+it under the same terms as Perl itself.
