@@ -9,12 +9,13 @@ my $builder = Module::Build->new(
     dist_author         => q{<Author> <<email@localhost>>},
     dist_version_from   => 'lib/Tree/Range.pm',
     build_requires => {
+        'List::Util' => 0,
         'Test::More' => 0,
         'perl' => 5.010,
         'Moose' => 0,
     },
     add_to_cleanup      => [ 'Tree-Range-*' ],
-    create_makefile_pl => 'traditional',
+    create_makefile_pl => 'small',
 );
 
 $builder->create_build_script();
