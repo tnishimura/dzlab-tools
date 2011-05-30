@@ -1,140 +1,4 @@
 #######################################################################
-# Node Role
-
-package Tree::Range::Node;
-use strict;
-use warnings;
-use Moose::Role;
-use List::Util qw/min max/;
-use 5.010;
-
-# utility. return number of units overlapped but $x, $y. 
-sub overlap{
-    my ($self,$x,$y) = @_;
-    my $start1 = $self->start;
-    my $end1   = $self->end;
-
-    my $start2 = min($x,$y);
-    my $end2   = max($x,$y);
-
-    if ($end1 >= $start2 && $end2 >= $start1){
-        return min($end1, $end2) - max($start1, $start2)  + 1;
-    }
-    else {
-        return 0;
-    }
-}
-
-requires qw/start end midpoint is_leaf/;
-
-#######################################################################
-# Leaf Class
-
-package Tree::Range::Leaf;
-use strict;
-use warnings;
-use Data::Dumper;
-use Moose;
-use Carp;
-use autodie;    
-use Scalar::Util qw/looks_like_number/;
-use List::Util qw/min max/;
-use 5.010;
-
-around BUILDARGS => sub{
-    my ($orig, $class, $start, $end, $item) = @_;
-    if (!(defined $start && defined $end && defined $item && 
-            looks_like_number($start) && looks_like_number($end))){
-        croak "argument error in add()";
-    }
-    # round to integers
-    $start = int($start+.5);
-    $end = int($end+.5);
-
-    ($start,$end) = (min($start,$end), max($start,$end));
-
-    return $class->$orig(start => $start, end => $end, item => $item, midpoint => ($start + $end)/2);
-};
-
-has start => ( is => 'ro', required => 1);
-has end => ( is => 'ro', required => 1);
-has item => ( is => 'ro', required => 1);
-has midpoint => (is => 'ro', isa => 'Num', required => 1);
-
-has is_leaf => (is => 'ro', default => 1);
-
-sub to_string{
-    my $self = shift;
-    return sprintf("%s => %s (%s)", $self->start, $self->end, $self->item);
-}
-
-with 'Tree::Range::Node';
-
-no Moose;
-__PACKAGE__->meta->make_immutable;
-
-1;
-
-#######################################################################
-# Internal Node Class
-
-package Tree::Range::Internal;
-use strict;
-use warnings;
-use Data::Dumper;
-use Moose;
-use Carp;
-use autodie;    
-use List::Util qw/min max/;
-use 5.010;
-
-has left => (
-    is => 'ro',
-    isa => 'Tree::Range::Node',
-    required => 1,
-);
-has right => (
-    is => 'ro',
-    isa => 'Tree::Range::Node',
-    required => 1,
-);
-has start => (
-    is => 'ro',
-    lazy_build => 1,
-    isa => 'Num',
-);
-has end => (
-    is => 'ro',
-    lazy_build => 1,
-    isa => 'Num',
-);
-
-has is_leaf => (is => 'ro', default => 0);
-
-has midpoint => (is => 'ro', lazy_build => 1, isa => 'Num');
-
-sub _build_start{
-    my $self = shift;
-    return min($self->left->start, $self->right->start);
-}
-sub _build_end{
-    my $self = shift;
-    return max($self->left->end, $self->right->end);
-}
-
-sub _build_midpoint{
-    my $self = shift;
-    return ($self->start + $self->end)/2;
-}
-
-with 'Tree::Range::Node';
-
-no Moose;
-__PACKAGE__->meta->make_immutable;
-
-1;
-
-#######################################################################
 # Tree
 
 package Tree::Range;
@@ -145,12 +9,18 @@ use Moose;
 use Carp;
 use autodie;    
 use List::Util qw/min max/;
+use Scalar::Util qw/looks_like_number/;
 use 5.010;
+
+# Internals
+# Leaf: [start, end, midpoint, 1, item]
+# Internal Node: [start, end, midpoint, 0, left, right]
+# The constructors should guarantee that start < end;
 
 has leaves => (
     traits  => ['Array'],
     is      => 'ro',
-    isa     => 'ArrayRef[Tree::Range::Node]',
+    isa     => 'ArrayRef[Item]',
     default => sub { [] },
     handles => {
         get_leaves => 'elements',
@@ -168,12 +38,56 @@ has finalized => (
     default => 0,
 );
 
+
+sub _create_leaf{
+    my ($start, $end, $item) = @_;
+
+    if (!(defined $start && defined $end && defined $item && 
+            looks_like_number($start) && looks_like_number($end))){
+        croak "argument error in add()";
+    }
+    # round to integers
+    $start = int($start+.5);
+    $end = int($end+.5);
+
+    ($start,$end) = (min($start,$end), max($start,$end));
+
+    return [$start, $end, ($start + $end)/2, 1, $item];
+}
+
+sub _create_internal{
+    my ($left, $right) = @_;
+
+    my $start = min($left->[0], $right->[0]);
+    my $end   = max($left->[1], $right->[1]);
+
+    # no need to check since $left/$right were created with create_leaf and
+    # were sanitized there (right?)
+
+    return [$start, $end, ($start + $end)/2, 0, $left, $right];
+}
+
+sub _overlap{
+    my $start1 = $_[0][0];
+    my $end1   = $_[0][1];
+
+    my $start2 = $_[1][0];
+    my $end2   = $_[1][1];
+
+    if ($end1 >= $start2 && $end2 >= $start1){
+        return min($end1, $end2) - max($start1, $start2)  + 1;
+    }
+    else {
+        return 0;
+    }
+}
+
 sub add{
     my ($self,$start,$end,$item) = @_;
     if ($self->finalized()){
         croak "Cannot add after finalize()-ing";
     }
-    $self->add_leaf(Tree::Range::Leaf->new($start,$end, $item));
+    $self->add_leaf(_create_leaf($start,$end, $item));
 }
 
 sub finalize{
@@ -190,11 +104,11 @@ sub finalize{
     
     while (@current_level > 1){
         my @next_level = ();
-        @current_level = sort { $odd * ($a->midpoint <=> $b->midpoint) } @current_level;
+        @current_level = sort { $odd * ($a->[2] <=> $b->[2]) } @current_level;
         $odd *= -1;
 
         while (@current_level >= 2){
-            push @next_level, Tree::Range::Internal->new(left => shift(@current_level), right => shift(@current_level));
+            push @next_level, _create_internal(shift(@current_level), shift(@current_level));
         }
         if (@current_level){
             push @next_level, @current_level;
@@ -216,13 +130,13 @@ sub _dump_helper{
     my ($node,$level) = @_;
     $level //= 0;
 
-    if (ref $node eq 'Tree::Range::Leaf'){
-        printf("%s%d => %d [%s]\n", " " x $level, $node->start, $node->end, $node->item);
+    if (ref $node eq 'ARRAY'){
+        printf("%s%d => %d [%s]\n", " " x $level, $node->[0], $node->[1], $node->item);
     }
     else{
-        printf("%s%d => %d\n", " " x $level, $node->start, $node->end);
-        _dump_helper($node->left, $level+1);
-        _dump_helper($node->right, $level+1);
+        printf("%s%d => %d\n", " " x $level, $node->[0], $node->[1]);
+        _dump_helper($node->[4], $level+1);
+        _dump_helper($node->[5], $level+1);
     }
 }
 
@@ -263,13 +177,13 @@ sub search_overlap{
 sub _search_overlap{
     my ($node, $start, $end, $accum) = @_;
 
-    if (my $o = $node->overlap($start,$end)){
-        if ($node->is_leaf){
-            push @$accum, {item => $node->item, overlap => $o};
+    if (my $o = _overlap($node,[$start,$end])){
+        if ($node->[3]){
+            push @$accum, {item => $node->[4], overlap => $o};
         }
         else{
-            _search_overlap($node->left, $start, $end, $accum);
-            _search_overlap($node->right, $start, $end, $accum);
+            _search_overlap($node->[4], $start, $end, $accum);
+            _search_overlap($node->[5], $start, $end, $accum);
         }
     }
 }
@@ -280,8 +194,8 @@ sub _linear_search_overlap{
 
     my @accum;
     for my $l ($self->get_leaves()) {
-        if (my $o = $l->overlap($start,$end)){
-            push @accum, {item => $l->item, overlap => $o};
+        if (my $o = _overlap($l,[$start,$end])){
+            push @accum, {item => $l->[4], overlap => $o};
         }
     }
     return @accum;
