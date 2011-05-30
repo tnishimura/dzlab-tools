@@ -7,6 +7,7 @@ use autodie;
 use FindBin;
 use lib "$FindBin::Bin/lib";
 use Tree::Range;
+use Benchmark qw/timethese cmpthese/;
 
 my $min = 1; 
 my $max = 30429313;
@@ -14,17 +15,21 @@ my $max = 30429313;
 sub rand_position{ return $min + int rand $max} 
 
 my $tree = Tree::Range->new();
-open my $fh, '<', 'TAIR8_genes.gff';
 
-while (defined(my $line = <$fh>)){
+while (defined(my $line = <>)){
     chomp $line;
-    my ($start, $end) = (split /\t/, $line)[4,5];
+    my ($start, $end) = (split /\t/, $line)[3,4];
     $tree->add($start,$end,$line);
 }
 
-close $fh;
 $tree->finalize();
 
-for (1 .. 1_000_000){
-    $tree->search((rand_position) x 2);
-}
+cmpthese(-1,{ 
+    linear => sub{
+        $tree->_linear_search_overlap((rand_position) x 2);
+    },
+    binary => sub{
+        $tree->search_overlap((rand_position) x 2);
+    }
+});
+
