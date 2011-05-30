@@ -83,6 +83,18 @@ sub _overlap{
         return 0;
     }
 }
+use Inline Config => ENABLE => 'UNTAINT';
+
+use Inline C => <<'END_C';
+    int _overlap2(int s1,int e1,int s2, int e2) {
+        if (e1 >= s2 && e2 >= s1){
+            return (e1 < e2 ? e1 : e2) - (s1 > s2 ? s1 : s2) + 1;
+        }
+        else {
+            return 0;
+        }
+    }
+END_C
 
 sub add{
     my ($self,$start,$end,$item) = @_;
@@ -176,6 +188,8 @@ sub search_overlap{
     return @accum;
 }
 
+
+
 sub _search_overlap_iter{
     my ($node, $start, $end, $accum) = @_;
 
@@ -183,32 +197,18 @@ sub _search_overlap_iter{
 
     while (@search_queue){
         my $node = pop @search_queue;
-        if (my $o = _overlap($node,[$start,$end])){
+        #if (my $o = _overlap($node,[$start,$end])){
+        if (my $o = _overlap2($node->[0],$node->[1],$start,$end)){
             if ($node->[3]){
                 push @$accum, {item => $node->[4], overlap => $o};
             }
             else{
                 push @search_queue, $node->[4], $node->[5];
-                #_search_overlap($node->[4], $start, $end, $accum);
-                #_search_overlap($node->[5], $start, $end, $accum);
             }
         }
     }
 }
 
-sub _search_overlap{
-    my ($node, $start, $end, $accum) = @_;
-
-    if (my $o = _overlap($node,[$start,$end])){
-        if ($node->[3]){
-            push @$accum, {item => $node->[4], overlap => $o};
-        }
-        else{
-            _search_overlap($node->[4], $start, $end, $accum);
-            _search_overlap($node->[5], $start, $end, $accum);
-        }
-    }
-}
 
 # for debugging/benchmarking purposes
 sub _linear_search_overlap{
@@ -216,7 +216,8 @@ sub _linear_search_overlap{
 
     my @accum;
     for my $l ($self->get_leaves()) {
-        if (my $o = _overlap($l,[$start,$end])){
+        #if (my $o = _overlap($l,[$start,$end])){
+        if (my $o = _overlap2($l->[0],$l->[1],$start,$end)){
             push @accum, {item => $l->[4], overlap => $o};
         }
     }
@@ -382,3 +383,5 @@ SUCH DAMAGES.
 =cut
 
 1; # End of Tree::Range
+
+
