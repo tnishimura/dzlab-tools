@@ -8,7 +8,6 @@ use Data::Dumper;
 use Moose;
 use Carp;
 use autodie;    
-use List::Util qw/min max/;
 use Scalar::Util qw/looks_like_number/;
 use 5.010;
 
@@ -38,6 +37,8 @@ has finalized => (
     default => 0,
 );
 
+sub _min{ return ($_[0] < $_[1] ? $_[0] : $_[1]); }
+sub _max{ return ($_[0] > $_[1] ? $_[0] : $_[1]); }
 
 sub _create_leaf{
     my ($start, $end, $item) = @_;
@@ -50,7 +51,7 @@ sub _create_leaf{
     $start = int($start+.5);
     $end = int($end+.5);
 
-    ($start,$end) = (min($start,$end), max($start,$end));
+    ($start,$end) = (_min($start,$end), _max($start,$end));
 
     return [$start, $end, ($start + $end)/2, 1, $item];
 }
@@ -58,14 +59,15 @@ sub _create_leaf{
 sub _create_internal{
     my ($left, $right) = @_;
 
-    my $start = min($left->[0], $right->[0]);
-    my $end   = max($left->[1], $right->[1]);
+    my $start = _min($left->[0], $right->[0]);
+    my $end   = _max($left->[1], $right->[1]);
 
     # no need to check since $left/$right were created with create_leaf and
     # were sanitized there (right?)
 
     return [$start, $end, ($start + $end)/2, 0, $left, $right];
 }
+
 
 sub _overlap{
     my $start1 = $_[0][0];
@@ -75,7 +77,7 @@ sub _overlap{
     my $end2   = $_[1][1];
 
     if ($end1 >= $start2 && $end2 >= $start1){
-        return min($end1, $end2) - max($start1, $start2)  + 1;
+        return _min($end1, $end2) - _max($start1, $start2)  + 1;
     }
     else {
         return 0;
