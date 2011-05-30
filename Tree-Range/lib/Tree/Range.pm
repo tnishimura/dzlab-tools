@@ -169,9 +169,29 @@ sub search_overlap{
     # will always be full overlap
     
     my @accum = ();
-    _search_overlap($self->root, $start, $end, \@accum);
+    _search_overlap_iter($self->root, $start, $end, \@accum);
 
     return @accum;
+}
+
+sub _search_overlap_iter{
+    my ($node, $start, $end, $accum) = @_;
+
+    my @search_queue = ($node);
+
+    while (@search_queue){
+        my $node = pop @search_queue;
+        if (my $o = _overlap($node,[$start,$end])){
+            if ($node->[3]){
+                push @$accum, {item => $node->[4], overlap => $o};
+            }
+            else{
+                push @search_queue, $node->[4], $node->[5];
+                #_search_overlap($node->[4], $start, $end, $accum);
+                #_search_overlap($node->[5], $start, $end, $accum);
+            }
+        }
+    }
 }
 
 sub _search_overlap{
