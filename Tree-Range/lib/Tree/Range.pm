@@ -70,11 +70,7 @@ sub _create_internal{
 
 
 sub _overlap{
-    my $start1 = $_[0][0];
-    my $end1   = $_[0][1];
-
-    my $start2 = $_[1][0];
-    my $end2   = $_[1][1];
+    my ($start1, $end1, $start2, $end2) = @_;
 
     if ($end1 >= $start2 && $end2 >= $start1){
         return _min($end1, $end2) - _max($start1, $start2)  + 1;
@@ -83,18 +79,20 @@ sub _overlap{
         return 0;
     }
 }
-use Inline Config => ENABLE => 'UNTAINT';
 
-use Inline C => <<'END_C';
-    int _overlap2(int s1,int e1,int s2, int e2) {
-        if (e1 >= s2 && e2 >= s1){
-            return (e1 < e2 ? e1 : e2) - (s1 > s2 ? s1 : s2) + 1;
-        }
-        else {
-            return 0;
-        }
-    }
-END_C
+# C version is 10x faster... but will it run on windows?
+# use Inline Config => DIRECTORY => '/tmp/Inline', ENABLE => 'UNTAINT';
+# 
+# use Inline C => <<'END_C';
+#     int _overlap2(int s1,int e1,int s2, int e2) {
+#         if (e1 >= s2 && e2 >= s1){
+#             return (e1 < e2 ? e1 : e2) - (s1 > s2 ? s1 : s2) + 1;
+#         }
+#         else {
+#             return 0;
+#         }
+#     }
+# END_C
 
 sub add{
     my ($self,$start,$end,$item) = @_;
@@ -197,8 +195,8 @@ sub _search_overlap_iter{
 
     while (@search_queue){
         my $node = pop @search_queue;
-        #if (my $o = _overlap($node,[$start,$end])){
-        if (my $o = _overlap2($node->[0],$node->[1],$start,$end)){
+        #if (my $o = _overlap2($node->[0],$node->[1],$start,$end)){
+        if (my $o = _overlap($node->[0],$node->[1],$start,$end)){
             if ($node->[3]){
                 push @$accum, {item => $node->[4], overlap => $o};
             }
@@ -216,8 +214,7 @@ sub _linear_search_overlap{
 
     my @accum;
     for my $l ($self->get_leaves()) {
-        #if (my $o = _overlap($l,[$start,$end])){
-        if (my $o = _overlap2($l->[0],$l->[1],$start,$end)){
+        if (my $o = _overlap($l->[0],$l->[1],$start,$end)){
             push @accum, {item => $l->[4], overlap => $o};
         }
     }
