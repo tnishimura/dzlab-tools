@@ -13,7 +13,7 @@ use POSIX qw/strftime/;
 
 require Exporter;
 our @ISA = qw(Exporter);
-our @EXPORT_OK = qw(reverse_complement common_suffix common_prefix mfor basename_prefix fastq_read_length timestamp datestamp overlap chext split_names base_match);
+our @EXPORT_OK = qw(localize reverse_complement common_suffix common_prefix mfor basename_prefix fastq_read_length timestamp datestamp overlap chext split_names base_match);
 our @EXPORT = qw();
 
 =head2 chext("/etc/test.txt", "newext")
@@ -175,6 +175,41 @@ sub reverse_complement{
     $string = reverse $string;
     $string =~ tr/acgtACGT/tgcaTGCA/;
     return $string;
+}
+
+use LWP::Simple;
+use File::Temp qw/tempdir mktemp/;
+
+sub localize{
+    my ($file_or_url, $dir, $overwrite) = @_;
+    if (!defined $dir || ! -d $dir){
+        $dir = tempdir(CLEANUP => 1);
+    }
+
+    if ($file_or_url =~ m{^(http|ftp)://}){
+        my $storefile = catfile($dir,basename($file_or_url));
+        my $tmpfile = mktemp($storefile . "XXXX");
+        if (-f $storefile){
+            if ($overwrite){
+                carp "localize(): $storefile already exists? overwriting";
+            }
+            else{
+                carp "localize(): $storefile already exists? NOT overwriting";
+                return $file_or_url;
+            }
+        }
+
+        if (200 == mirror($file_or_url, $tmpfile)){
+            rename $tmpfile, $storefile;
+            return $storefile;
+        }
+        else {
+            croak "couldn't grab $file_or_url into $storefile";
+        }
+    }
+    else {
+        return $file_or_url;
+    }
 }
 
 1;
