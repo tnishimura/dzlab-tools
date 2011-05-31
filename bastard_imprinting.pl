@@ -136,25 +136,27 @@ my $left_bowtie_b = "$left_basename_b.0.bowtie";
 my $right_bowtie_a = "$right_basename_a.0.bowtie";
 my $right_bowtie_b = "$right_basename_b.0.bowtie";
 
+my $max_hits_arg = $opt_max_hits ? " --strata -k 1 -m $opt_max_hits " : "";
+
 if ($pm->start == 0){
-    launch("bowtie $bsrc_reference_a -f -B 1 -v $opt_bowtie_mismatches --norc --best -5 $left_trim5 -3 $left_trim3 $rawc2t $left_bowtie_a",
+    launch("bowtie $bsrc_reference_a $max_hits_arg -f -B 1 -v $opt_bowtie_mismatches --norc --best -5 $left_trim5 -3 $left_trim3 $rawc2t $left_bowtie_a",
         expected => $left_bowtie_a, force => $opt_force);
     $pm->finish;
 }
 if ($pm->start == 0){
-    launch("bowtie $bsrc_reference_b -f -B 1 -v $opt_bowtie_mismatches --norc --best -5 $left_trim5 -3 $left_trim3 $rawc2t $left_bowtie_b",
+    launch("bowtie $bsrc_reference_b $max_hits_arg -f -B 1 -v $opt_bowtie_mismatches --norc --best -5 $left_trim5 -3 $left_trim3 $rawc2t $left_bowtie_b",
         expected => $left_bowtie_b, force => $opt_force);
     $pm->finish;
 }
 
 if (!$single_sided){
     if ($pm->start == 0){
-        launch("bowtie $bsrc_reference_a -f -B 1 -v $opt_bowtie_mismatches --norc --best -5 $right_trim5 -3 $right_trim3 $rawc2t $right_bowtie_a",
+        launch("bowtie $bsrc_reference_a $max_hits_arg -f -B 1 -v $opt_bowtie_mismatches --norc --best -5 $right_trim5 -3 $right_trim3 $rawc2t $right_bowtie_a",
             expected => $right_bowtie_a, force => $opt_force);
         $pm->finish;
     }
     if ($pm->start == 0){
-        launch("bowtie $bsrc_reference_b -f -B 1 -v $opt_bowtie_mismatches --norc --best -5 $right_trim5 -3 $right_trim3 $rawc2t $right_bowtie_b",
+        launch("bowtie $bsrc_reference_b $max_hits_arg -f -B 1 -v $opt_bowtie_mismatches --norc --best -5 $right_trim5 -3 $right_trim3 $rawc2t $right_bowtie_b",
             expected => $right_bowtie_b, force => $opt_force);
         $pm->finish;
     }
@@ -370,6 +372,8 @@ Number of concurrent jobs to run.  CAREFUL.  Default 0, for no parallelization.
 
 =for Euclid
     numthreads.default:     0
+
+=item  -mh <hits> | --max-hits <hits>
 
 =item --debug
 
