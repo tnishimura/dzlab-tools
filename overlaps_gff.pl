@@ -10,7 +10,6 @@ use lib "$FindBin::Bin/Tree-Range/lib";
 use GFF::Tree;
 use Getopt::Euclid qw( :vars<opt_> );
 use Pod::Usage;
-use Devel::Size qw/total_size/;
 
 
 pod2usage(-verbose => 99,-sections => [qw/NAME SYNOPSIS OPTIONS/]) 
