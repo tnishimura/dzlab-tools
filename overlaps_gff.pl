@@ -12,12 +12,14 @@ use Getopt::Euclid qw( :vars<opt_> );
 use Pod::Usage;
 use Devel::Size qw/total_size/;
 
+
+pod2usage(-verbose => 99,-sections => [qw/NAME SYNOPSIS OPTIONS/]) 
+if $opt_help || !$opt_gff || !$opt_input;
+
 if ($opt_output ne '-'){
     open my $fh, '>', $opt_output;
     select $fh; 
 }
-
-pod2usage(-verbose => 99,-sections => [qw/NAME SYNOPSIS OPTIONS/]) if $opt_help;
 
 my $gt = GFF::Tree->new(file => $opt_gff);
 
@@ -86,6 +88,9 @@ Locus tag in --gff annotation file. Optional, default to 'ID'.
     tag.default:     'ID'
 
 =item -o <file> | --output <file>
+
+=for Euclid
+    file.default:     '-'
 
 =item --help | -h
 
