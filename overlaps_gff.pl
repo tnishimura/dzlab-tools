@@ -40,7 +40,8 @@ while (defined(my $gff = $p->next())){
         }
     }
     elsif ($opt_no_skip){
-        say $gffstring;
+        $gff->score(undef);
+        say $gff->to_string;
     }
 }
 
@@ -64,6 +65,7 @@ Usage examples:
 =head1 OPTIONS
 
 =over
+
 
 =item  -g <file> | --gff <file>
 
