@@ -230,8 +230,8 @@ if ($single_sided){
     $eland_union_b = $left_eland_filtered_b;
 }
 else {
-    launch("eland_unionize.pl -l $left_eland_filtered_a -r $right_eland_filtered_a -o $eland_union_a", expected => $eland_union_a);
-    launch("eland_unionize.pl -l $left_eland_filtered_b -r $right_eland_filtered_b -o $eland_union_b", expected => $eland_union_b);
+    launch("perl -S eland_unionize.pl -l $left_eland_filtered_a -r $right_eland_filtered_a -o $eland_union_a", expected => $eland_union_a);
+    launch("perl -S eland_unionize.pl -l $left_eland_filtered_b -r $right_eland_filtered_b -o $eland_union_b", expected => $eland_union_b);
 }
 
 
@@ -288,7 +288,7 @@ if (! $opt_no_fracmeth){
     }
     $pm->wait_all_children;
 
-    launch("collect-freqs.pl -o $basename.freq $opt_output_directory");
+    launch("perl -S collect-freqs.pl -o $basename.freq $opt_output_directory");
 }
 
 =head1 NAME
