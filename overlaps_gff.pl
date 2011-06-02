@@ -31,11 +31,22 @@ while (defined(my $gff = $p->next())){
 
     if (@results){
         for my $result (@results){
-            if (my $locus = $result->{item}->get_column($opt_tag)){
-                say "$gffstring;ID=$locus";
+            my $overlap = $result->{overlap};
+            #say $gff->start . " $overlap ". $overlap/$gff->length();
+            if ($opt_proportion_threshold == 0 || 
+                ($opt_proportion_threshold == 1 && $overlap == $gff->length) || 
+                 $overlap / $gff->length() >= $opt_proportion_threshold
+             ){
+                if (my $locus = $result->{item}->get_column($opt_tag)){
+                    say "$gffstring;ID=$locus";
+                }
+                else{
+                    say "$gffstring;" . $result->{item}->attribute_string;
+                }
             }
-            else{
-                say "$gffstring;" . $result->{item}->attribute_string;
+            elsif ($opt_no_skip){
+                $gff->score(undef);
+                say $gff->to_string;
             }
         }
     }
@@ -69,6 +80,8 @@ Usage examples:
 
 =item  -g <file> | --gff <file>
 
+Annotation file.
+
 =for Euclid
     file.type:        readable
 
@@ -92,6 +105,18 @@ Locus tag in --gff annotation file. Optional, default to 'ID'.
 
 =for Euclid
     file.default:     '-'
+
+=item  -p <thresh> | --proportion-threshold <thresh>
+
+Input GFF lines needs at least this proportion covered by annotation GFF. For example,
+if this is set to .50, and the input GFF is windowed by 50, at least 25 bases need to be overlapping
+with an annotation in order to be reported.  If not, skipped (unless --no-skip is used, in which case it's 
+reported with a null score). Default to 0, mean any overlap is enough.
+
+=for Euclid
+    thresh.default:     0
+    thresh.type:        number, thresh >= 0 && thresh <= 1
+    thresh.type.error:  <thresh> must be between 0 and 1
 
 =item --help | -h
 
