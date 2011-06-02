@@ -29,10 +29,6 @@ sub launch{
 
     my $logger    = get_logger("PipeLine");
 
-    if (!IPC::Cmd->can_use_run_forked()){
-        $logger->logdie("can't run forked?");
-    }
-
     my $force     = delete $opt{force} // 0;
     my $dryrun    = delete $opt{dryrun} // 0;
 
@@ -75,13 +71,22 @@ sub launch{
         return;
     }
 
-    my $rv = run_forked($cmd, {
-            discard_output => 1,
-            stdout_handler => sub{ $logger->debug("stdout: " . shift); },
-            stderr_handler => sub{ $logger->debug("stderr: " . shift); },
-        });
-    
-    if ($rv->{exit_code} == 0){
+    my $success;
+    if (IPC::Cmd->can_use_run_forked()){
+        $logger->info("running with run_forked");
+        my $rv = run_forked($cmd, {
+                discard_output => 1,
+                stdout_handler => sub{ $logger->debug("stdout: " . shift); },
+                stderr_handler => sub{ $logger->debug("stderr: " . shift); },
+            });
+        $success = $rv->{exit_code};
+    }
+    else{
+        $logger->info("can't run forked? then get a real OS. reverting to system()");
+        $success = system($cmd);
+    }
+
+    if ($success == 0){
         my $exp = join ", ", @expected;
         if (! @expected){
             $logger->info("Successfully launched and finished [$cmd]");
