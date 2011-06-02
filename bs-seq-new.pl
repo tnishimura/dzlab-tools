@@ -10,14 +10,16 @@ use File::Path;
 use File::Basename;
 use FindBin;
 use lib "$FindBin::Bin/lib";
-use DZUtil qw/split_names/;
+use DZUtil qw/timestamp split_names/;
 use Launch;
 use Getopt::Euclid qw( :vars<opt_> );
 use Pod::Usage;
 use Parallel::ForkManager;
 
+my $logname = $opt_out_directory . "-" . timestamp() . ".log.txt";
+
 use Log::Log4perl qw/get_logger/;
-my $conf=q/
+my $conf=qq/
     log4perl.logger          = DEBUG, Print
     log4perl.logger.PipeLine = DEBUG, File
 
@@ -26,12 +28,13 @@ my $conf=q/
     log4perl.appender.Print.layout.ConversionPattern = %d{HH:mm:ss} %.1p> %m%n
 
     log4perl.appender.File          = Log::Log4perl::Appender::File
-    log4perl.appender.File.filename = run.log
+    log4perl.appender.File.filename = $logname
     log4perl.appender.File.layout   = PatternLayout
     log4perl.appender.File.syswrite = 1
     log4perl.appender.File.layout.ConversionPattern = %d{HH:mm:ss} %p.1> (%L) %m%n
 /;
 Log::Log4perl::init( \$conf );
+
 
 pod2usage(-verbose => 99,-sections => [qw/NAME SYNOPSIS OPTIONS/]) 
 unless (
@@ -189,13 +192,12 @@ $pm->wait_all_children;
 # window methylation counts into non-overlapping windows
 for my $context (0 .. @contexts - 1) {
     for my $group (@groups) {
-        launch("perl -S split_gff.pl --feature all $files{freq}->{$group}") 
-		unless file_exists($files{cont}->[$context]{$group});
+        launch("perl -S split_gff.pl --feature all $files{freq}->{$group}", expected => $files{cont}->[$context]{$group});
         unless ($opt_no_windowing){
-            launch("perl -S compile_gff.pl -o $files{cont}->[$context]{$group}.merged $files{cont}->[$context]{$group}") 
-            unless file_exists("$files{cont}->[$context]{$group}.merged");
-            launch("perl -S window_gff.pl $files{cont}->[$context]{$group}.merged --width $opt_window_size --step $opt_window_size --output $files{wcont}->[$context]{$group} --no-skip") 
-            unless file_exists($files{wcont}->[$context]{$group});
+            my $m = "$files{cont}->[$context]{$group}.merged";
+            launch("perl -S compile_gff.pl -o ?? $files{cont}->[$context]{$group}", expected => $m);
+            launch("perl -S window_gff.pl $m --width $opt_window_size --step $opt_window_size --output ?? --no-skip",
+            expected => $files{wcont}->[$context]{$group});
         }
     }
 }
@@ -376,9 +378,12 @@ upstream (left reads).  Default 0.
 
 =over 
 
-=item -dnf | --di-nuc-freqs
+=item -dnf <boolean> | --di-nuc-freqs <boolean> 
 
 When this is 0, calculate the CG, CHH and CHG contexts.  If 1, calculate CG, CA, CT, CC.  Default 0.
+
+=for Euclid
+    boolean.default:     0
 
 =item -i <num> | --batch <num>
 

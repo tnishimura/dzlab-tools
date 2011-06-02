@@ -56,7 +56,7 @@ sub launch{
             $cmd =~ s/\?\?/$tempfile/;
         }
         else {
-            $logger->logdie("If placeholder <?> is used, exactly one expected file can be given");
+            $logger->logdie("If placeholder ?? is used, exactly one expected file can be given");
         }
     }
 
