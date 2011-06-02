@@ -5,7 +5,6 @@ use Data::Dumper;
 use feature 'say';
 use Carp;
 use autodie;
-use GFF::Parser;
 use File::Basename;
 use File::Spec::Functions;
 use FindBin;
@@ -60,19 +59,20 @@ sub _gff_split{
         }
     }
 
-    my $p = GFF::Parser->new(file => $file);
+    open my $input, '<', $file;
     GFF:
-    while (defined(my $gff = $p->next())){
-        my $part;
-        if ($col eq 'feature'){
-            $part = $gff->feature;
-        } elsif ($col eq 'sequence'){
-            $part = $gff->sequence;
-        } else{
-            croak "\$col needs to be sequence or feature";
-        }
+    while (defined(my $line = <$input>)){
+        chomp $line;
+        my @split = (split /\t/, $line);
+        next GFF if ! @split == 9;
+        my ($sequence, $feature) = @split[0,2];
 
-        next GFF if ! defined $part;
+        my $part = 
+        $col eq 'feature' ? $feature : 
+        $col eq 'sequence' ? $sequence :
+        croak "\$col needs to be sequence or feature";
+
+        next if ($part eq '.' || $part eq '');
 
         if (! exists $fh{$part}){
             my $split_file = _split_name($file, $part);
@@ -82,7 +82,7 @@ sub _gff_split{
             $tempfiles{$temp} = $split_file;
         }
 
-        say {$fh{$part}} $gff->to_string;
+        say {$fh{$part}} $line;
     }
 
     for my $handle (values %fh) {

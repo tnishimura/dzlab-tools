@@ -90,6 +90,9 @@ unless (@contexts) {
     else {@contexts = qw(CG CHG CHH)}
 }
 
+my $basename_left = catfile($opt_out_directory, basename($opt_left_read));
+my $basename_right = catfile($opt_out_directory, basename($opt_left_read));
+
 my %files = (
     # left fasta, and bisulfite treated
     lfa   => catfile ($opt_out_directory, basename($opt_left_read))  . '.fa',
@@ -122,6 +125,9 @@ my %files = (
 
 #######################################################################
 # convert reads
+
+my $left_fasta = "$basename_left.fa";
+my $right_fasta = "$basename_right.fa";
 
 launch("perl -S fq_all2std.pl fq2fa $opt_left_read > ??",  expected => $files{lfa});
 launch("perl -S convert.pl c2t $files{lfa} > ??", expected =>  $files{lc2t});
