@@ -9,12 +9,14 @@ use File::Spec::Functions;
 use File::Path;
 use File::Basename;
 use FindBin;
+use Parallel::ForkManager;
+use Getopt::Euclid qw( :vars<opt_> );
+use Pod::Usage;
+
 use lib "$FindBin::Bin/lib";
 use DZUtil qw/timestamp split_names/;
 use Launch;
-use Getopt::Euclid qw( :vars<opt_> );
-use Pod::Usage;
-use Parallel::ForkManager;
+use GFF::Split;
 
 my $logname = $opt_out_directory . "-" . timestamp() . ".log.txt";
 
@@ -34,7 +36,7 @@ my $conf=qq/
     log4perl.appender.File.layout.ConversionPattern = %d{HH:mm:ss} %p.1> (%L) %m%n
 /;
 Log::Log4perl::init( \$conf );
-
+my $logger = get_logger("PipeLine");
 
 pod2usage(-verbose => 99,-sections => [qw/NAME SYNOPSIS OPTIONS/]) 
 unless (
@@ -180,9 +182,11 @@ launch("perl -S correlatePairedEnds.pl -l $files{lel3}.post -r $files{rel3}.post
 # basic stats about the aligment
 launch("perl -S collect_align_stats.pl $files{lel3}.post $files{rel3}.post $files{base} $opt_organism $opt_batch > ??", expected =>  $files{log});
 
+$logger->info("Splitting $files{base} by group");
+GFF::Split::split_sequence($files{base},@groups);
+
 # quantify methylation
 for (@groups) {
-    launch("perl -S split_gff.pl --sequence all $files{base}", expected => [$files{split}->{$_}]);
     $pm->start and next;
     launch("perl -S countMethylation.pl --ref $opt_reference --gff $files{split}->{$_} --output $files{freq}->{$_} --sort -d $opt_di_nuc_freqs", expected => $files{freq}->{$_});
     $pm->finish;
@@ -192,7 +196,8 @@ $pm->wait_all_children;
 # window methylation counts into non-overlapping windows
 for my $context (0 .. @contexts - 1) {
     for my $group (@groups) {
-        launch("perl -S split_gff.pl --feature all $files{freq}->{$group}", expected => $files{cont}->[$context]{$group});
+        $logger->info("Splitting $files{freq}{$group} by context");
+        GFF::Split::split_feature($files{freq}{$group}, @contexts);
         unless ($opt_no_windowing){
             my $m = "$files{cont}->[$context]{$group}.merged";
             launch("perl -S compile_gff.pl -o ?? $files{cont}->[$context]{$group}", expected => $m);
