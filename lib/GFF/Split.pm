@@ -10,6 +10,7 @@ use File::Basename;
 use File::Spec::Functions;
 use FindBin;
 use File::Temp qw/mktemp/;
+use List::MoreUtils qw/all/;
 use lib "$FindBin::Bin/lib";
 
 require Exporter;
@@ -38,19 +39,26 @@ sub _split_name{
 }
 
 sub split_feature{
-    my $file = shift;
-    return _gff_split($file,'feature');
+    my ($file, @groups) = @_;
+    return _gff_split($file,'feature',@groups);
 }
 sub split_sequence{
-    my $file = shift;
-    return _gff_split($file,'sequence');
+    my ($file, @groups) = @_;
+    return _gff_split($file,'sequence',@groups);
 }
 
 sub _gff_split{
-    my ($file,$col) = (@_);
+    my ($file,$col,@groups) = (@_);
     my %fh;
     my @files;
     my %tempfiles; # temp => real 
+
+    if (@groups){
+        my @expected = split_names($file,@groups);
+        if (all { -f } @expected){
+            return sort @expected;
+        }
+    }
 
     my $p = GFF::Parser->new(file => $file);
     GFF:
@@ -68,7 +76,7 @@ sub _gff_split{
 
         if (! exists $fh{$part}){
             my $split_file = _split_name($file, $part);
-            my $temp  = mktemp($split_file . ".tmpXXXX");
+            my $temp  = mktemp($split_file . ".tmp.XXXXX");
             open $fh{$part}, '>', $temp;
             push @files, $temp;
             $tempfiles{$temp} = $split_file;

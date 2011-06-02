@@ -52,7 +52,7 @@ sub launch{
     my $tempfile;
     if ($placeholder){
         if (@expected == 1){
-            $tempfile = mktemp($expected[0] . '.tmpXXXXX');
+            $tempfile = mktemp($expected[0] . '.tmp.XXXXX');
             $cmd =~ s/\?\?/$tempfile/;
         }
         else {

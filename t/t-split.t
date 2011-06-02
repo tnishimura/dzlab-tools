@@ -9,7 +9,7 @@ use lib "$FindBin::Bin/../lib";
 use GFF::Split;
 use Test::More qw(no_plan);
 
-my @a = GFF::Split::split_feature('t/test1.gff');
+my @a = GFF::Split::split_feature('t/test1.gff','gene');
 my @b = GFF::Split::split_sequence('t/test1.gff');
 
 is_deeply(\@a, [ 't/test1-gene.gff' ], "feature");
