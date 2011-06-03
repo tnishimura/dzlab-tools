@@ -37,8 +37,8 @@ while (defined(my $gff = $p->next())){
                 ($opt_proportion_threshold == 1 && $overlap == $gff->length) || 
                  $overlap / $gff->length() >= $opt_proportion_threshold
              ){
-                if (my $locus = $result->{item}->get_column($opt_tag)){
-                    say "$gffstring;ID=$locus";
+                if (defined $opt_tag && defined(my $locus = $result->{item}->get_column($opt_tag))){
+                    say "$gffstring;$opt_tag=$locus";
                 }
                 else{
                     say "$gffstring;" . $result->{item}->attribute_string;
@@ -96,10 +96,7 @@ Print line from input.gff even if no overlap is found.
 
 =item  -t <tag> | --tag <tag>
 
-Locus tag in --gff annotation file. Optional, default to 'ID'. 
-
-=for Euclid
-    tag.default:     'ID'
+Locus tag in --gff annotation file. Optional. Default to giving you the entire attribute string (col 9) from the annotation.
 
 =item -o <file> | --output <file>
 
