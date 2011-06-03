@@ -106,6 +106,9 @@ sub BUILD{
                 $self->header_transform->();
                 $current = $_;
             }
+            if ($self->normalize){
+                $current = uc $current;
+            }
             $self->set_location($current => tell $fh);
         }
         else{
