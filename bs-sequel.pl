@@ -43,6 +43,8 @@ unless (
     $opt_left_read && $opt_right_read && $opt_reference && $opt_out_directory && $opt_base_name 
 );
 
+my $dry = defined $opt_dry;
+
 #######################################################################
 # groups (chromosomes)
 
@@ -135,28 +137,28 @@ my $fasta_right = "$basename_right.fa";
 my $fasta_left_converted = "$basename_left.c2t";
 my $fasta_right_converted = "$basename_right.g2a";
 
-launch("perl -S fq_all2std.pl fq2fa $opt_left_read > ??",  expected => $fasta_left);
-launch("perl -S convert.pl c2t $fasta_left > ??", expected =>  $fasta_left_converted);
+launch("perl -S fq_all2std.pl fq2fa $opt_left_read > ??",  expected => $fasta_left, dryrun => $dry);
+launch("perl -S convert.pl c2t $fasta_left > ??", expected =>  $fasta_left_converted, dryrun => $dry);
 unless ($opt_single_ends) {
-    launch("perl -S fq_all2std.pl fq2fa $opt_right_read > ??", expected =>  $fasta_right);
-    launch("perl -S convert.pl g2a $fasta_right > ??", expected =>  $fasta_right_converted);
+    launch("perl -S fq_all2std.pl fq2fa $opt_right_read > ??", expected =>  $fasta_right, dryrun => $dry);
+    launch("perl -S convert.pl g2a $fasta_right > ??", expected =>  $fasta_right_converted, dryrun => $dry);
 }
 
 #######################################################################
 # convert genomes
 
-launch("perl -S rcfas.pl $opt_reference > ??", expected =>  "$opt_reference.rc");
-launch("perl -S convert.pl c2t $opt_reference.rc > ??", expected =>  "$opt_reference.c2t");
+launch("perl -S rcfas.pl $opt_reference > ??", expected =>  "$opt_reference.rc", dryrun => $dry);
+launch("perl -S convert.pl c2t $opt_reference.rc > ??", expected =>  "$opt_reference.c2t", dryrun => $dry);
 unless ($opt_single_ends) {
-    launch("perl -S convert.pl g2a $opt_reference.rc > ??", expected =>  "$opt_reference.g2a");
+    launch("perl -S convert.pl g2a $opt_reference.rc > ??", expected =>  "$opt_reference.g2a", dryrun => $dry);
 }
 
 #######################################################################
 # bowtie-build
 
-launch("bowtie-build $opt_reference.c2t $opt_reference.c2t", expected =>  "$opt_reference.c2t.1.ebwt");
+launch("bowtie-build $opt_reference.c2t $opt_reference.c2t", expected =>  "$opt_reference.c2t.1.ebwt", dryrun => $dry);
 unless ($opt_single_ends) {
-    launch("bowtie-build $opt_reference.g2a $opt_reference.g2a", expected =>  "$opt_reference.g2a.1.ebwt");
+    launch("bowtie-build $opt_reference.g2a $opt_reference.g2a", expected =>  "$opt_reference.g2a.1.ebwt", dryrun => $dry);
 }
 
 #######################################################################
@@ -173,13 +175,13 @@ my $r5trim = $right_splice[0] - 1;
 
 my $mh_args = $opt_max_hits ? " --strata  -k $opt_max_hits -m $opt_max_hits " : q{ };
 # align with bowtie
-launch("bowtie $opt_reference.c2t -f -B 1 -v $opt_mismatches -5 $l5trim -3 $l3trim --best $mh_args --norc $fasta_left_converted ??", expected => $eland_left);
+launch("bowtie $opt_reference.c2t -f -B 1 -v $opt_mismatches -5 $l5trim -3 $l3trim --best $mh_args --norc $fasta_left_converted ??", expected => $eland_left, dryrun => $dry);
 if ($do_right){
     if ($opt_single_ends) {
-        launch("bowtie $opt_reference.c2t -f -B 1 -v $opt_mismatches -5 $r5trim -3 $r3trim --best $mh_args --norc $fasta_left_converted ??" , expected => $eland_right);
+        launch("bowtie $opt_reference.c2t -f -B 1 -v $opt_mismatches -5 $r5trim -3 $r3trim --best $mh_args --norc $fasta_left_converted ??" , expected => $eland_right, dryrun => $dry);
     }
     else {
-        launch("bowtie $opt_reference.g2a -f -B 1 -v $opt_mismatches -5 $r5trim -3 $r3trim --best $mh_args --norc $fasta_right_converted ??" , expected => $eland_right);
+        launch("bowtie $opt_reference.g2a -f -B 1 -v $opt_mismatches -5 $r5trim -3 $r3trim --best $mh_args --norc $fasta_right_converted ??" , expected => $eland_right, dryrun => $dry);
     }
 }
 
@@ -191,13 +193,13 @@ if ($do_right){
 my $eland_left_post = "$eland_left.post";
 my $eland_right_post = "$eland_right.post";
 
-launch("perl -S parse_bowtie.pl -u $fasta_left -s @left_splice  $eland_left -o ??", expected => $eland_left_post);
+launch("perl -S parse_bowtie.pl -u $fasta_left -s @left_splice  $eland_left -o ??", expected => $eland_left_post, dryrun => $dry);
 if ($do_right){
     if ($opt_single_ends) {
-        launch("perl -S parse_bowtie.pl -u $fasta_left -s @right_splice  $eland_right -o ??", expected => $eland_right_post);
+        launch("perl -S parse_bowtie.pl -u $fasta_left -s @right_splice  $eland_right -o ??", expected => $eland_right_post, dryrun => $dry);
     }
     else {
-        launch("perl -S parse_bowtie.pl -u $fasta_right -s @right_splice  $eland_right -o ??", expected => $eland_right_post);
+        launch("perl -S parse_bowtie.pl -u $fasta_right -s @right_splice  $eland_right -o ??", expected => $eland_right_post, dryrun => $dry);
     }
 }
 else {
@@ -211,10 +213,10 @@ my $base_gff = "$basename.gff";
 my $base_log = "$basename.log";
 
 # make sure reads map together
-launch("perl -S correlatePairedEnds.pl -l $eland_left_post -r $eland_right_post -ref $opt_reference -o ?? -t 0 -d $opt_library_size -s $opt_read_size -2 $opt_trust_dash_2 -1 $opt_single_ends -m $opt_max_hits -a $opt_random_assign", expected =>  $base_gff);
+launch("perl -S correlatePairedEnds.pl -l $eland_left_post -r $eland_right_post -ref $opt_reference -o ?? -t 0 -d $opt_library_size -s $opt_read_size -2 $opt_trust_dash_2 -1 $opt_single_ends -m $opt_max_hits -a $opt_random_assign", expected =>  $base_gff, dryrun => $dry);
 
 # basic stats about the aligment
-launch("perl -S collect_align_stats.pl $eland_left_post $eland_right_post $base_gff $opt_organism $opt_batch > ??", expected =>  $base_log);
+launch("perl -S collect_align_stats.pl $eland_left_post $eland_right_post $base_gff $opt_organism $opt_batch > ??", expected =>  $base_log, dryrun => $dry);
 
 #######################################################################
 # Split correlate
@@ -234,7 +236,7 @@ my @single_c_split = map {
 mfor sub{
     my ($base, $singlec) = @_;
     #print "meow: $_->[0], $_->[1]\n";
-    launch("perl -S countMethylation.pl --ref $opt_reference --gff $base --output $singlec --sort -d $opt_di_nuc_freqs", expected => $singlec);
+    launch("perl -S countMethylation.pl --ref $opt_reference --gff $base --output $singlec --sort -d $opt_di_nuc_freqs", expected => $singlec, dryrun => $dry);
 }, \@base_gff_split, \@single_c_split;
 
 
@@ -244,7 +246,7 @@ for my $singlec (@single_c_split) {
 
     for my $singlec_context (@split_by_context) {
         my $m = "$singlec_context.merged";
-        launch("perl -S compile_gff.pl -o ?? $singlec_context", expected => $m);
+        launch("perl -S compile_gff.pl -o ?? $singlec_context", expected => $m, dryrun => $dry);
 
         unless ($opt_no_windowing){
             # make window file name
@@ -254,7 +256,7 @@ for my $singlec (@single_c_split) {
             }
             my $windows = catfile($windows_dir, $windows_base);
 
-            launch("perl -S window_gff.pl $m --width $opt_window_size --step $opt_window_size --output ?? --no-skip", expected => $windows);
+            launch("perl -S window_gff.pl $m --width $opt_window_size --step $opt_window_size --output ?? --no-skip", expected => $windows, dryrun => $dry);
         }
     }
 }
@@ -441,6 +443,8 @@ Default 0 (meaning no subprocesses).
 
 =for Euclid
     threads.default:     0
+
+=item  -shortname | --dry 
 
 =back
 
