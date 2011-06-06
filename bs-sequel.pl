@@ -12,11 +12,11 @@ use FindBin;
 use Parallel::ForkManager;
 use Getopt::Euclid qw( :vars<opt_> );
 use Pod::Usage;
-
 use lib "$FindBin::Bin/lib";
 use DZUtil qw/mfor timestamp split_names fastq_read_length/;
 use Launch;
 use GFF::Split;
+my $pm = Parallel::ForkManager->new($opt_parallel);
 
 my $logname = $opt_out_directory . "-" . timestamp() . ".log.txt";
 
@@ -43,12 +43,9 @@ unless (
     $opt_left_read && $opt_right_read && $opt_reference && $opt_out_directory && $opt_base_name 
 );
 
-my $pm = Parallel::ForkManager->new($opt_parallel);
+#######################################################################
+# groups (chromosomes)
 
-my @left_splice = @opt_left_splice{qw/start end/};
-my @right_splice = @opt_right_splice{qw/start end/};
-
-my @contexts;		# CG, CHG, CHH, etc.
 my @groups        = (); 	# sequences (chr1, chr2, ...)
 
 # Get all chromosomes, pseudo-chromosomes, groups, etc, in the fasta reference file
@@ -65,10 +62,39 @@ unless (@groups) {
     close $REFERENCE or carp "Can't close $opt_reference: $!";
 }
 
-my $opt_read_size = fastq_read_length($opt_reference);
+#######################################################################
+# Library size
 
-@left_splice  = (1, $opt_read_size) unless @left_splice;
-@right_splice = (1, $opt_read_size) unless @right_splice;
+if ($opt_single_ends && !defined $opt_library_size) {
+    $opt_library_size = 0;
+}
+elsif ($opt_single_ends && $opt_library_size != 0){
+    $logger->logdie("if single-ends, -k/--library-size needs to be omitted or 0.");
+}
+elsif (! $opt_single_ends && !defined $opt_library_size){
+    $logger->logdie("if paired ends, -k needs to be defined");
+}
+
+#######################################################################
+# splice argument sanitizing
+
+my $opt_read_size = fastq_read_length($opt_left_read);
+if (defined($opt_right_read) && $opt_read_size =~ fastq_read_length($opt_right_read)){
+    $logger->logdie("$opt_right_read and $opt_left_read not same read lengths?");
+}
+
+if (! %opt_left_splice){
+    $logger->logdie("Left splice -ls needs to be defined.");
+}
+
+my $do_right = %opt_right_splice;
+
+if (! $do_right && !$opt_single_ends){
+    $logger->logdie("You can't specify -1 0 and not specify a -rs!");
+}
+
+my @left_splice  = @opt_left_splice{qw/start end/};
+my @right_splice = $do_right ? (@opt_right_splice{qw/start end/}) : ();
 
 #######################################################################
 # Directory creation
@@ -87,15 +113,18 @@ if (! -d $windows_dir) { mkpath ( $windows_dir,  {verbose => 1} ); }
 if (! -d $single_c_dir){ mkpath ( $single_c_dir, {verbose => 1} ); }
 
 
-unless (@contexts) {
-    if ($opt_di_nuc_freqs) {@contexts = qw(CA CC CG CT)}
-    else {@contexts = qw(CG CHG CHH)}
-}
-
 my $basename_left  = catfile($opt_out_directory, basename($opt_left_read));
 my $basename_right = catfile($opt_out_directory, basename($opt_left_read));
 my $basename       = catfile($opt_out_directory, $opt_base_name);
 
+#######################################################################
+# Contexts
+
+my @contexts;		# CG, CHG, CHH, etc.
+unless (@contexts) {
+    if ($opt_di_nuc_freqs) {@contexts = qw(CA CC CG CT)}
+    else {@contexts = qw(CG CHG CHH)}
+}
 
 #######################################################################
 # convert reads
@@ -145,11 +174,13 @@ my $r5trim = $right_splice[0] - 1;
 my $mh_args = $opt_max_hits ? " --strata  -k $opt_max_hits -m $opt_max_hits " : q{ };
 # align with bowtie
 launch("bowtie $opt_reference.c2t -f -B 1 -v $opt_mismatches -5 $l5trim -3 $l3trim --best $mh_args --norc $fasta_left_converted ??", expected => $eland_left);
-if ($opt_single_ends) {
-	launch("bowtie $opt_reference.c2t -f -B 1 -v $opt_mismatches -5 $r5trim -3 $r3trim --best $mh_args --norc $fasta_left_converted ??" , expected => $eland_right);
-}
-else {
-	launch("bowtie $opt_reference.g2a -f -B 1 -v $opt_mismatches -5 $r5trim -3 $r3trim --best $mh_args --norc $fasta_right_converted ??" , expected => $eland_right);
+if ($do_right){
+    if ($opt_single_ends) {
+        launch("bowtie $opt_reference.c2t -f -B 1 -v $opt_mismatches -5 $r5trim -3 $r3trim --best $mh_args --norc $fasta_left_converted ??" , expected => $eland_right);
+    }
+    else {
+        launch("bowtie $opt_reference.g2a -f -B 1 -v $opt_mismatches -5 $r5trim -3 $r3trim --best $mh_args --norc $fasta_right_converted ??" , expected => $eland_right);
+    }
 }
 
 #######################################################################
@@ -161,11 +192,16 @@ my $eland_left_post = "$eland_left.post";
 my $eland_right_post = "$eland_right.post";
 
 launch("perl -S parse_bowtie.pl -u $fasta_left -s @left_splice  $eland_left -o ??", expected => $eland_left_post);
-if ($opt_single_ends) {
-	launch("perl -S parse_bowtie.pl -u $fasta_left -s @right_splice  $eland_right -o ??", expected => $eland_right_post);
+if ($do_right){
+    if ($opt_single_ends) {
+        launch("perl -S parse_bowtie.pl -u $fasta_left -s @right_splice  $eland_right -o ??", expected => $eland_right_post);
+    }
+    else {
+        launch("perl -S parse_bowtie.pl -u $fasta_right -s @right_splice  $eland_right -o ??", expected => $eland_right_post);
+    }
 }
 else {
-	launch("perl -S parse_bowtie.pl -u $fasta_right -s @right_splice  $eland_right -o ??", expected => $eland_right_post);
+    $eland_right_post = $eland_left_post;
 }
 
 #######################################################################
@@ -226,20 +262,22 @@ for my $singlec (@single_c_split) {
 
 =head1 NAME
 
- bs-seq-new.pl - Run dzlab's bisulfite sequencing analysis pipeline
+ bs-sequel.pl - Run dzlab's bisulfite sequencing analysis pipeline
 
 =head1 SYNOPSIS
 
-Paired ends example, where s_7_1_sequence.txt is the left read and s_7_2_sequence is the right.
-
-  bs-seq-new.pl --left-read s_7_1_sequence.txt --right-read s_7_2_sequence.txt --reference REF_COL.fa --base-name test-out --read-size 45 --library-size 300 --mismatches 2 --organism leco --batch 1 --left-splice 1 40 --right-splice 5 45
 
 Single ends example. Notice the left and right reads are the same file.
 
- bs-seq-new.pl -l reads.fastq -r reads.fastq -f /path/to/genomes/TAIR_reference.fas -b bsseqrun -s 76 -k 0 -n 2 -t Arabidopsis -i 1 -ls 1 45 -rs 46 76 -1 1 -2 0 -rnd 0 -mh 10 -d output dir
+ bs-sequel.pl -l reads.fastq -r reads.fastq -f /path/to/genomes/TAIR_reference.fas -b bsseqrun -s 76 -k 0 -n 2 -t Arabidopsis -i 1 -ls 1 45 -rs 46 76 -1 1 -2 0 -rnd 0 -mh 10 -d output dir
+
+Paired ends example, where s_7_1_sequence.txt is the left read and s_7_2_sequence is the right.
+
+ bs-sequel.pl --left-read s_7_1_sequence.txt --right-read s_7_2_sequence.txt --reference REF_COL.fa --base-name test-out --read-size 45 --library-size 300 --mismatches 2 --organism leco --batch 1 --left-splice 1 40 --right-splice 5 45
+
+Notes: For arabidopsis, recommended settings from Daniel are "-mh 10 -rnd 0".  For non-arabidopsis, "-mh 10 -rnd 1".
 
 =head1 DESCRIPTION
-
 
 =head1 OPTIONS
 
@@ -304,9 +342,6 @@ For single ends, there isn't an insert use 0.
   |----------->                          1'
                |                         insert (size 0)
                 |-------->               2' (simulated. compared against c2t just like 1')
-
-=for Euclid
-    len.default:     300
 
 =item -t <orgname> | --organism <orgname>
 
