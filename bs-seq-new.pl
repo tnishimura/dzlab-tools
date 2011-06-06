@@ -94,21 +94,6 @@ my $basename_left  = catfile($opt_out_directory, basename($opt_left_read));
 my $basename_right = catfile($opt_out_directory, basename($opt_left_read));
 my $basename       = catfile($opt_out_directory, $opt_base_name);
 
-my %files = (
-    # <output dir>/basename-sequence.gff
-    split => _gen_files (catfile ($opt_out_directory, $opt_base_name), 'gff',  @groups),
-
-    # <output dir>/single-c/basename-sequence.single-c.gff
-    freq  => _gen_files (catfile ($opt_out_directory, 'single-c', $opt_base_name), 'single-c.gff', @groups),
-
-    # <output dir>/single-c/basename-sequence.single-c-CG.gff, 
-    # <output dir>/single-c/basename-sequence.single-c-CHG.gff, etc.
-    cont  => [map { _gen_files (catfile ($opt_out_directory, 'single-c', $opt_base_name), "single-c-$_.gff", @groups) } @contexts],
-
-    # <output dir>/windows/basename-sequence.w50-CG.gff, 
-    # <output dir>/windows/basename-sequence.w50-CHG.gff, etc.
-    wcont => [map { _gen_files (catfile ($opt_out_directory, 'windows', $opt_base_name), "w${opt_window_size}-$_.gff", @groups) } @contexts],
-);
 
 #######################################################################
 # convert reads
@@ -233,17 +218,33 @@ for my $singlec (@single_c_split) {
 #     }
 # }
 
+#my %files = (
+#    # <output dir>/basename-sequence.gff
+#    split => _gen_files (catfile ($opt_out_directory, $opt_base_name), 'gff',  @groups),
+#
+#    # <output dir>/single-c/basename-sequence.single-c.gff
+#    freq  => _gen_files (catfile ($opt_out_directory, 'single-c', $opt_base_name), 'single-c.gff', @groups),
+#
+#    # <output dir>/single-c/basename-sequence.single-c-CG.gff, 
+#    # <output dir>/single-c/basename-sequence.single-c-CHG.gff, etc.
+#    cont  => [map { _gen_files (catfile ($opt_out_directory, 'single-c', $opt_base_name), "single-c-$_.gff", @groups) } @contexts],
+#
+#    # <output dir>/windows/basename-sequence.w50-CG.gff, 
+#    # <output dir>/windows/basename-sequence.w50-CHG.gff, etc.
+#    wcont => [map { _gen_files (catfile ($opt_out_directory, 'windows', $opt_base_name), "w${opt_window_size}-$_.gff", @groups) } @contexts],
+#);
+
 ### DONE
 
-sub _gen_files {
-    my ($base, $ext, @groups) = @_;
-
-    my %split_files;
-    for my $group (@groups) {
-        $split_files{$group} = "$base-$group.$ext";
-    }
-    return \%split_files;
-}
+#sub _gen_files {
+#    my ($base, $ext, @groups) = @_;
+#
+#    my %split_files;
+#    for my $group (@groups) {
+#        $split_files{$group} = "$base-$group.$ext";
+#    }
+#    return \%split_files;
+#}
 
 =head1 NAME
 
