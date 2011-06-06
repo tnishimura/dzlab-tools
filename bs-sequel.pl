@@ -14,7 +14,7 @@ use Getopt::Euclid qw( :vars<opt_> );
 use Pod::Usage;
 
 use lib "$FindBin::Bin/lib";
-use DZUtil qw/mfor timestamp split_names/;
+use DZUtil qw/mfor timestamp split_names fastq_read_length/;
 use Launch;
 use GFF::Split;
 
@@ -40,7 +40,7 @@ my $logger = get_logger("PipeLine");
 
 pod2usage(-verbose => 99,-sections => [qw/NAME SYNOPSIS OPTIONS/]) 
 unless (
-    $opt_left_read && $opt_right_read && $opt_reference && $opt_out_directory && $opt_base_name && $opt_read_size
+    $opt_left_read && $opt_right_read && $opt_reference && $opt_out_directory && $opt_base_name 
 );
 
 my $pm = Parallel::ForkManager->new($opt_parallel);
@@ -64,6 +64,8 @@ unless (@groups) {
     }
     close $REFERENCE or carp "Can't close $opt_reference: $!";
 }
+
+my $opt_read_size = fastq_read_length($opt_reference);
 
 @left_splice  = (1, $opt_read_size) unless @left_splice;
 @right_splice = (1, $opt_read_size) unless @right_splice;
@@ -178,8 +180,16 @@ launch("perl -S correlatePairedEnds.pl -l $eland_left_post -r $eland_right_post 
 # basic stats about the aligment
 launch("perl -S collect_align_stats.pl $eland_left_post $eland_right_post $base_gff $opt_organism $opt_batch > ??", expected =>  $base_log);
 
+#######################################################################
+# Split correlate
+
 $logger->info("Splitting $base_gff by group");
+
 my @base_gff_split = GFF::Split::split_sequence($base_gff,@groups);
+
+#######################################################################
+# Count methyl
+
 my @single_c_split = map {
     my $single_c_base = basename($_, ".gff");
     catfile($single_c_dir, $single_c_base) . ".single-c.gff";
@@ -187,64 +197,32 @@ my @single_c_split = map {
 
 mfor sub{
     my ($base, $singlec) = @_;
-    print "meow: $_->[0], $_->[1]\n";
+    #print "meow: $_->[0], $_->[1]\n";
     launch("perl -S countMethylation.pl --ref $opt_reference --gff $base --output $singlec --sort -d $opt_di_nuc_freqs", expected => $singlec);
 }, \@base_gff_split, \@single_c_split;
+
+
 
 for my $singlec (@single_c_split) {
     my @split_by_context = GFF::Split::split_feature($singlec, @contexts);
 
     for my $singlec_context (@split_by_context) {
+        my $m = "$singlec_context.merged";
+        launch("perl -S compile_gff.pl -o ?? $singlec_context", expected => $m);
+
         unless ($opt_no_windowing){
-            my $m = "$singlec_context.merged";
-            launch("perl -S compile_gff.pl -o ?? $singlec_context", expected => $m);
-            #launch("perl -S window_gff.pl $m --width $opt_window_size --step $opt_window_size --output ?? --no-skip",
-            #expected => $files{wcont}->[$context]{$group});
+            # make window file name
+            my $windows_base = basename($singlec_context);
+            if ($windows_base !~ s/\.single-c-/.w$opt_window_size-/){
+                $logger->logdie("$singlec_context- naming screwed up?");
+            }
+            my $windows = catfile($windows_dir, $windows_base);
+
+            launch("perl -S window_gff.pl $m --width $opt_window_size --step $opt_window_size --output ?? --no-skip", expected => $windows);
         }
     }
 }
 
-# # window methylation counts into non-overlapping windows
-# for my $context (0 .. @contexts - 1) {
-#     for my $group (@groups) {
-#         $logger->info("Splitting $files{freq}{$group} by context");
-#         GFF::Split::split_feature($files{freq}{$group}, @contexts);
-#         unless ($opt_no_windowing){
-#             my $m = "$files{cont}->[$context]{$group}.merged";
-#             launch("perl -S compile_gff.pl -o ?? $files{cont}->[$context]{$group}", expected => $m);
-#             launch("perl -S window_gff.pl $m --width $opt_window_size --step $opt_window_size --output ?? --no-skip",
-#             expected => $files{wcont}->[$context]{$group});
-#         }
-#     }
-# }
-
-#my %files = (
-#    # <output dir>/basename-sequence.gff
-#    split => _gen_files (catfile ($opt_out_directory, $opt_base_name), 'gff',  @groups),
-#
-#    # <output dir>/single-c/basename-sequence.single-c.gff
-#    freq  => _gen_files (catfile ($opt_out_directory, 'single-c', $opt_base_name), 'single-c.gff', @groups),
-#
-#    # <output dir>/single-c/basename-sequence.single-c-CG.gff, 
-#    # <output dir>/single-c/basename-sequence.single-c-CHG.gff, etc.
-#    cont  => [map { _gen_files (catfile ($opt_out_directory, 'single-c', $opt_base_name), "single-c-$_.gff", @groups) } @contexts],
-#
-#    # <output dir>/windows/basename-sequence.w50-CG.gff, 
-#    # <output dir>/windows/basename-sequence.w50-CHG.gff, etc.
-#    wcont => [map { _gen_files (catfile ($opt_out_directory, 'windows', $opt_base_name), "w${opt_window_size}-$_.gff", @groups) } @contexts],
-#);
-
-### DONE
-
-#sub _gen_files {
-#    my ($base, $ext, @groups) = @_;
-#
-#    my %split_files;
-#    for my $group (@groups) {
-#        $split_files{$group} = "$base-$group.$ext";
-#    }
-#    return \%split_files;
-#}
 
 =head1 NAME
 
@@ -297,13 +275,6 @@ For example, if you are doing single ends with 1-45 and 46-76, use "-ls 1 45".
 
 Start and end coordinate for the chunk of the --right-read fastq file to use for the right alignment.  Required.
 For example, if you are doing single ends with 1-45 and 46-76, use "-rs 46 76".
-
-=item -s <len> | --read-size <len> 
-
-Length of each read.  76, 100, etc. Required.
-
-=for Euclid
-    len.default:     76
 
 =item -b <label> | --base-name <label>
 
