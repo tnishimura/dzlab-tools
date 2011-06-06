@@ -14,7 +14,7 @@ use Getopt::Euclid qw( :vars<opt_> );
 use Pod::Usage;
 
 use lib "$FindBin::Bin/lib";
-use DZUtil qw/timestamp split_names/;
+use DZUtil qw/mfor timestamp split_names/;
 use Launch;
 use GFF::Split;
 
@@ -90,24 +90,11 @@ unless (@contexts) {
     else {@contexts = qw(CG CHG CHH)}
 }
 
-my $basename_left = catfile($opt_out_directory, basename($opt_left_read));
+my $basename_left  = catfile($opt_out_directory, basename($opt_left_read));
 my $basename_right = catfile($opt_out_directory, basename($opt_left_read));
+my $basename       = catfile($opt_out_directory, $opt_base_name);
 
 my %files = (
-    # left fasta, and bisulfite treated
-    lfa   => catfile ($opt_out_directory, basename($opt_left_read))  . '.fa',
-    lc2t  => catfile ($opt_out_directory, basename($opt_left_read))  . '.c2t',
-    # right fasta, and bisulfite treated
-    rfa   => catfile ($opt_out_directory, basename($opt_right_read)) . '.fa',
-    rg2a  => catfile ($opt_out_directory, basename($opt_right_read)) . '.g2a',
-    # left/right eland3, from bowtie
-    lel3  => catfile ($opt_out_directory, basename($opt_left_read))  . "_$left_splice[0]-$left_splice[1].eland3",
-    rel3  => catfile ($opt_out_directory, basename($opt_right_read)) . "_$right_splice[0]-$right_splice[1].eland3",
-    # output of correlated paired ends
-    base  => catfile ($opt_out_directory, $opt_base_name)  . '.gff',
-    # output of collect align states
-    log   => catfile ($opt_out_directory, $opt_base_name)  . '.log',
-    
     # <output dir>/basename-sequence.gff
     split => _gen_files (catfile ($opt_out_directory, $opt_base_name), 'gff',  @groups),
 
@@ -126,14 +113,17 @@ my %files = (
 #######################################################################
 # convert reads
 
-my $left_fasta = "$basename_left.fa";
-my $right_fasta = "$basename_right.fa";
+my $fasta_left = "$basename_left.fa";
+my $fasta_right = "$basename_right.fa";
 
-launch("perl -S fq_all2std.pl fq2fa $opt_left_read > ??",  expected => $files{lfa});
-launch("perl -S convert.pl c2t $files{lfa} > ??", expected =>  $files{lc2t});
+my $fasta_left_converted = "$basename_left.c2t";
+my $fasta_right_converted = "$basename_right.g2a";
+
+launch("perl -S fq_all2std.pl fq2fa $opt_left_read > ??",  expected => $fasta_left);
+launch("perl -S convert.pl c2t $fasta_left > ??", expected =>  $fasta_left_converted);
 unless ($opt_single_ends) {
-    launch("perl -S fq_all2std.pl fq2fa $opt_right_read > ??", expected =>  $files{rfa});
-    launch("perl -S convert.pl g2a $files{rfa} > ??", expected =>  $files{rg2a});
+    launch("perl -S fq_all2std.pl fq2fa $opt_right_read > ??", expected =>  $fasta_right);
+    launch("perl -S convert.pl g2a $fasta_right > ??", expected =>  $fasta_right_converted);
 }
 
 #######################################################################
@@ -146,12 +136,18 @@ unless ($opt_single_ends) {
 }
 
 #######################################################################
-# align with bowtie
+# bowtie-build
 
 launch("bowtie-build $opt_reference.c2t $opt_reference.c2t", expected =>  "$opt_reference.c2t.1.ebwt");
 unless ($opt_single_ends) {
     launch("bowtie-build $opt_reference.g2a $opt_reference.g2a", expected =>  "$opt_reference.g2a.1.ebwt");
 }
+
+#######################################################################
+# bowtie
+
+my $eland_left  = "${basename_left}_$left_splice[0]-$left_splice[1].eland3";
+my $eland_right = "${basename_right}_$right_splice[0]-$right_splice[1].eland3";
 
 my $l3trim = $opt_read_size - $left_splice[1];
 my $l5trim = $left_splice[0] - 1;
@@ -161,12 +157,12 @@ my $r5trim = $right_splice[0] - 1;
 
 my $mh_args = $opt_max_hits ? " --strata  -k $opt_max_hits -m $opt_max_hits " : q{ };
 # align with bowtie
-launch("bowtie $opt_reference.c2t -f -B 1 -v $opt_mismatches -5 $l5trim -3 $l3trim --best $mh_args --norc $files{lc2t} ??", expected => $files{lel3});
-unless ($opt_single_ends) {
-	launch("bowtie $opt_reference.g2a -f -B 1 -v $opt_mismatches -5 $r5trim -3 $r3trim --best $mh_args --norc $files{rg2a} ??" , expected => $files{rel3});
+launch("bowtie $opt_reference.c2t -f -B 1 -v $opt_mismatches -5 $l5trim -3 $l3trim --best $mh_args --norc $fasta_left_converted ??", expected => $eland_left);
+if ($opt_single_ends) {
+	launch("bowtie $opt_reference.c2t -f -B 1 -v $opt_mismatches -5 $r5trim -3 $r3trim --best $mh_args --norc $fasta_left_converted ??" , expected => $eland_right);
 }
 else {
-	launch("bowtie $opt_reference.c2t -f -B 1 -v $opt_mismatches -5 $r5trim -3 $r3trim --best $mh_args --norc $files{lc2t} ??" , expected => $files{rel3});
+	launch("bowtie $opt_reference.g2a -f -B 1 -v $opt_mismatches -5 $r5trim -3 $r3trim --best $mh_args --norc $fasta_right_converted ??" , expected => $eland_right);
 }
 
 #######################################################################
@@ -174,44 +170,68 @@ else {
 
 # get back original non-converted reads and convert from bowtie to eland3
 
-launch("perl -S parse_bowtie.pl -u $files{lfa} -s @left_splice  $files{lel3} -o ??", expected => "$files{lel3}.post");
-unless ($opt_single_ends) {
-	launch("perl -S parse_bowtie.pl -u $files{rfa} -s @right_splice  $files{rel3} -o ??", expected => "$files{rel3}.post");
+my $eland_left_post = "$eland_left.post";
+my $eland_right_post = "$eland_right.post";
+
+launch("perl -S parse_bowtie.pl -u $fasta_left -s @left_splice  $eland_left -o ??", expected => $eland_left_post);
+if ($opt_single_ends) {
+	launch("perl -S parse_bowtie.pl -u $fasta_left -s @right_splice  $eland_right -o ??", expected => $eland_right_post);
 }
 else {
-	launch("perl -S parse_bowtie.pl -u $files{lfa} -s @right_splice  $files{rel3} -o ??", expected => "$files{rel3}.post");
+	launch("perl -S parse_bowtie.pl -u $fasta_right -s @right_splice  $eland_right -o ??", expected => $eland_right_post);
 }
+
+#######################################################################
+# Correlate
+
+my $base_gff = "$basename.gff";
+my $base_log = "$basename.log";
 
 # make sure reads map together
-launch("perl -S correlatePairedEnds.pl -l $files{lel3}.post -r $files{rel3}.post -ref $opt_reference -o ?? -t 0 -d $opt_library_size -s $opt_read_size -2 $opt_trust_dash_2 -1 $opt_single_ends -m $opt_max_hits -a $opt_random_assign", expected =>  $files{base});
+launch("perl -S correlatePairedEnds.pl -l $eland_left_post -r $eland_right_post -ref $opt_reference -o ?? -t 0 -d $opt_library_size -s $opt_read_size -2 $opt_trust_dash_2 -1 $opt_single_ends -m $opt_max_hits -a $opt_random_assign", expected =>  $base_gff);
 
 # basic stats about the aligment
-launch("perl -S collect_align_stats.pl $files{lel3}.post $files{rel3}.post $files{base} $opt_organism $opt_batch > ??", expected =>  $files{log});
+launch("perl -S collect_align_stats.pl $eland_left_post $eland_right_post $base_gff $opt_organism $opt_batch > ??", expected =>  $base_log);
 
-$logger->info("Splitting $files{base} by group");
-GFF::Split::split_sequence($files{base},@groups);
+$logger->info("Splitting $base_gff by group");
+my @base_gff_split = GFF::Split::split_sequence($base_gff,@groups);
+my @single_c_split = map {
+    my $single_c_base = basename($_, ".gff");
+    catfile($single_c_dir, $single_c_base) . ".single-c.gff";
+} @base_gff_split;
 
-# quantify methylation
-for (@groups) {
-    $pm->start and next;
-    launch("perl -S countMethylation.pl --ref $opt_reference --gff $files{split}->{$_} --output $files{freq}->{$_} --sort -d $opt_di_nuc_freqs", expected => $files{freq}->{$_});
-    $pm->finish;
-}
-$pm->wait_all_children;
+mfor sub{
+    my ($base, $singlec) = @_;
+    print "meow: $_->[0], $_->[1]\n";
+    launch("perl -S countMethylation.pl --ref $opt_reference --gff $base --output $singlec --sort -d $opt_di_nuc_freqs", expected => $singlec);
+}, \@base_gff_split, \@single_c_split;
 
-# window methylation counts into non-overlapping windows
-for my $context (0 .. @contexts - 1) {
-    for my $group (@groups) {
-        $logger->info("Splitting $files{freq}{$group} by context");
-        GFF::Split::split_feature($files{freq}{$group}, @contexts);
+for my $singlec (@single_c_split) {
+    my @split_by_context = GFF::Split::split_feature($singlec, @contexts);
+
+    for my $singlec_context (@split_by_context) {
         unless ($opt_no_windowing){
-            my $m = "$files{cont}->[$context]{$group}.merged";
-            launch("perl -S compile_gff.pl -o ?? $files{cont}->[$context]{$group}", expected => $m);
-            launch("perl -S window_gff.pl $m --width $opt_window_size --step $opt_window_size --output ?? --no-skip",
-            expected => $files{wcont}->[$context]{$group});
+            my $m = "$singlec_context.merged";
+            launch("perl -S compile_gff.pl -o ?? $singlec_context", expected => $m);
+            #launch("perl -S window_gff.pl $m --width $opt_window_size --step $opt_window_size --output ?? --no-skip",
+            #expected => $files{wcont}->[$context]{$group});
         }
     }
 }
+
+# # window methylation counts into non-overlapping windows
+# for my $context (0 .. @contexts - 1) {
+#     for my $group (@groups) {
+#         $logger->info("Splitting $files{freq}{$group} by context");
+#         GFF::Split::split_feature($files{freq}{$group}, @contexts);
+#         unless ($opt_no_windowing){
+#             my $m = "$files{cont}->[$context]{$group}.merged";
+#             launch("perl -S compile_gff.pl -o ?? $files{cont}->[$context]{$group}", expected => $m);
+#             launch("perl -S window_gff.pl $m --width $opt_window_size --step $opt_window_size --output ?? --no-skip",
+#             expected => $files{wcont}->[$context]{$group});
+#         }
+#     }
+# }
 
 ### DONE
 
