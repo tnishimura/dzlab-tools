@@ -32,7 +32,6 @@ sub launch{
     my $force     = delete $opt{force} // 0;
     my $dryrun    = delete $opt{dryrun} // 0;
 
-    $logger->info(join ", ", "running [$cmd]", ($force ? "forced" : ()), ($dryrun ? "dryrun" : ()));
 
     my @expected;
     if (exists $opt{expected}){
@@ -56,7 +55,9 @@ sub launch{
         }
     }
 
-    die "unknown parameters passed to doit" . Dumper \%opt if (%opt);
+    $logger->info(join ", ", "running [$cmd]", ($force ? "forced" : ()), ($dryrun ? "dryrun" : ()));
+
+    die "unknown parameters passed to launch" . Dumper \%opt if (%opt);
 
     if (!$force){
         if (! @expected){
