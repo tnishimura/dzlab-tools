@@ -30,6 +30,8 @@ if (! defined $opt_out_directory){
     $opt_out_directory = $opt_base_name;
 }
 
+if (! -d $opt_out_directory) { mkpath ( $opt_out_directory ,  {verbose => 1} ); }
+
 my $logname = catfile($opt_out_directory, $opt_out_directory) . "-" . timestamp() . ".log.txt";
 
 use Log::Log4perl qw/get_logger/;
@@ -136,7 +138,6 @@ else{
 }
 $logger->info("--base-name $opt_base_name");
 $logger->info("--out-directory $opt_out_directory");
-$logger->info("--overwrite " . ($opt_overwrite ? "<enable>" : "<disable>"));
 $logger->info("--library-size " . ($opt_library_size // "undef"));
 $logger->info("--organism $opt_organism");
 $logger->info("--window-size $opt_window_size");
@@ -159,15 +160,9 @@ my $windows_dir  = catfile ($opt_out_directory, 'windows');
 my $single_c_dir = catfile ($opt_out_directory, 'single-c');
 
 # check whether output directory should be created, exists, should overwritten
-if (-d $opt_out_directory and $opt_overwrite) {rmtree ( $opt_out_directory, {keep_root => 1} )}
-elsif (! -d $opt_out_directory) {
-    mkpath ( $opt_out_directory ,  {verbose => 1} );
-}
-else {warn " overwrite $opt_out_directory"}
-
+# root dir created at beginning
 if (! -d $windows_dir) { mkpath ( $windows_dir,  {verbose => 1} ); }
 if (! -d $single_c_dir){ mkpath ( $single_c_dir, {verbose => 1} ); }
-
 
 my $basename_left  = catfile($opt_out_directory, basename($opt_left_read));
 my $basename_right = catfile($opt_out_directory, basename($opt_left_read));
@@ -410,10 +405,6 @@ Label for the file names... can be anything.  Choose something descriptive. Requ
 =item -d <dir> | --out-directory <dir>
 
 Directory to put all result files. If omitted, assumed to be the same as --base-name.
-
-=item -o | --overwrite 
-
-Enable to overwrite the --directory if it already exists.  
 
 =item -k <len> | --library-size <len>
 
