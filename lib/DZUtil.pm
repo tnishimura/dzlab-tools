@@ -159,7 +159,7 @@ sub common_suffix{
 }
 
 sub mfor {
-    my $code = pop @_;
+    my $code = shift;
     my @arrays = @_;
     my $minlength = min map { scalar @$_ } @arrays;
 
