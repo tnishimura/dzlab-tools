@@ -19,6 +19,11 @@ use Launch;
 use GFF::Split;
 my $pm = Parallel::ForkManager->new($opt_parallel);
 
+pod2usage(-verbose => 99,-sections => [qw/NAME SYNOPSIS OPTIONS/]) 
+unless (
+    $opt_left_read && $opt_reference && $opt_base_name 
+);
+
 if (! defined $opt_out_directory){
     $opt_out_directory = $opt_base_name;
 }
@@ -43,10 +48,6 @@ my $conf=qq/
 Log::Log4perl::init( \$conf );
 my $logger = get_logger("PipeLine");
 
-pod2usage(-verbose => 99,-sections => [qw/NAME SYNOPSIS OPTIONS/]) 
-unless (
-    $opt_left_read && $opt_reference && $opt_base_name 
-);
 
 my $dry = defined $opt_dry;
 
@@ -264,10 +265,13 @@ $pm->wait_all_children;
 my $base_gff = "$basename.gff";
 my $base_log = "$basename.log";
 
-# make sure reads map together
-launch("perl -S correlatePairedEnds.pl -l $eland_left_post -r $eland_right_post -ref $opt_reference -o ?? -t 0 -d $opt_library_size -s $read_size -2 $opt_trust_dash_2 -1 $opt_single_ends -m $opt_max_hits -a $opt_random_assign", expected =>  $base_gff, dryrun => $dry);
+if ($do_right){
+    launch("perl -S correlatePairedEnds.pl -l $eland_left_post -r $eland_right_post -ref $opt_reference -o ?? -t 0 -d $opt_library_size -s $read_size -2 $opt_trust_dash_2 -1 $opt_single_ends -m $opt_max_hits -a $opt_random_assign", expected =>  $base_gff, dryrun => $dry);
+}
+else{
+    launch("perl -S correlateSingleEnds.pl -e $eland_left_post --reference $opt_reference -o ?? -m $opt_max_hits --random-assign $opt_random_assign", expected =>  $base_gff, dryrun => $dry);
+}
 
-# basic stats about the aligment
 launch("perl -S collect_align_stats.pl $eland_left_post $eland_right_post $base_gff $opt_organism $opt_batch > ??", expected =>  $base_log, dryrun => $dry);
 
 #######################################################################
@@ -312,7 +316,8 @@ mfor \@base_gff_split, \@single_c_split, sub{
 
         for my $singlec_context (@split_by_context) {
             my $m = "$singlec_context.merged";
-            launch("perl -S compile_gff.pl -o ?? $singlec_context", expected => $m, dryrun => $dry, id => "compile-$singlec");
+            #launch("perl -S compile_gff.pl -o ?? $singlec_context", expected => $m, dryrun => $dry, id => "compile-$singlec");
+            launch("perl -S window_by_fixed.pl -o ?? $singlec_context", expected => $m, dryrun => $dry, id => "w1-$singlec");
 
             unless ($opt_no_windowing){
                 # make window file name
@@ -322,7 +327,7 @@ mfor \@base_gff_split, \@single_c_split, sub{
                 }
                 my $windows = catfile($windows_dir, $windows_base);
 
-                launch("perl -S window_gff.pl $m --width $opt_window_size --step $opt_window_size --output ?? --no-skip", 
+                launch("perl -S window_by_fixed.pl -w $opt_window_size --output ?? --no-skip $m", 
                     expected => $windows, dryrun => $dry, id => "window-$singlec");
             }
         }
@@ -334,7 +339,7 @@ mfor \@base_gff_split, \@single_c_split, sub{
 $pm->wait_all_children;
 
 launch("perl -S collect-freqs.pl -o $basename.single-c.freq $single_c_dir", dryrun => $dry);
-copy($logname,"$basename.run.log");
+copy($logname,$opt_out_directory);
 
 =head1 NAME
 
