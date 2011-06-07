@@ -47,6 +47,7 @@ my $sort = 0;
 # CA/CC/CT is relevant
 my $di_nucleotide_count = 0;
 my $output = "-";
+my $output_frequency = "-";
 my $verbose = 0;
 my $quiet = 0;
 my $usage = 0;
@@ -61,6 +62,7 @@ my $result = GetOptions (
     'sort|s'       => \$sort,
     'di-nuc|d:o'   => \$di_nucleotide_count,
     "output|o:s"   => \$output,
+    "freq=s"       => \$output_frequency,
     'stats-only|t' => \$stats_only,
     "verbose|v"    => sub {enable diagnostics;},
     "quiet|q"      => sub {disable diagnostics;no warnings;},
@@ -392,7 +394,13 @@ close($GFF);
 # open for counting frequencies
 my @freq = count_freq($output, $di_nucleotide_count);
 
-open my $FREQ_OUT, '>', "$output.freq" or die "Can't write to file: $output.freq";
+my $FREQ_OUT;
+if ($output_frequency ne '-'){
+    open $FREQ_OUT, '>', "$output_frequency" or die "Can't write to file: $output_frequency";
+}
+else {
+    open $FREQ_OUT, '>', "$output.freq" or die "Can't write to file: $output.freq";
+}
 
 unless ($di_nucleotide_count) {
     print $FREQ_OUT join ("\t",

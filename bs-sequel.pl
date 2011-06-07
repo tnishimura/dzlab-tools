@@ -47,7 +47,6 @@ unless (
     $opt_left_read && $opt_reference && $opt_base_name 
 );
 
-
 my $dry = defined $opt_dry;
 
 #######################################################################
@@ -258,36 +257,40 @@ my @single_c_split = map {
 mfor \@base_gff_split, \@single_c_split, sub{
     my ($base, $singlec) = @_;
 
-    $logger->info("Processing $base");
+    if ($pm->start == 0){
+        $logger->info("Processing $base");
 
-    launch("perl -S countMethylation.pl --ref $opt_reference --gff $base --output ?? --sort -d $opt_di_nuc_freqs", expected => $singlec, dryrun => $dry);
+        launch("perl -S countMethylation.pl --ref $opt_reference --gff $base --output ?? --freq $singlec.freq --sort -d $opt_di_nuc_freqs", expected => $singlec, dryrun => $dry);
 
-    my @split_by_context = (); 
-    if (!$dry){
-        @split_by_context = GFF::Split::split_feature($singlec, @contexts);
-        $logger->info("result of context split of $singlec: \n" . join "\n", @split_by_context);
-    }
-    else {
-        $logger->info("DRY: GFF::Split::split_feature($singlec, @contexts); ");
-    }
-
-    for my $singlec_context (@split_by_context) {
-        my $m = "$singlec_context.merged";
-        launch("perl -S compile_gff.pl -o ?? $singlec_context", expected => $m, dryrun => $dry);
-
-        unless ($opt_no_windowing){
-            # make window file name
-            my $windows_base = basename($singlec_context);
-            if ($windows_base !~ s/\.single-c-/.w$opt_window_size-/){
-                $logger->logdie("$singlec_context- naming screwed up?");
-            }
-            my $windows = catfile($windows_dir, $windows_base);
-
-            launch("perl -S window_gff.pl $m --width $opt_window_size --step $opt_window_size --output ?? --no-skip", expected => $windows, dryrun => $dry);
+        my @split_by_context = (); 
+        if (!$dry){
+            @split_by_context = GFF::Split::split_feature($singlec, @contexts);
+            $logger->info("result of context split of $singlec: \n" . join "\n", @split_by_context);
         }
+        else {
+            $logger->info("DRY: GFF::Split::split_feature($singlec, @contexts); ");
+        }
+
+        for my $singlec_context (@split_by_context) {
+            my $m = "$singlec_context.merged";
+            launch("perl -S compile_gff.pl -o ?? $singlec_context", expected => $m, dryrun => $dry);
+
+            unless ($opt_no_windowing){
+                # make window file name
+                my $windows_base = basename($singlec_context);
+                if ($windows_base !~ s/\.single-c-/.w$opt_window_size-/){
+                    $logger->logdie("$singlec_context- naming screwed up?");
+                }
+                my $windows = catfile($windows_dir, $windows_base);
+
+                launch("perl -S window_gff.pl $m --width $opt_window_size --step $opt_window_size --output ?? --no-skip", expected => $windows, dryrun => $dry);
+            }
+        }
+        $pm->finish;
     }
 };
 
+$pm->wait_all_children;
 
 =head1 NAME
 
