@@ -18,6 +18,10 @@ use Launch;
 use GFF::Split;
 my $pm = Parallel::ForkManager->new($opt_parallel);
 
+if (! defined $opt_out_directory){
+    $opt_out_directory = $opt_base_name;
+}
+
 my $logname = $opt_out_directory . "-" . timestamp() . ".log.txt";
 
 use Log::Log4perl qw/get_logger/;
@@ -43,9 +47,6 @@ unless (
     $opt_left_read && $opt_reference && $opt_base_name 
 );
 
-if (! defined $opt_out_directory){
-    $opt_out_directory = $opt_base_name;
-}
 
 my $dry = defined $opt_dry;
 
@@ -106,7 +107,7 @@ if ($left_splice[0] < 1 || $left_splice[1] > $opt_read_size || $left_splice[1] <
     die "left splice out of bounds";
 }
 
-if ($do_right && $right_splice[0] < 1 || $right_splice[1] > $opt_read_size || $right_splice[1] < $right_splice[0]){
+if ($do_right && ($right_splice[0] < 1 || $right_splice[1] > $opt_read_size || $right_splice[1] < $right_splice[0])){
     die "left splice out of bounds";
 }
 
@@ -177,18 +178,20 @@ unless ($opt_single_ends) {
 # bowtie
 
 my $eland_left  = "${basename_left}_$left_splice[0]-$left_splice[1].eland3";
-my $eland_right = "${basename_right}_$right_splice[0]-$right_splice[1].eland3";
+
+my $eland_right = $do_right ? "${basename_right}_$right_splice[0]-$right_splice[1].eland3" : "";
 
 my $l3trim = $opt_read_size - $left_splice[1];
 my $l5trim = $left_splice[0] - 1;
 
-my $r3trim = $opt_read_size - $right_splice[1];
-my $r5trim = $right_splice[0] - 1;
 
 my $mh_args = $opt_max_hits ? " --strata  -k $opt_max_hits -m $opt_max_hits " : q{ };
 # align with bowtie
 launch("bowtie $opt_reference.c2t -f -B 1 -v $opt_mismatches -5 $l5trim -3 $l3trim --best $mh_args --norc $fasta_left_converted ??", expected => $eland_left, dryrun => $dry);
+
 if ($do_right){
+    my $r3trim = $opt_read_size - $right_splice[1];
+    my $r5trim = $right_splice[0] - 1;
     if ($opt_single_ends) {
         launch("bowtie $opt_reference.c2t -f -B 1 -v $opt_mismatches -5 $r5trim -3 $r3trim --best $mh_args --norc $fasta_left_converted ??" , expected => $eland_right, dryrun => $dry);
     }
@@ -235,7 +238,13 @@ launch("perl -S collect_align_stats.pl $eland_left_post $eland_right_post $base_
 
 $logger->info("Splitting $base_gff by group");
 
-my @base_gff_split = GFF::Split::split_sequence($base_gff,@groups);
+my @base_gff_split=();
+if (!$dry){
+    @base_gff_split = GFF::Split::split_sequence($base_gff,@groups);
+}
+else {
+    $logger->info("DRY: GFF::Split::split_sequence($base_gff,@groups);");
+}
 
 #######################################################################
 # Count methyl
@@ -251,10 +260,14 @@ mfor sub{
     launch("perl -S countMethylation.pl --ref $opt_reference --gff $base --output $singlec --sort -d $opt_di_nuc_freqs", expected => $singlec, dryrun => $dry);
 }, \@base_gff_split, \@single_c_split;
 
-
-
 for my $singlec (@single_c_split) {
-    my @split_by_context = GFF::Split::split_feature($singlec, @contexts);
+    my @split_by_context = (); 
+    if (!$dry){
+        @split_by_context = GFF::Split::split_feature($singlec, @contexts);
+    }
+    else {
+        $logger->info("DRY: GFF::Split::split_feature($singlec, @contexts); ");
+    }
 
     for my $singlec_context (@split_by_context) {
         my $m = "$singlec_context.merged";
