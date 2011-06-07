@@ -241,6 +241,7 @@ $logger->info("Splitting $base_gff by group");
 my @base_gff_split=();
 if (!$dry){
     @base_gff_split = GFF::Split::split_sequence($base_gff,@groups);
+    $logger->info("result of context split of $base_gff: \n" . join "\n", @base_gff_split);
 }
 else {
     $logger->info("DRY: GFF::Split::split_sequence($base_gff,@groups);");
@@ -254,16 +255,17 @@ my @single_c_split = map {
     catfile($single_c_dir, $single_c_base) . ".single-c.gff";
 } @base_gff_split;
 
-mfor sub{
+mfor \@base_gff_split, \@single_c_split, sub{
     my ($base, $singlec) = @_;
-    #print "meow: $_->[0], $_->[1]\n";
-    launch("perl -S countMethylation.pl --ref $opt_reference --gff $base --output $singlec --sort -d $opt_di_nuc_freqs", expected => $singlec, dryrun => $dry);
-}, \@base_gff_split, \@single_c_split;
 
-for my $singlec (@single_c_split) {
+    $logger->info("Processing $base");
+
+    launch("perl -S countMethylation.pl --ref $opt_reference --gff $base --output ?? --sort -d $opt_di_nuc_freqs", expected => $singlec, dryrun => $dry);
+
     my @split_by_context = (); 
     if (!$dry){
         @split_by_context = GFF::Split::split_feature($singlec, @contexts);
+        $logger->info("result of context split of $singlec: \n" . join "\n", @split_by_context);
     }
     else {
         $logger->info("DRY: GFF::Split::split_feature($singlec, @contexts); ");
@@ -284,7 +286,7 @@ for my $singlec (@single_c_split) {
             launch("perl -S window_gff.pl $m --width $opt_window_size --step $opt_window_size --output ?? --no-skip", expected => $windows, dryrun => $dry);
         }
     }
-}
+};
 
 
 =head1 NAME

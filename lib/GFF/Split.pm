@@ -63,6 +63,7 @@ sub _gff_split{
     GFF:
     while (defined(my $line = <$input>)){
         chomp $line;
+        next GFF if $line =~ /^\s*#/;
         my @split = (split /\t/, $line);
         next GFF if ! @split == 9;
         my ($sequence, $feature) = @split[0,2];
