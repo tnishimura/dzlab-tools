@@ -14,6 +14,7 @@ use lib "$FindBin::Bin/lib";
 use Launch;
 use DZUtil qw/chext timestamp/;
 use Parallel::ForkManager;
+use File::Copy;
 my $pm = Parallel::ForkManager->new(2);
 
 pod2usage(-verbose => 99,-sections => [qw/NAME SYNOPSIS OPTIONS/]) 
@@ -243,6 +244,8 @@ $pm->wait_all_children;
 my $table = "$basename.table.txt$nocc";
 
 launch("perl -S divorce_gene_table.pl -a $opt_annotation -f $w50_a $w50_filtered_a $w50_b $w50_filtered_b -o $table", expected => $table);
+
+copy($logname, $opt_output_directory);
 
 =head1 NAME
 

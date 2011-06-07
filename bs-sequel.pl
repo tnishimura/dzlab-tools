@@ -218,7 +218,7 @@ my $eland_left  = "${basename_left}_$left_splice[0]-$left_splice[1].eland3";
 my $eland_right = $do_right ? "${basename_right}_$right_splice[0]-$right_splice[1].eland3" : "";
 
 my $eland_left_post = "$eland_left.post";
-my $eland_right_post = "$eland_right.post";
+my $eland_right_post = $do_right ? "$eland_right.post" : $eland_left_post;
 
 my $l3trim = $read_size - $left_splice[1];
 my $l5trim = $left_splice[0] - 1;
