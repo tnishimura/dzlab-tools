@@ -56,7 +56,7 @@ my $dry = defined $opt_dry;
 $logger->info("These are the options you ran with:");
 $logger->info("--reference $opt_reference");
 $logger->info("--left-read $opt_left_read");
-if (%opt_right_splice){
+if (defined $opt_right_read){
     $logger->info("--right-read $opt_right_read");
 }
 else{
