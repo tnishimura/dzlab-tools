@@ -112,7 +112,7 @@ sub launch{
 
     if ($accum){
         $logger->info("Output of $cmd was:\n");
-        $logger->info(join "", @output_accum);
+        $logger->info(join "", "\n", @output_accum);
     }
 
     if ($success == 0){
