@@ -33,6 +33,7 @@ sub launch{
     my $force     = delete $opt{force} // 0;
     my $dryrun    = delete $opt{dryrun} // 0;
     my $id        = delete $opt{id} // "";
+    my $accum     = delete $opt{accum} // 0;
     $id = $id ? "($id)" : "";
 
 
@@ -76,18 +77,42 @@ sub launch{
     }
 
     my $success;
+    my @output_accum;
     if (IPC::Cmd->can_use_run_forked()){
         $logger->info("running with run_forked");
         my $rv = run_forked($cmd, {
                 discard_output => 1,
-                stdout_handler => sub{ $logger->debug("stdout $id: " . shift); },
-                stderr_handler => sub{ $logger->debug("stderr $id: " . shift); },
+                stdout_handler => sub{ 
+                    my $o  ="stdout $id: " . shift;
+                    if ($accum){
+                        push(@output_accum, $o); 
+                        print $o;
+                    }
+                    else{
+                        $logger->debug($o);
+                    }
+                },
+                stderr_handler => sub{ 
+                    my $e  ="stderr $id: " . shift;
+                    if ($accum){
+                        push(@output_accum, $e);
+                        print $e;
+                    }
+                    else{
+                        $logger->debug($e);
+                    }
+                },
             });
         $success = $rv->{exit_code};
     }
     else{
         $logger->info("can't run forked? then get a real OS. reverting to system()");
         $success = system($cmd);
+    }
+
+    if ($accum){
+        $logger->info("Output of $cmd was:\n");
+        $logger->info(join "", @output_accum);
     }
 
     if ($success == 0){
