@@ -214,48 +214,49 @@ unless ($opt_single_ends) {
 # bowtie
 
 my $eland_left  = "${basename_left}_$left_splice[0]-$left_splice[1].eland3";
-
 my $eland_right = $do_right ? "${basename_right}_$right_splice[0]-$right_splice[1].eland3" : "";
-
-my $l3trim = $read_size - $left_splice[1];
-my $l5trim = $left_splice[0] - 1;
-
-
-my $mh_args = $opt_max_hits ? " --strata  -k $opt_max_hits -m $opt_max_hits " : q{ };
-# align with bowtie
-launch("bowtie $opt_reference.c2t -f -B 1 -v $opt_mismatches -5 $l5trim -3 $l3trim --best $mh_args --norc $fasta_left_converted ??", expected => $eland_left, dryrun => $dry);
-
-if ($do_right){
-    my $r3trim = $read_size - $right_splice[1];
-    my $r5trim = $right_splice[0] - 1;
-    if ($opt_single_ends) {
-        launch("bowtie $opt_reference.c2t -f -B 1 -v $opt_mismatches -5 $r5trim -3 $r3trim --best $mh_args --norc $fasta_left_converted ??" , expected => $eland_right, dryrun => $dry);
-    }
-    else {
-        launch("bowtie $opt_reference.g2a -f -B 1 -v $opt_mismatches -5 $r5trim -3 $r3trim --best $mh_args --norc $fasta_right_converted ??" , expected => $eland_right, dryrun => $dry);
-    }
-}
-
-#######################################################################
-# parse bowtie
-
-# get back original non-converted reads and convert from bowtie to eland3
 
 my $eland_left_post = "$eland_left.post";
 my $eland_right_post = "$eland_right.post";
 
-launch("perl -S parse_bowtie.pl -u $fasta_left -s @left_splice  $eland_left -o ??", expected => $eland_left_post, dryrun => $dry);
-if ($do_right){
-    if ($opt_single_ends) {
-        launch("perl -S parse_bowtie.pl -u $fasta_left -s @right_splice  $eland_right -o ??", expected => $eland_right_post, dryrun => $dry);
+my $l3trim = $read_size - $left_splice[1];
+my $l5trim = $left_splice[0] - 1;
+
+my $mh_args = $opt_max_hits ? " --strata  -k $opt_max_hits -m $opt_max_hits " : q{ };
+
+# align with bowtie
+if ($pm->start == 0){
+    launch("bowtie $opt_reference.c2t -f -B 1 -v $opt_mismatches -5 $l5trim -3 $l3trim --best $mh_args --norc $fasta_left_converted ??", 
+        expected => $eland_left, dryrun => $dry, id => "left bowtie");
+    launch("perl -S parse_bowtie.pl -u $fasta_left -s @left_splice  $eland_left -o ??", 
+        expected => $eland_left_post, dryrun => $dry, id => "left parse_bowtie");
+    $pm->finish;
+}
+
+if ($pm->start == 0){
+    if ($do_right){
+        my $r3trim = $read_size - $right_splice[1];
+        my $r5trim = $right_splice[0] - 1;
+        if ($opt_single_ends) {
+            launch("bowtie $opt_reference.c2t -f -B 1 -v $opt_mismatches -5 $r5trim -3 $r3trim --best $mh_args --norc $fasta_left_converted ??" , 
+                expected => $eland_right, dryrun => $dry, id => "right bowtie");
+            launch("perl -S parse_bowtie.pl -u $fasta_left -s @right_splice  $eland_right -o ??", 
+                expected => $eland_right_post, dryrun => $dry, id => "right parse_bowtie");
+        }
+        else {
+            launch("bowtie $opt_reference.g2a -f -B 1 -v $opt_mismatches -5 $r5trim -3 $r3trim --best $mh_args --norc $fasta_right_converted ??" , 
+                expected => $eland_right, dryrun => $dry, id => "right bowtie");
+            launch("perl -S parse_bowtie.pl -u $fasta_right -s @right_splice  $eland_right -o ??", 
+                expected => $eland_right_post, dryrun => $dry, id => "right parse_bowtie");
+        }
     }
     else {
-        launch("perl -S parse_bowtie.pl -u $fasta_right -s @right_splice  $eland_right -o ??", expected => $eland_right_post, dryrun => $dry);
+        $eland_right_post = $eland_left_post;
     }
+    $pm->finish;
 }
-else {
-    $eland_right_post = $eland_left_post;
-}
+
+$pm->wait_all_children;
 
 #######################################################################
 # Correlate
