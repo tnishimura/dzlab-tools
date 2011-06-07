@@ -12,6 +12,7 @@ use FindBin;
 use Parallel::ForkManager;
 use Getopt::Euclid qw( :vars<opt_> );
 use Pod::Usage;
+use File::Copy;
 use lib "$FindBin::Bin/lib";
 use DZUtil qw/mfor timestamp split_names fastq_read_length/;
 use Launch;
@@ -50,6 +51,42 @@ unless (
 my $dry = defined $opt_dry;
 
 #######################################################################
+# Log options
+
+$logger->info("These are the options you ran with:");
+$logger->info("--reference $opt_reference");
+$logger->info("--left-read $opt_left_read");
+if (%opt_right_splice){
+    $logger->info("--right-read $opt_right_read");
+}
+else{
+    $logger->info("--right-read <empty>");
+}
+$logger->info("--left-splice " . join " ", @opt_left_splice{qw/start end/});
+if (%opt_right_splice){
+    $logger->info("--right-splice " . join " ", @opt_right_splice{qw/start end/});
+}
+else{
+    $logger->info("--right-splice <empty>");
+}
+$logger->info("--base-name $opt_base_name");
+$logger->info("--out-directory $opt_out_directory");
+$logger->info("--overwrite " . ($opt_overwrite ? "<enable>" : "<disable>"));
+$logger->info("--library-size " . ($opt_library_size // "undef"));
+$logger->info("--organism $opt_organism");
+$logger->info("--window-size $opt_window_size");
+$logger->info("--single-ends $opt_single_ends");
+$logger->info("--max-hits $opt_max_hits");
+$logger->info("--mismatches $opt_mismatches");
+$logger->info("--random-assign $opt_random_assign");
+$logger->info("--trust-dash-2 $opt_trust_dash_2");
+$logger->info("--di-nuc-freqs $opt_di_nuc_freqs");
+$logger->info("--batch $opt_batch");
+$logger->info("--no-windowing : " . ($opt_no_windowing ? "<enable>" : "<disable>"));
+$logger->info("--parallel $opt_parallel");
+$logger->info("--dry : " . ($opt_dry ? "<enable>" : "<disable>"));
+
+#######################################################################
 # groups (chromosomes)
 
 my @groups        = (); 	# sequences (chr1, chr2, ...)
@@ -84,8 +121,8 @@ elsif (! $opt_single_ends && !defined $opt_library_size){
 #######################################################################
 # splice argument sanitizing
 
-my $opt_read_size = fastq_read_length($opt_left_read);
-if (defined($opt_right_read) && $opt_read_size =~ fastq_read_length($opt_right_read)){
+my $read_size = fastq_read_length($opt_left_read);
+if (defined($opt_right_read) && $read_size =~ fastq_read_length($opt_right_read)){
     $logger->logdie("$opt_right_read and $opt_left_read not same read lengths?");
 }
 
@@ -102,11 +139,11 @@ if (! $do_right && !$opt_single_ends){
 my @left_splice  = @opt_left_splice{qw/start end/};
 my @right_splice = $do_right ? (@opt_right_splice{qw/start end/}) : ();
 
-if ($left_splice[0] < 1 || $left_splice[1] > $opt_read_size || $left_splice[1] < $left_splice[0]){
+if ($left_splice[0] < 1 || $left_splice[1] > $read_size || $left_splice[1] < $left_splice[0]){
     die "left splice out of bounds";
 }
 
-if ($do_right && ($right_splice[0] < 1 || $right_splice[1] > $opt_read_size || $right_splice[1] < $right_splice[0])){
+if ($do_right && ($right_splice[0] < 1 || $right_splice[1] > $read_size || $right_splice[1] < $right_splice[0])){
     die "left splice out of bounds";
 }
 
@@ -180,7 +217,7 @@ my $eland_left  = "${basename_left}_$left_splice[0]-$left_splice[1].eland3";
 
 my $eland_right = $do_right ? "${basename_right}_$right_splice[0]-$right_splice[1].eland3" : "";
 
-my $l3trim = $opt_read_size - $left_splice[1];
+my $l3trim = $read_size - $left_splice[1];
 my $l5trim = $left_splice[0] - 1;
 
 
@@ -189,7 +226,7 @@ my $mh_args = $opt_max_hits ? " --strata  -k $opt_max_hits -m $opt_max_hits " : 
 launch("bowtie $opt_reference.c2t -f -B 1 -v $opt_mismatches -5 $l5trim -3 $l3trim --best $mh_args --norc $fasta_left_converted ??", expected => $eland_left, dryrun => $dry);
 
 if ($do_right){
-    my $r3trim = $opt_read_size - $right_splice[1];
+    my $r3trim = $read_size - $right_splice[1];
     my $r5trim = $right_splice[0] - 1;
     if ($opt_single_ends) {
         launch("bowtie $opt_reference.c2t -f -B 1 -v $opt_mismatches -5 $r5trim -3 $r3trim --best $mh_args --norc $fasta_left_converted ??" , expected => $eland_right, dryrun => $dry);
@@ -227,7 +264,7 @@ my $base_gff = "$basename.gff";
 my $base_log = "$basename.log";
 
 # make sure reads map together
-launch("perl -S correlatePairedEnds.pl -l $eland_left_post -r $eland_right_post -ref $opt_reference -o ?? -t 0 -d $opt_library_size -s $opt_read_size -2 $opt_trust_dash_2 -1 $opt_single_ends -m $opt_max_hits -a $opt_random_assign", expected =>  $base_gff, dryrun => $dry);
+launch("perl -S correlatePairedEnds.pl -l $eland_left_post -r $eland_right_post -ref $opt_reference -o ?? -t 0 -d $opt_library_size -s $read_size -2 $opt_trust_dash_2 -1 $opt_single_ends -m $opt_max_hits -a $opt_random_assign", expected =>  $base_gff, dryrun => $dry);
 
 # basic stats about the aligment
 launch("perl -S collect_align_stats.pl $eland_left_post $eland_right_post $base_gff $opt_organism $opt_batch > ??", expected =>  $base_log, dryrun => $dry);
@@ -296,6 +333,7 @@ mfor \@base_gff_split, \@single_c_split, sub{
 $pm->wait_all_children;
 
 launch("perl -S collect-freqs.pl -o $basename.single-c.freq $single_c_dir", dryrun => $dry);
+copy($logname,"$basename.run.log");
 
 =head1 NAME
 
