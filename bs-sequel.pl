@@ -40,8 +40,12 @@ my $logger = get_logger("PipeLine");
 
 pod2usage(-verbose => 99,-sections => [qw/NAME SYNOPSIS OPTIONS/]) 
 unless (
-    $opt_left_read && $opt_right_read && $opt_reference && $opt_out_directory && $opt_base_name 
+    $opt_left_read && $opt_right_read && $opt_reference && $opt_base_name 
 );
+
+if (! defined $opt_out_directory){
+    $opt_out_directory = $opt_base_name;
+}
 
 my $dry = defined $opt_dry;
 
@@ -268,7 +272,6 @@ for my $singlec (@single_c_split) {
 
 =head1 SYNOPSIS
 
-
 Single ends example. Notice the left and right reads are the same file.
 
  bs-sequel.pl -l reads.fastq -r reads.fastq -f /path/to/genomes/TAIR_reference.fas -b bsseqrun -s 76 -k 0 -n 2 -t Arabidopsis -i 1 -ls 1 45 -rs 46 76 -1 1 -2 0 -rnd 0 -mh 10 -d output dir
@@ -444,7 +447,7 @@ Default 0 (meaning no subprocesses).
 =for Euclid
     threads.default:     0
 
-=item  -shortname | --dry 
+=item  --dry 
 
 =back
 
