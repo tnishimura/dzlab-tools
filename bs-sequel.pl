@@ -40,7 +40,7 @@ my $logger = get_logger("PipeLine");
 
 pod2usage(-verbose => 99,-sections => [qw/NAME SYNOPSIS OPTIONS/]) 
 unless (
-    $opt_left_read && $opt_right_read && $opt_reference && $opt_base_name 
+    $opt_left_read && $opt_reference && $opt_base_name 
 );
 
 if (! defined $opt_out_directory){
@@ -101,6 +101,14 @@ if (! $do_right && !$opt_single_ends){
 
 my @left_splice  = @opt_left_splice{qw/start end/};
 my @right_splice = $do_right ? (@opt_right_splice{qw/start end/}) : ();
+
+if ($left_splice[0] < 1 || $left_splice[1] > $opt_read_size || $left_splice[1] < $left_splice[0]){
+    die "left splice out of bounds";
+}
+
+if ($do_right && $right_splice[0] < 1 || $right_splice[1] > $opt_read_size || $right_splice[1] < $right_splice[0]){
+    die "left splice out of bounds";
+}
 
 #######################################################################
 # Directory creation
@@ -304,7 +312,7 @@ Left reads file in fastq format. For single ends, -l and -r should be the same. 
 
 =item -r <fastq> | --right-read <fastq>
 
-Left reads file in fastq format. For single ends, -l and -r should be the same. Required.
+Left reads file in fastq format. For single ends, -l and -r should be the same. Optional.
 
 =for Euclid
     fastq.type:        readable
@@ -316,7 +324,7 @@ For example, if you are doing single ends with 1-45 and 46-76, use "-ls 1 45".
 
 =item -rs <start> <end> | --right-splice <start> <end>
 
-Start and end coordinate for the chunk of the --right-read fastq file to use for the right alignment.  Required.
+Start and end coordinate for the chunk of the --right-read fastq file to use for the right alignment.  Optional.
 For example, if you are doing single ends with 1-45 and 46-76, use "-rs 46 76".
 
 =item -b <label> | --base-name <label>
@@ -353,7 +361,7 @@ For single ends, there isn't an insert use 0.
 Label for collect_align_stats.pl (the .log file produced).  Arabidopsis, Rice, Puffer, etc.
 
 =for Euclid
-    orgname.default:     '.'
+    orgname.default:     'unknown'
 
 =item -w <size> | --window-size <size>
 
@@ -379,10 +387,10 @@ Default 50, for windowing single-c files.
 
 Discards reads that map to the genome more the this many times, passed to bowtie.  In repetitive sections of the genome,
 reads can potentially map hundreds of times, so this helps us filter repetitive chunks out..  Defaults to 0  for no filtering.  
-Daniel says 10 is a good number to use.  Use 0 (default) to disable.
+Daniel says 10 is a good number to use.  Use 0 (default) to disable. Default 10.
 
 =for Euclid
-    hits.default:     0
+    hits.default:     10
 
 =item -n <num> | --mismatches <num>
 
