@@ -37,7 +37,7 @@ my $conf=qq/
     log4perl.appender.File.filename = $logname
     log4perl.appender.File.layout   = PatternLayout
     log4perl.appender.File.syswrite = 1
-    log4perl.appender.File.layout.ConversionPattern = %d{HH:mm:ss} %p.1> (%L) %m%n
+    log4perl.appender.File.layout.ConversionPattern = %d{HH:mm:ss} %.1p> (%L) %m%n
 /;
 Log::Log4perl::init( \$conf );
 my $logger = get_logger("PipeLine");
@@ -260,7 +260,8 @@ mfor \@base_gff_split, \@single_c_split, sub{
     if ($pm->start == 0){
         $logger->info("Processing $base");
 
-        launch("perl -S countMethylation.pl --ref $opt_reference --gff $base --output ?? --freq $singlec.freq --sort -d $opt_di_nuc_freqs", expected => $singlec, dryrun => $dry);
+        launch("perl -S countMethylation.pl --ref $opt_reference --gff $base --output ?? --freq $singlec.freq --sort -d $opt_di_nuc_freqs", 
+            expected => $singlec, dryrun => $dry, id => "count-$singlec");
 
         my @split_by_context = (); 
         if (!$dry){
@@ -273,7 +274,7 @@ mfor \@base_gff_split, \@single_c_split, sub{
 
         for my $singlec_context (@split_by_context) {
             my $m = "$singlec_context.merged";
-            launch("perl -S compile_gff.pl -o ?? $singlec_context", expected => $m, dryrun => $dry);
+            launch("perl -S compile_gff.pl -o ?? $singlec_context", expected => $m, dryrun => $dry, id => "compile-$singlec");
 
             unless ($opt_no_windowing){
                 # make window file name
@@ -283,14 +284,18 @@ mfor \@base_gff_split, \@single_c_split, sub{
                 }
                 my $windows = catfile($windows_dir, $windows_base);
 
-                launch("perl -S window_gff.pl $m --width $opt_window_size --step $opt_window_size --output ?? --no-skip", expected => $windows, dryrun => $dry);
+                launch("perl -S window_gff.pl $m --width $opt_window_size --step $opt_window_size --output ?? --no-skip", 
+                    expected => $windows, dryrun => $dry, id => "window-$singlec");
             }
         }
         $pm->finish;
     }
 };
 
+
 $pm->wait_all_children;
+
+launch("perl -S collect-freqs.pl -o $basename.single-c.freq $single_c_dir", dryrun => $dry);
 
 =head1 NAME
 

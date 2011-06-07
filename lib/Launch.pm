@@ -21,6 +21,7 @@ our @EXPORT = qw(launch);
  expected - This is a file (or arrayref of files) which we expect to be produce.
  force    - Run even if file exists.
  dryrun   - Don't actually run.
+ id       - Optional identifier to be appended to stdout/stderr collector.
 
 =cut
 
@@ -31,6 +32,8 @@ sub launch{
 
     my $force     = delete $opt{force} // 0;
     my $dryrun    = delete $opt{dryrun} // 0;
+    my $id        = delete $opt{id} // "";
+    $id = $id ? "($id)" : "";
 
 
     my @expected;
@@ -77,8 +80,8 @@ sub launch{
         $logger->info("running with run_forked");
         my $rv = run_forked($cmd, {
                 discard_output => 1,
-                stdout_handler => sub{ $logger->debug("stdout: " . shift); },
-                stderr_handler => sub{ $logger->debug("stderr: " . shift); },
+                stdout_handler => sub{ $logger->debug("stdout $id: " . shift); },
+                stderr_handler => sub{ $logger->debug("stderr $id: " . shift); },
             });
         $success = $rv->{exit_code};
     }
