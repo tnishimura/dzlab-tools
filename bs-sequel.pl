@@ -24,11 +24,13 @@ unless (
     $opt_left_read && $opt_reference && $opt_base_name 
 );
 
+# handle some default optios here
+
 if (! defined $opt_out_directory){
     $opt_out_directory = $opt_base_name;
 }
 
-my $logname = $opt_out_directory . "-" . timestamp() . ".log.txt";
+my $logname = catfile($opt_out_directory, $opt_out_directory) . "-" . timestamp() . ".log.txt";
 
 use Log::Log4perl qw/get_logger/;
 my $conf=qq/
@@ -48,44 +50,7 @@ my $conf=qq/
 Log::Log4perl::init( \$conf );
 my $logger = get_logger("PipeLine");
 
-
 my $dry = defined $opt_dry;
-
-#######################################################################
-# Log options
-
-$logger->info("These are the options you ran with:");
-$logger->info("--reference $opt_reference");
-$logger->info("--left-read $opt_left_read");
-if (defined $opt_right_read){
-    $logger->info("--right-read $opt_right_read");
-}
-else{
-    $logger->info("--right-read <empty>");
-}
-$logger->info("--left-splice " . join " ", @opt_left_splice{qw/start end/});
-if (%opt_right_splice){
-    $logger->info("--right-splice " . join " ", @opt_right_splice{qw/start end/});
-}
-else{
-    $logger->info("--right-splice <empty>");
-}
-$logger->info("--base-name $opt_base_name");
-$logger->info("--out-directory $opt_out_directory");
-$logger->info("--overwrite " . ($opt_overwrite ? "<enable>" : "<disable>"));
-$logger->info("--library-size " . ($opt_library_size // "undef"));
-$logger->info("--organism $opt_organism");
-$logger->info("--window-size $opt_window_size");
-$logger->info("--single-ends $opt_single_ends");
-$logger->info("--max-hits $opt_max_hits");
-$logger->info("--mismatches $opt_mismatches");
-$logger->info("--random-assign $opt_random_assign");
-$logger->info("--trust-dash-2 $opt_trust_dash_2");
-$logger->info("--di-nuc-freqs $opt_di_nuc_freqs");
-$logger->info("--batch $opt_batch");
-$logger->info("--no-windowing : " . ($opt_no_windowing ? "<enable>" : "<disable>"));
-$logger->info("--parallel $opt_parallel");
-$logger->info("--dry : " . ($opt_dry ? "<enable>" : "<disable>"));
 
 #######################################################################
 # groups (chromosomes)
@@ -128,7 +93,9 @@ if (defined($opt_right_read) && $read_size =~ fastq_read_length($opt_right_read)
 }
 
 if (! %opt_left_splice){
-    $logger->logdie("Left splice -ls needs to be defined.");
+    $logger->logwarn("Left splice -ls was not defined, using full length.");
+    $opt_left_splice{start} = 1;
+    $opt_left_splice{end} = $read_size;
 }
 
 my $do_right = %opt_right_splice;
@@ -147,6 +114,43 @@ if ($left_splice[0] < 1 || $left_splice[1] > $read_size || $left_splice[1] < $le
 if ($do_right && ($right_splice[0] < 1 || $right_splice[1] > $read_size || $right_splice[1] < $right_splice[0])){
     die "left splice out of bounds";
 }
+
+#######################################################################
+# Log options
+
+$logger->info("These are the options you ran with:");
+$logger->info("--reference $opt_reference");
+$logger->info("--left-read $opt_left_read");
+if (defined $opt_right_read){
+    $logger->info("--right-read $opt_right_read");
+}
+else{
+    $logger->info("--right-read <empty>");
+}
+$logger->info("--left-splice " . join " ", @opt_left_splice{qw/start end/});
+if (%opt_right_splice){
+    $logger->info("--right-splice " . join " ", @opt_right_splice{qw/start end/});
+}
+else{
+    $logger->info("--right-splice <empty>");
+}
+$logger->info("--base-name $opt_base_name");
+$logger->info("--out-directory $opt_out_directory");
+$logger->info("--overwrite " . ($opt_overwrite ? "<enable>" : "<disable>"));
+$logger->info("--library-size " . ($opt_library_size // "undef"));
+$logger->info("--organism $opt_organism");
+$logger->info("--window-size $opt_window_size");
+$logger->info("--single-ends $opt_single_ends");
+$logger->info("--max-hits $opt_max_hits");
+$logger->info("--mismatches $opt_mismatches");
+$logger->info("--random-assign $opt_random_assign");
+$logger->info("--trust-dash-2 $opt_trust_dash_2");
+$logger->info("--di-nuc-freqs $opt_di_nuc_freqs");
+$logger->info("--batch $opt_batch");
+$logger->info("--no-windowing : " . ($opt_no_windowing ? "<enable>" : "<disable>"));
+$logger->info("--parallel $opt_parallel");
+$logger->info("--dry : " . ($opt_dry ? "<enable>" : "<disable>"));
+
 
 #######################################################################
 # Directory creation
@@ -339,13 +343,17 @@ mfor \@base_gff_split, \@single_c_split, sub{
 $pm->wait_all_children;
 
 launch("perl -S collect-freqs.pl -o $basename.single-c.freq $single_c_dir", dryrun => $dry);
-copy($logname,$opt_out_directory);
+#copy($logname,$opt_out_directory);
 
 =head1 NAME
 
  bs-sequel.pl - Run dzlab's bisulfite sequencing analysis pipeline
 
 =head1 SYNOPSIS
+
+Simplest possible options for arabidopsis
+
+ bs-sequel.pl -f /path/to/reference_genome.fasta -l /path/to/reads.fastq -b H2AZ_HO_6_BS -rnd 1
 
 Single ends example. Notice the left and right reads are the same file.
 
@@ -386,7 +394,8 @@ Left reads file in fastq format. For single ends, -l and -r should be the same. 
 
 =item -ls <start> <end> | --left-splice <start> <end>
 
-Start and end coordinate for the chunk of the --left-read fastq file to use for the left alignment.  Required.
+Start and end coordinate for the chunk of the --left-read fastq file to use for the left alignment.  
+If you omit, full length will be used.
 For example, if you are doing single ends with 1-45 and 46-76, use "-ls 1 45".
 
 =item -rs <start> <end> | --right-splice <start> <end>
@@ -400,7 +409,7 @@ Label for the file names... can be anything.  Choose something descriptive. Requ
 
 =item -d <dir> | --out-directory <dir>
 
-Directory to put all result files. Required.
+Directory to put all result files. If omitted, assumed to be the same as --base-name.
 
 =item -o | --overwrite 
 
