@@ -326,7 +326,7 @@ mfor \@base_gff_split, \@single_c_split, sub{
                 }
                 my $windows = catfile($windows_dir, $windows_base);
 
-                launch("perl -S window_by_fixed.pl -w $opt_window_size --output ?? --no-skip $m", 
+                launch("perl -S window_by_fixed.pl -w $opt_window_size --reference $opt_reference --output ?? --no-skip $m", 
                     expected => $windows, dryrun => $dry, id => "window-$singlec");
             }
         }
