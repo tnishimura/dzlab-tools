@@ -62,7 +62,7 @@ my $feature;
 my $counter = 0;
 my $commit_size = 20000;
 for my $file (@opt_files) {
-    my $p = GFF::Parser->new(file => $file);
+    my $p = GFF::Parser->new(file => $file, normalize => 0);
     while (defined(my $gff = $p->next())){
         if (++$counter % $commit_size == 0){
             $dbh->commit;
