@@ -142,7 +142,7 @@ while (defined(my $row = $select->fetchrow_hashref())){
     }
 
     # if it's the last window, trim appropriately
-    if ($current_end >= $lengths{$sequence}){
+    if (exists $lengths{$sequence} && $current_end >= $lengths{$sequence}){
         say join "\t", $sequence, '.', $feature, $current_start,$lengths{$sequence}, $score, '.', '.', "c=$c;t=$t";
         $last_ends{$sequence} = $lengths{$sequence};
     }
