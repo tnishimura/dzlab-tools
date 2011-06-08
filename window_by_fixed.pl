@@ -155,6 +155,8 @@ while (defined(my $row = $select->fetchrow_hashref())){
 #######################################################################
 # for all sequence that were seen and go up to the end
 
+# bug: window 1 with no-skip and reference leads to final position not being printed? 
+
 if ($opt_no_skip && $opt_reference){
 
     # but only for unfinished seqs:
