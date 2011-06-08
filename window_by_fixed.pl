@@ -12,8 +12,25 @@ use lib "$FindBin::Bin/lib";
 use GFF::Parser;
 use DZUtil qw/timestamp/;
 use File::Temp qw/mktemp/;
+use FastaReader;
 
 pod2usage(-verbose => 99,-sections => [qw/NAME SYNOPSIS OPTIONS/]) if $opt_help;
+
+if (! $opt_no_skip && $opt_reference){
+    warn "why are you giving me a reference file if you're not going to do --no-skip?";
+}
+
+#######################################################################
+# Get lengths
+
+my %lengths;
+if ($opt_no_skip && $opt_reference){
+    my $fr = FastaReader->new(file => $opt_reference, normalize => 0);
+    %lengths = %{$fr->length};
+}
+if ($opt_verbose){
+    say Dumper \%lengths;
+}
 
 #######################################################################
 # Output
@@ -105,23 +122,58 @@ SELECT
 
 $select->execute();
 
-my ($last_start, $last_end) = (1, $opt_window_size);
+my %last_ends; 
 
 while (defined(my $row = $select->fetchrow_hashref())){
     my ($sequence, $position, $c, $t) = @{$row}{qw/sequence position c t/};
     my ($current_start, $current_end) = ($position - $opt_window_size + 1, $position);
+    my $score = sprintf "%.4f", ($c+$t == 0)? 0 : $c/($c+$t);
 
-    my $score = ($c+$t == 0)? 0 : $c/($c+$t);
+    if (!exists $last_ends{$sequence}){
+        $last_ends{$sequence} = $opt_window_size;
+    }
+
+    # catch up
     if ($opt_no_skip){
-        while ($last_end < $position ){
-            say join "\t", $sequence, '.', $feature, $last_start, $last_end, ('.') x 4;
-            $last_start+=$opt_window_size;
-            $last_end+=$opt_window_size;
+        while ($last_ends{$sequence} < $position ){
+            say join "\t", $sequence, '.', $feature, $last_ends{$sequence}-$opt_window_size+1, $last_ends{$sequence}, ('.') x 4;
+            $last_ends{$sequence}+=$opt_window_size;
         }
     }
-    say join "\t", $sequence, '.', $feature, $current_start,$current_end, $score, '.', '.', "c=$c;t=$t";
-    $last_start = $current_start + $opt_window_size;
-    $last_end   = $current_end   + $opt_window_size;
+
+    # if it's the last window, trim appropriately
+    if ($current_end >= $lengths{$sequence}){
+        say join "\t", $sequence, '.', $feature, $current_start,$lengths{$sequence}, $score, '.', '.', "c=$c;t=$t";
+        $last_ends{$sequence} = $lengths{$sequence};
+    }
+    else{
+        say join "\t", $sequence, '.', $feature, $current_start,$current_end, $score, '.', '.', "c=$c;t=$t";
+        $last_ends{$sequence}   = $current_end   + $opt_window_size;
+    }
+}
+
+#######################################################################
+# for all sequence that were seen and go up to the end
+
+if ($opt_no_skip && $opt_reference){
+
+    # but only for unfinished seqs:
+    for my $seq_seen (grep { $last_ends{$_} < $lengths{$_} } keys %last_ends) {
+
+        while ($last_ends{$seq_seen} < $lengths{$seq_seen} ){
+            say join "\t", $seq_seen, '.', $feature, $last_ends{$seq_seen}-$opt_window_size+1, $last_ends{$seq_seen}, ('.') x 4;
+            $last_ends{$seq_seen}+=$opt_window_size;
+        }
+
+        # if length was not multiple of opt_window_size, there'd be one left over--
+        my $l = $lengths{$seq_seen};
+        if ($l % $opt_window_size != 0){
+            say join "\t", $seq_seen, '.', $feature, 
+            ($l - $l % $opt_window_size + 1),
+            $l,
+            ('.') x 4;
+        }
+    }
 }
 
 if ($opt_verbose){
@@ -150,6 +202,14 @@ window_by_fixed.pl
     size.type:        int, size >= 1 
     size.type.error:  <size> must be integer greater than 1
 
+=item  -r <fasta> | --reference <fasta>
+
+Reference fasta file.  If --no-skip/-k is used, for empty windows between the last window and the end of the
+sequences will also be outputted.
+
+=for Euclid
+    fasta.type:        readable
+
 =item -o <file> | --output <file>
 
 =for Euclid 
@@ -157,13 +217,14 @@ window_by_fixed.pl
 
 =item <files>...
 
+=item  -k | --no-skip
+
+Don't omit windows without any scores.  Currently only works for files with single sequences.
+
 =item -h | --help
 
 =item -v | --verbose
 
-=item  -k | --no-skip
-
-Don't omit windows without any scores.  Currently only works for files with single sequences.
 
 =back
 
