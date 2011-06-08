@@ -109,17 +109,19 @@ my ($last_start, $last_end) = (1, $opt_window_size);
 
 while (defined(my $row = $select->fetchrow_hashref())){
     my ($sequence, $position, $c, $t) = @{$row}{qw/sequence position c t/};
+    my ($current_start, $current_end) = ($position - $opt_window_size + 1, $position);
+
     my $score = ($c+$t == 0)? 0 : $c/($c+$t);
     if ($opt_no_skip){
-        while ($last_end < $position){
+        while ($last_end < $position ){
             say join "\t", $sequence, '.', $feature, $last_start, $last_end, ('.') x 4;
             $last_start+=$opt_window_size;
             $last_end+=$opt_window_size;
         }
     }
-    $last_start = ($position - $opt_window_size + 1);
-    $last_end   = $position;
-    say join "\t", $sequence, '.', $feature, $last_start,$last_end, $score, '+', '.', "c=$c;t=$t";
+    say join "\t", $sequence, '.', $feature, $current_start,$current_end, $score, '+', '.', "c=$c;t=$t";
+    $last_start = $current_start + $opt_window_size;
+    $last_end   = $current_end   + $opt_window_size;
 }
 
 if ($opt_verbose){
