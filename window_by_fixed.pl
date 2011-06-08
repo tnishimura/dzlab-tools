@@ -119,7 +119,7 @@ while (defined(my $row = $select->fetchrow_hashref())){
             $last_end+=$opt_window_size;
         }
     }
-    say join "\t", $sequence, '.', $feature, $current_start,$current_end, $score, '+', '.', "c=$c;t=$t";
+    say join "\t", $sequence, '.', $feature, $current_start,$current_end, $score, '.', '.', "c=$c;t=$t";
     $last_start = $current_start + $opt_window_size;
     $last_end   = $current_end   + $opt_window_size;
 }
