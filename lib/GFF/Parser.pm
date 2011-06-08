@@ -21,6 +21,11 @@ has skip => (
     default => 1
 );
 
+has normalize => (
+    is => 'ro',
+    default => 1,
+);
+
 # privates
 
 has filehandle => (
@@ -64,7 +69,7 @@ then return unparseable/comment lines as undef and pragmas as strings.
 sub next{
     my ($self) = @_;
     while (defined (my $line = scalar readline $self->filehandle)){
-        my $gff = parse_gff($line);
+        my $gff = parse_gff($line, $self->normalize);
         if (!$self->skip || is_gff($gff)){
             return $gff;
         }

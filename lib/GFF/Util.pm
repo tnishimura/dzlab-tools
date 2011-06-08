@@ -22,7 +22,9 @@ it's a member method so it can be inherited
 =cut
 
 sub parse_gff{
-    my ($line) = @_;
+    my ($line, $normalize) = @_;
+
+    $normalize //= 1;
      
     return 0 unless $line;
     $line =~ tr/\n\r//d;
@@ -38,7 +40,7 @@ sub parse_gff{
     @accum{qw/sequence source feature start end score strand frame attribute_string/}
     = map { ($_ eq q{.} || $_ eq q{} ) ? undef : $_ } @split;
 
-    if (defined $accum{sequence}){
+    if (defined $accum{sequence} && $normalize){
         $accum{sequence} = uc $accum{sequence};
     }
 
