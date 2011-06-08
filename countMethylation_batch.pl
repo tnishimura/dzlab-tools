@@ -59,8 +59,8 @@ while (my ($chr,$split) = each %split_gff) {
     while (my ($context,$singlec) = each %singlec_contexts) {
         my $merged = "$singlec.merged";
         my $window = catfile($opt_windows_dir, $opt_basename) . ".$chr.w50-$context.gff";
-        launch("perl -S compile_gff.pl -o $merged $singlec", expected => $merged);
-        launch("perl -S window_gff.pl -w 50 -s 50 -o $window --no-skip $merged", expected => $window);
+        launch("perl -S window_by_fixed.pl -o ?? $singlec", expected => $merged);
+        launch("perl -S window_by_fixed.pl -r $opt_reference -w 50 -o ?? --no-skip $merged", expected => $window);
     }
 }
 
