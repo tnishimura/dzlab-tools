@@ -17,7 +17,6 @@ has filehandle => (
     is => 'rw',
 );
 
-
 has location => (
     traits    => ['Hash'],
     is        => 'ro',
@@ -75,6 +74,11 @@ has header_transform => (
 has start_position => (
     is => 'rw',
 );
+
+sub sequence_list{
+    my $self = shift;
+    return keys %{$self->length};
+}
 
 sub BUILD{
     my ($self) = @_;
