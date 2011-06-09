@@ -25,7 +25,8 @@ if (! $opt_no_skip && $opt_reference){
 
 my %lengths;
 if ($opt_no_skip && $opt_reference){
-    my $fr = FastaReader->new(file => $opt_reference, normalize => 0);
+    # normalize => 1 means make sure to uc all keys.... need to fix this
+    my $fr = FastaReader->new(file => $opt_reference, normalize => 1); 
     %lengths = %{$fr->length};
 }
 if ($opt_verbose){
@@ -142,9 +143,9 @@ while (defined(my $row = $select->fetchrow_hashref())){
     }
 
     # if it's the last window, trim appropriately
-    if (exists $lengths{$sequence} && $current_end >= $lengths{$sequence}){
-        say join "\t", $sequence, '.', $feature, $current_start,$lengths{$sequence}, $score, '.', '.', "c=$c;t=$t";
-        $last_ends{$sequence} = $lengths{$sequence};
+    if (exists $lengths{uc $sequence} && $current_end >= $lengths{uc $sequence}){
+        say join "\t", $sequence, '.', $feature, $current_start,$lengths{uc $sequence}, $score, '.', '.', "c=$c;t=$t";
+        $last_ends{$sequence} = $lengths{uc $sequence};
     }
     else{
         say join "\t", $sequence, '.', $feature, $current_start,$current_end, $score, '.', '.', "c=$c;t=$t";
@@ -157,18 +158,21 @@ while (defined(my $row = $select->fetchrow_hashref())){
 
 # bug: window 1 with no-skip and reference leads to final position not being printed? 
 
+#say STDERR Dumper \%last_ends;
+#say STDERR Dumper \%lengths;
+
 if ($opt_no_skip && $opt_reference){
 
     # but only for unfinished seqs:
-    for my $seq_seen (grep { $last_ends{$_} < $lengths{$_} } keys %last_ends) {
+    for my $seq_seen (grep { $last_ends{$_} < $lengths{uc $_} } keys %last_ends) {
 
-        while ($last_ends{$seq_seen} < $lengths{$seq_seen} ){
+        while ($last_ends{$seq_seen} < $lengths{uc $seq_seen} ){
             say join "\t", $seq_seen, '.', $feature, $last_ends{$seq_seen}-$opt_window_size+1, $last_ends{$seq_seen}, ('.') x 4;
             $last_ends{$seq_seen}+=$opt_window_size;
         }
 
         # if length was not multiple of opt_window_size, there'd be one left over--
-        my $l = $lengths{$seq_seen};
+        my $l = $lengths{uc $seq_seen};
         if ($l % $opt_window_size != 0){
             say join "\t", $seq_seen, '.', $feature, 
             ($l - $l % $opt_window_size + 1),
