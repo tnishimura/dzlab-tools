@@ -244,16 +244,16 @@ my $ratio       = "$basename.ratio.txt$nocc";
 
 # if double sided, calculate the ratios for the left/right individually as well.
 if (!$single_sided){
-    launch("perl -S split_ratio.pl -o $left_ratio -ea $opt_ecotype_a -eb $opt_ecotype_b " 
+    launch("perl -S split_ratio.pl -r $opt_reference_a -o $left_ratio -ea $opt_ecotype_a -eb $opt_ecotype_b " 
         . " -a $left_eland_filtered_a -b $left_eland_filtered_b -m $opt_bowtie_mismatches",
         expected => "$left_ratio");
 
-    launch("perl -S split_ratio.pl -o $right_ratio -ea $opt_ecotype_a -eb $opt_ecotype_b " 
+    launch("perl -S split_ratio.pl -r $opt_reference_a -o $right_ratio -ea $opt_ecotype_a -eb $opt_ecotype_b " 
         . " -a $right_eland_filtered_a -b $right_eland_filtered_b -m $opt_bowtie_mismatches",
         expected => "$right_ratio");
 }
 
-launch("perl -S split_ratio.pl -o $ratio -ea $opt_ecotype_a -eb $opt_ecotype_b -a $eland_union_a -b $eland_union_b -m $opt_bowtie_mismatches",
+launch("perl -S split_ratio.pl -r $opt_reference_a -o $ratio -ea $opt_ecotype_a -eb $opt_ecotype_b -a $eland_union_a -b $eland_union_b -m $opt_bowtie_mismatches",
     expected => "$ratio");
 
 if (! $opt_no_fracmeth){
