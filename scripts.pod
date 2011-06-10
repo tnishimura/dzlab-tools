@@ -1,0 +1,145 @@
+=head2 Major pipeline scripts
+
+=over
+
+=item L<bs-seq.pl|bs-seq.pl>
+
+Original bi-sulfite methylation detection script.
+
+=item L<bs-sequel.pl|bs-sequel.pl>
+
+New version of bs-seq.pl.  
+
+=item L<bastard_imprinting.pl|bastard_imprinting.pl>
+
+Bi-sulfite allele specific processing.  Analyze bisulfite-treated data to find
+reads that map better to one parent or the other.
+
+=item L<divorce_imprinting.pl|divorce_imprinting.pl>
+
+gDNA allele specific processing.  Analyze gDNA reads and find reads that map
+better to one parent than the other.  
+
+=back
+
+=head2 Windowing
+
+=over
+
+=item L<window_gff.pl|window_gff.pl>
+
+Handle arbitrary windowing tasks against both fixed windows and annotations.  
+Versatile but also slow and memory intensive.
+
+=item L<compile_gff.pl|compile_gff.pl>
+
+Specialized script for handling single-c windowing over a fixed window of size 1.  Will be deprecated by
+window_by_fixed.pl.
+
+=item L<window_by_fixed.pl|window_by_fixed.pl>
+
+Specialized script for handling single-c windowing over a fixed windows of arbitrary size.
+
+=item L<overlaps_gff.pl|overlaps_gff.pl>
+
+Given an gff annotation and an input gff file, return GFF lines which overlap a feature in the annotation.
+
+=back
+
+=head2 Ends analysis scripts.
+
+=over
+
+=item L<ends_analysis.pl|ends_analysis.pl>
+
+=item L<average_ends_new.pl|average_ends_new.pl>
+
+=item L<ends_filter.pl|ends_filter.pl>
+
+=item L<filter_ends.pl|filter_ends.pl>
+
+=back
+
+=head2 AGP scaffolding
+
+=over
+
+=item L<agp_confirm.pl|agp_confirm.pl>
+
+=item L<agp.pl|agp.pl>
+
+=back
+
+=head2 Genome comparison/contrasting
+
+=over
+
+=item L<genome_diff.pl|genome_diff.pl>
+
+Given two fasta files with the same number of sequences and bases for each sequence,
+produce point-wise difference from one to the other, formatted in GFF.
+
+=item L<genome_patch.pl|genome_patch.pl>
+
+Inverse of genome_diff.pl.  Given a fasta file and a point-wise difference file, produce new fasta.
+
+=item L<genome_make_dictionary.pl|genome_make_dictionary.pl>
+
+=back
+
+=head2 Other neat stuff that you might find useful
+
+=over
+
+=item L<gff2tsv.pl|gff2tsv.pl>
+
+=item L<rename_feature.pl|rename_feature.pl>
+
+=item L<parse_fasta.pl|parse_fasta.pl>
+
+Grab an arbitrary subsequence in a fasta file.
+
+=item L<fastq_read_length.pl|fastq_read_length.pl>
+
+Tell you how long reads are in a FASTQ file.
+
+=item L<fisher_exact_test.pl|fisher_exact_test.pl>
+
+=back
+
+
+=head2 Other neat stuff that you probability won't find useful directly
+
+Mostly scripts used internally by the main pipeline scripts.
+
+=over
+
+=item L<correlatePairedEnds.pl|correlatePairedEnds.pl>
+
+=item L<correlateSingleEnds.pl|correlateSingleEnds.pl>
+
+=item L<countMethylation_batch.pl|countMethylation_batch.pl>
+
+=item L<countMethylation.pl|countMethylation.pl>
+
+=item L<convert.pl|convert.pl>
+
+=item L<create_scaffold.pl|create_scaffold.pl>
+
+=item L<fasta_bsrc.pl|fasta_bsrc.pl>
+
+=item L<fasta_motifs.pl|fasta_motifs.pl>
+
+=item L<fastq_check_integrity.pl|fastq_check_integrity.pl>
+
+=item L<make_intron_gff.pl|make_intron_gff.pl>
+
+=item L<split_on_mismatches_2.pl|split_on_mismatches_2.pl>
+
+=item L<split_on_mismatches.pl|split_on_mismatches.pl>
+
+=item L<split_ratio.pl|split_ratio.pl>
+
+=item L<parse_bowtie.pl|parse_bowtie.pl>
+
+=back
