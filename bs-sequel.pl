@@ -350,13 +350,13 @@ Simplest possible options for arabidopsis
 
  bs-sequel.pl -f /path/to/reference_genome.fasta -l /path/to/reads.fastq -b H2AZ_HO_6_BS -rnd 1
 
-Single ends example. Notice the left and right reads are the same file.
+Single ends example. 
 
- bs-sequel.pl -l reads.fastq -r reads.fastq -f /path/to/genomes/TAIR_reference.fas -b bsseqrun -s 76 -k 0 -n 2 -t Arabidopsis -i 1 -ls 1 45 -rs 46 76 -1 1 -2 0 -rnd 0 -mh 10 -d output dir
+ bs-sequel.pl -f /path/to/genomes/TAIR_reference.fas -l reads.fastq -b bsseqrun -k 0 -n 2 -t Arabidopsis -ls 1 45 -rs 46 76 -1 1 -2 0 -rnd 0 -mh 10 -d output dir
 
 Paired ends example, where s_7_1_sequence.txt is the left read and s_7_2_sequence is the right.
 
- bs-sequel.pl --left-read s_7_1_sequence.txt --right-read s_7_2_sequence.txt --reference REF_COL.fa --base-name test-out --read-size 45 --library-size 300 --mismatches 2 --organism leco --batch 1 --left-splice 1 40 --right-splice 5 45
+ bs-sequel.pl -f /path/to/genomes/TAIR_reference.fas -l s_7_1_sequence.txt -r s_7_2_sequence.txt -b paired_ends -k 300 -n 2 -t leco --batch 1 -ls 1 40 -rs 41-51
 
 Notes: For arabidopsis, recommended settings from Daniel are "-mh 10 -rnd 0".  For non-arabidopsis, "-mh 10 -rnd 1".
 
