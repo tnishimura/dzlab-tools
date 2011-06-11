@@ -1,5 +1,5 @@
 #!/usr/bin/env perl
-# ___UNDOCUMENTED___
+# What... on... earth... is this supposed do?
 
 use strict;
 use warnings;
