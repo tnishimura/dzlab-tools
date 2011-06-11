@@ -1,13 +1,10 @@
 #!/usr/bin/env perl
-# ___UNDOCUMENTED___
-
 use strict;
 use warnings;
+use Pod::Usage;
 
-unless (@ARGV == 2 || ($ARGV[0] ne 'c2t' && $ARGV[0] ne 'g2a')){
-
-    print STDERR ("Usage: convert.pl [c2t|g2a] <fastafile.fas>\n") ;
-    exit(-1);
+if (@ARGV != 2 || ($ARGV[0] ne 'c2t' && $ARGV[0] ne 'g2a')){
+    pod2usage(-verbose => 99,-sections => [qw/NAME SYNOPSIS OPTIONS/]);
 }
 
 my $pattern   = $ARGV[0];
@@ -22,3 +19,19 @@ while(my $line = <FAS>) {
     print $line;
 }
 close(FAS);
+
+
+=head1 NAME
+
+convert.pl - Convert a fasta file (either c->t or g->a).
+
+=head1 SYNOPSIS
+
+Usage examples:
+
+ convert.pl c2t genome.fasta > genome.c2t.fasta
+ convert.pl g2a genome.fasta > genome.g2a.fasta
+
+=back
+
+=cut
