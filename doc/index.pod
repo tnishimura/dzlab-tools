@@ -1,16 +1,18 @@
 
-=head1 dzlab.pmb.berkeley.edu/tools README
+=head1 Zilberman Lab Tools
 
-L<http://dzlab.pmb.berkeley.edu/tools/archive>
+The Zilberman Lab's perl scripts.
 
 This page contains everything you need to know to get the Zilberman Lab scripts running on your computer.  
 
-=head2 Overview
+=head2 L<Download|http://dzlab.pmb.berkeley.edu/tools/archive>
+
+=head2 L<Online manual pages|scripts.pod>
+
+=head2 Installing DZ-Perl and DZLab-Tools
 
 You need to install packages in order to get the scripts running on your computer: DZ-Perl and DZLab-Tools.  DZ-Perl is
 a customized version of Perl.  DZLab-Tools contains the actual scripts.  
-
-=head2 Installing DZ-Perl and DZLab-Tools
 
 Both DZ-Perl and DZLab-Tools are available from L<http://dzlab.pmb.berkeley.edu/tools/archive>.  Simply download the
 most recent version of each, for example dzlab-tools-0.0.6.exe and dz-perl-1.2.exe, and double click each to install.
@@ -28,29 +30,53 @@ uninstalled.  (Note: You can also downgrade by installing an older version.)
 
 The command line can be launched from the Start Menu, via Start Menu->All Programs->Zilberman Lab->DZLab Command Line.
 From this command line, you should be able launch all scripts installed in c:\dzlab-tools directly (without 'perl -S'),
-from any directory.  For example:
-
-=for html <img src="launch.jpg">
-
-Be sure to check out the new console windows settings (Edit->Settings) to adjust font sizes/etc.  
+from any directory.  Be sure to check out the new console windows settings (Edit->Settings) to adjust font sizes/etc.  
 
 =head2 On Linux
 
-Install Git.  For ubuntu:
+Install Git.  For most distributions, git is available via the package manager.  For ubuntu:
 
  sudo apt-get install git-core 
 
-Install bowtie by downloading from bowtie-bio.sourceforge.net, extracting the directory and running 'make'.
+If your distro doesn't provide git, you can compile from source by grabbing the
+source L<here|http://git-scm.com>. Note that, in order to clone an HTTP git
+repository, you need the development files for curl installed.  This is usually
+named libcurl-dev or similar in the package repository.
+
+Install bowtie by downloading from bowtie-bio.sourceforge.net, extracting the
+directory and running 'make'.
 
 Checkout the dzlab-tools bundle:
 
- git clone git://dzlab.pmb.berkeley.edu/dzlab-tools
+ git clone http://dzlab.pmb.berkeley.edu/tools/dzlab-tools.git
 
-Make sure to set the PATH variable correctly by pointing it to the directories with dzlab-tools and bowtie.  On bash
-(default on ubuntu and most linux distros), put this in your ~/.profile or ~/.bash_profile:
+Make sure to set the PATH variable correctly by pointing it to the directories
+with dzlab-tools and bowtie.  On bash (default on ubuntu and most linux
+distros), put this in your ~/.profile or ~/.bash_profile:
 
  export PATH=/path/to/dzlab-tools:/path/to/bowtie:$PATH
 
 You may have to log out and back in to see the effects of this. 
+
+=head2 ChangeLog
+
+=over
+
+=item 1.0.0 (2011-06-10)
+
+First release with the new L<bs-sequel.pl> script. 
+
+=back
+
+=cut
+
+=head2 Required Perl Modules
+
+The following Perl modules are required and all installable from
+L<cpan|http://www.cpan.org>: Config::General, DBI, Devel::Size, Getopt::Euclid,
+Getopt::Long::Descriptive, LWP::Simple, List::MoreUtils, Log::Log4perl, Moose,
+Moose::Role, PPI, Parallel::ForkManager, Regexp::Common,
+Statistics::Descriptive, Test::Exception, Tree::Range, URI::Escape,
+XML::Simple, XML::Twig
 
 =cut
