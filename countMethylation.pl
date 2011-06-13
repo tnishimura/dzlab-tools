@@ -34,6 +34,7 @@ disable diagnostics;
 use List::Util qw(max sum);
 use Carp;
 use File::Spec;
+use File::Temp;
 
 # Globals, passed as command line options
 my $gfffile = '';
@@ -80,7 +81,9 @@ if ($sort) {
     my @path = File::Spec->path();
     if (grep { -x "$_/sort" } @path) {
         print STDERR "Starting external sort...\n";
-        system("sort -k4,4n -S 50M $gfffile -o $gfffile");
+        my $tmpfile = mktemp("$gfffile.tmp.XXXXX");
+        system("sort -k4,4n -S 50M $gfffile -o $tmpfile");
+        rename($tmpfile, $gfffile);
         print STDERR "Done external sort...\n";
     }
     else {
@@ -90,7 +93,7 @@ if ($sort) {
         close $GFFIN;
 
         open my $GFFOUT, '>', $gfffile or die("Can't write to file: $gfffile");
-        @gff_data =  gff_sort (\@gff_data);
+        @gff_data =  gff_sort (\@gff_data);Codornices Park
         print $GFFOUT @gff_data;
         close $GFFOUT;
     }
