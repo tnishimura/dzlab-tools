@@ -84,7 +84,9 @@ while (defined(my $gff = $p->next())){
     }
     if ($counter++ % 10000 == 0){
         $dbh->commit;
-        say $counter;
+        if ($opt_verbose){
+            say $counter;
+        }
     }
     #warn $counter;
 }
@@ -115,6 +117,8 @@ single_c_mashup_add.pl
     single.type:        readable
 
 =item  -n <nickname> | --nickname <nickname>
+
+=item  -v | --verbose
 
 =back
 
