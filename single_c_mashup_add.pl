@@ -10,9 +10,14 @@ use FindBin;
 use lib "$FindBin::Bin/lib";
 use GFF::Parser;
 use DBI;
+use File::Basename;
 
 pod2usage(-verbose => 99,-sections => [qw/NAME SYNOPSIS OPTIONS/]) 
-if (! $opt_database || !$opt_nickname || !$opt_gff);
+if (! $opt_database || !$opt_gff);
+
+if (!$opt_nickname){
+    $opt_nickname = basename($opt_gff);
+}
 
 #######################################################################
 # DBI

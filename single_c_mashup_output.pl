@@ -4,19 +4,32 @@ use warnings;
 use Data::Dumper;
 use feature 'say';
 use autodie;
-
 use Getopt::Euclid qw( :vars<opt_> );
 use Pod::Usage;
+use DBI;
+
+if ($opt_output ne '-'){
+    open my $fh, '>', $opt_output;
+    select $fh; 
+}
 
 pod2usage(-verbose => 99,-sections => [qw/NAME SYNOPSIS OPTIONS/]) if ! $opt_database;
-
-use DBI;
 
 my $sth;
 my $dbh = DBI->connect("dbi:SQLite:dbname=$opt_database","","", {RaiseError => 1, AutoCommit => 1});
 
 #$dbh->do("create table scores (chr, coord)");
 #$dbh->do("create table columns (filename, nickname, num)");
+
+print "chromosome\tstart\tend";
+for my $colspec (@{$dbh->selectall_arrayref("select nickname from columns order by num")}){
+    my ($nickname) = @$colspec;
+    print "\t${nickname}_score";
+    print "\t${nickname}_ct";
+}
+print "\n";
+
+
 my $select = $dbh->prepare("select * from scores order by chr, coord");
 $select->execute();
 while (defined(my $row_ref = $select->fetchrow_arrayref())){
@@ -54,7 +67,10 @@ single_c_mashup_create.pl
 
 =item  -d <file> | --database <file>
 
-=item -h | --help
+=item  -o <file> | --output <file>
+
+=for Euclid
+    file.default:     '-'
 
 =back
 
