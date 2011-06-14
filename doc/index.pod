@@ -62,6 +62,10 @@ You may have to log out and back in to see the effects of this.
 
 =over
 
+=item 1.1.0 (2011-06-14)
+
+First release with the new L<single_c_mashup.pl> script. 
+
 =item 1.0.0 (2011-06-10)
 
 First release with the new L<bs-sequel.pl> script. 
