@@ -53,6 +53,7 @@ Log::Log4perl::init( \$conf );
 my $logger = get_logger("PipeLine");
 
 my $dry = defined $opt_dry;
+my $opt_single_ends = ! $opt_right_read;
 
 #######################################################################
 # groups (chromosomes)
@@ -103,7 +104,7 @@ if (! %opt_left_splice){
 my $do_right = %opt_right_splice;
 
 if (! $do_right && !$opt_single_ends){
-    $logger->logdie("You can't specify -1 0 and not specify a -rs!");
+    $logger->logdie("You can't specify do paired ends without -rs!");
 }
 
 my @left_splice  = @opt_left_splice{qw/start end/};
@@ -358,7 +359,7 @@ Simplest possible options for arabidopsis
 
 Single ends example. 
 
- bs-sequel.pl -f /path/to/genomes/TAIR_reference.fas -l reads.fastq -b bsseqrun -k 0 -n 2 -t Arabidopsis -ls 1 45 -rs 46 76 -1 1 -2 0 -rnd 0 -mh 10 -d output dir
+ bs-sequel.pl -f /path/to/genomes/TAIR_reference.fas -l reads.fastq -b bsseqrun -k 0 -n 2 -t Arabidopsis -ls 1 45 -rs 46 76 -2 0 -rnd 0 -mh 10 -d output dir
 
 Paired ends example, where s_7_1_sequence.txt is the left read and s_7_2_sequence is the right.
 
@@ -442,13 +443,6 @@ Default 50, for windowing single-c files.
 
 =for Euclid
     size.default:     50
-
-=item -1 <boolean> | --single-ends <boolean>
-
-1 if single ends, 0 if paired.  Default 1.
-
-=for Euclid
-    boolean.default:     1
 
 =back
 
