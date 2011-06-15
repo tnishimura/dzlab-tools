@@ -365,7 +365,9 @@ Paired ends example, where s_7_1_sequence.txt is the left read and s_7_2_sequenc
 
  bs-sequel.pl -f /path/to/genomes/TAIR_reference.fas -l s_7_1_sequence.txt -r s_7_2_sequence.txt -b paired_ends -k 300 -n 2 -t leco --batch 1 -ls 1 40 -rs 41-51
 
-Notes: For arabidopsis, recommended settings from Daniel are "-mh 10 -rnd 0".  For non-arabidopsis, "-mh 10 -rnd 1".
+Notes: The current recommended settings from Daniel are -mh 10 and -rnd 1. If
+the right splice is long enough, such as 1-50 and 51-100 for a 100bp read, -2 1
+is also recommend. Previously, for arabidopsis, we used '-rnd 1'.
 
 =head1 DESCRIPTION
 
@@ -382,14 +384,14 @@ Reference genome file in Fasta format. Required.
 
 =item -l <fastq> | --left-read <fastq>
 
-Left reads file in fastq format. For single ends, -l and -r should be the same. Required.
+Left reads file in fastq format. For single ends, only -l should be given. Required.
 
 =for Euclid
     fastq.type:        readable
 
 =item -r <fastq> | --right-read <fastq>
 
-Left reads file in fastq format. For single ends, -l and -r should be the same. Optional.
+Left reads file in fastq format. For single ends, should not be given. Optional.
 
 =for Euclid
     fastq.type:        readable
@@ -415,27 +417,20 @@ Directory to put all result files. If omitted, assumed to be the same as --base-
 
 =item -k <len> | --library-size <len>
 
-Approx length of the molecules in PAIRED ends. Default 300.  For single ends, use 0.  Ie, for paired ends, this
-parameter helps deal with possible inserts between the left and right reads:
+Approx length of the molecules in PAIRED ends. Default to 0 (which is the only valid value for single-ends).  
+For paired ends, recommended is 300.  This parameter helps deal with possible inserts between the left and right reads:
 
   |------------------------------------| (original read, paired end)
   |----------->                          1', aligned to c2t
                |---------|               insert
                           <------------| 2', aligned to g2a
 
-For single ends, there isn't an insert use 0.
+For single ends, there isn't an insert use 0 (default).
 
   |----------------------|               (original read, single end)
   |----------->                          1'
                |                         insert (size 0)
                 |-------->               2' (simulated. compared against c2t just like 1')
-
-=item -t <orgname> | --organism <orgname>
-
-Label for collect_align_stats.pl (the .log file produced).  Arabidopsis, Rice, Puffer, etc.
-
-=for Euclid
-    orgname.default:     'unknown'
 
 =item -w <size> | --window-size <size>
 
@@ -454,7 +449,7 @@ Default 50, for windowing single-c files.
 
 Discards reads that map to the genome more the this many times, passed to bowtie.  In repetitive sections of the genome,
 reads can potentially map hundreds of times, so this helps us filter repetitive chunks out..  Defaults to 0  for no filtering.  
-Daniel says 10 is a good number to use.  Use 0 (default) to disable. Default 10.
+Daniel says 10 is a good number to use.  Use 0 to disable. Default 10.
 
 =for Euclid
     hits.default:     10
@@ -495,6 +490,13 @@ upstream (left reads).  Default 0.
 =head2 Less frequently used options
 
 =over 
+
+=item -t <orgname> | --organism <orgname>
+
+Label for collect_align_stats.pl (the .log file produced).  Arabidopsis, Rice, Puffer, etc.
+
+=for Euclid
+    orgname.default:     'unknown'
 
 =item -dnf <boolean> | --di-nuc-freqs <boolean> 
 
