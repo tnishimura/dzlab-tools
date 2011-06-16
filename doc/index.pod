@@ -9,6 +9,16 @@ This page contains everything you need to know to get the Zilberman Lab scripts 
 
 =head2 L<Online manual pages|scripts.pod>
 
+=head2 L<work|http://dzlab.pmb.berkeley.edu:8080/work>
+
+=over
+
+=item L<annotations|http://dzlab.pmb.berkeley.edu:8080/work/annotations>
+
+=item L<genomes|http://dzlab.pmb.berkeley.edu:8080/work/genomes>
+
+=back
+
 =head2 Installing DZ-Perl and DZLab-Tools
 
 You need to install packages in order to get the scripts running on your computer: DZ-Perl and DZLab-Tools.  DZ-Perl is
