@@ -12,6 +12,61 @@ use Pod::Usage;
 use Getopt::Long;
 use File::Basename;
 use File::Spec::Functions;
+use List::MoreUtils qw/all/;
+
+sub parse_delta{
+    my $fh = shift;
+    local $/;
+
+    my $line = <$fh>;
+
+    my @accum;
+    while ($line =~ 
+        m/  
+        (
+          ^\d+ (\h \d+) {6} $ \n  # 7 numbers
+          (?: 
+            ^\d+$ \n              # single number lines
+          )*?                    
+        )
+        ^0$                       # until a 0
+        /gxms){
+
+        my ($start1, $end1, $start2, $end2, $numindels, undef, undef, $indel_coord, @other_indels) 
+        = split /\s/, $1;
+
+        if (! all { $_ == 1 } @other_indels){
+            die "more than one indel not supported yet";
+        }
+
+        if ($numindels > 0 && $indel_coord > 0){
+            push @accum, [$start1, $start1+$indel_coord-1, 
+            $start2, $start2+$indel_coord-1];
+            push @accum, [$start1+$indel_coord+$numindels, $end1,
+            $start2+$indel_coord,            $end2];
+        }
+        elsif ($numindels > 0 && $indel_coord < 0){
+            $indel_coord *= -1;
+            push @accum, [$start1, $start1+$indel_coord-1, 
+            $start2, $start2+$indel_coord-1];
+            push @accum, [$start1+$indel_coord,            $end1,
+            $start2+$indel_coord+$numindels, $end2];
+        }
+        else{
+            push @accum, [$start1, $end1, $start2, $end2];
+        }
+    }
+
+    for my $coords (@accum) {
+        my ($start1, $end1, $start2, $end2) = @$coords;
+        if ($start1-$end1 != $start2-$end2){
+            die Dumper $coords;
+        }
+        print join(",", @$coords) . "\n";
+    }
+    return \@accum;
+}
+
 
 my $help;
 my $config_file;
@@ -27,7 +82,7 @@ if ($help || !$result || !$config_file);
 Log::Log4perl->easy_init( { 
     level    => $DEBUG,
     #file     => ">run.log",
-    layout   => '%d{HH:mm:ss} %p> (%L) %M - %m%n',
+    layout   => '%d{HH:mm:ss} %.1p> (%L) %m%n',
 } );
 my $logger = get_logger();
 my $pm = Parallel::ForkManager->new(4);
@@ -63,10 +118,8 @@ my %r2l = (right => $left, left => $right);
 while (my ($chr,$file) = each %globals) {
     open my $fh, '<', $file;
     GLOBAL:
-    while (defined(my $line = <$fh>)){
-        chomp $line;
-        my @s = split ' ', $line;
-        next GLOBAL if @s != 7;
+    for my $coords (parse_delta($fh)) {
+        my @s = @$coords;
         push @{$l2r{alignment}{uc $chr}}, [ @s[0 .. 3] ];
         push @{$r2l{alignment}{uc $chr}}, [ @s[2,3,0,1] ];
     }
