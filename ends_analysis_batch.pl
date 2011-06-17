@@ -14,10 +14,11 @@ use Launch;
 use List::Util qw/first/;
 use Log::Log4perl qw/:easy/;
 use Pod::Usage;
-use DZUtil qw/common_prefix common_suffix timestamp/;
+use DZUtil qw/localize common_prefix common_suffix timestamp/;
 use Parallel::ForkManager;
+use File::Temp qw/tempdir/;
 
-my $pm = Parallel::ForkManager->new($opt_threads);
+my $pm = Parallel::ForkManager->new($opt_parallel);
 
 pod2usage(-verbose => 99,-sections => [qw/NAME SYNOPSIS OPTIONS/]) if !$opt_conf;
 
@@ -58,11 +59,13 @@ my $logger = get_logger();
 
 my %config = ParseConfig($opt_conf);
 
-my @base_dirs = split /,/, $opt_base_dirs;
+#my @opt_base_dirs = split /,/, $opt_base_dirs;
 
-$logger->info("base directories: " .  join ", ", @base_dirs);
+$logger->info("base directories: " .  join ", ", @opt_base_dirs);
 
-for my $dir (@base_dirs) {
+my $tempdir = tempdir(CLEANUP => 1);
+
+for my $dir (@opt_base_dirs) {
     $logger->info("basedir  - $dir");
     if (! -d $dir){
         $logger->logdie("$dir is not a readable directory?");
@@ -94,6 +97,8 @@ for my $dir (@base_dirs) {
             my ($binwidth,  $distance,  $stopflag,  $stopdistance,  $end,  $extractid,  $gffannotation,  $consolidate,  $extension)
             = @{$conf_hash}{'bin-width', 'distance', 'stop-flag', 'stop-distance', 'end', 'extract-id', 'gff-annotation', 'consolidate', 'extension' };
 
+            # otherwise might overwrite b/c of race.... think of something better
+            my $localgff = localize($gffannotation, $tempdir); 
             my $scores = $distance * 2 / $binwidth;
 
             $logger->debug("\$binwidth - $binwidth");
@@ -162,7 +167,7 @@ for my $dir (@base_dirs) {
 
 
                 $pm->start and next GROUPLOOP;
-                launch("ends_analysis.pl -g $gffannotation -b $binwidth -d $distance -s $stopflag -k $stopdistance "
+                launch("ends_analysis.pl -g $localgff -b $binwidth -d $distance -s $stopflag -k $stopdistance "
                     .  " -x $extractid -$end -o $ends_output $consolidated_input ", 
                     expected => $ends_output,
                     dryrun => $opt_dry,
@@ -202,15 +207,15 @@ batch_ends_analysis.pl - ...
 
 Usage examples:
 
- ends_analysis_batch.pl -d basedir1,basedir2 [-b basename] [--dry|-n] [--force|-f] --conf ends.conf [--threads 4]
+ ends_analysis_batch.pl [-b basename] [--dry|-n] [--force|-f] --conf ends.conf [--threads 4] -d basedir1 basedir2 
 
 =head1 OPTIONS
 
 =over
 
-=item  -d <dir> | --base-dirs <dir>
+=item  -d <dir>... | --base-dirs <dir>...
 
-Comma separated Root directories of bs-seq/etc run.  needs to contain a single-c* directory.
+Root directories of bs-seq/etc run.  needs to contain a single-c* directory.
 
 =item  -c <config_file> | --conf <config_file>
 
@@ -221,7 +226,7 @@ Comma separated Root directories of bs-seq/etc run.  needs to contain a single-c
 
 =item --force | -f
 
-=item  --threads <threads> | -t <threads>
+=item  --parallel <threads>
 
 Number of simultaneous ends to perform.  Default 0 for no parallelization.
 
@@ -243,7 +248,7 @@ The config file can be in the following format. Each section will be run.
      extension      = gff.merged
      end            = 5
      stop-distance  = 1500
-     gff-annotation = /wip/tools/annotations/AT/gmod/TAIR8_genes.gff
+     gff-annotation = http://dzlab.pmb.berkeley.edu:8080/work/annotations/AT/gmod/TAIR8_genes.gff
  </genes5>
 
 =cut

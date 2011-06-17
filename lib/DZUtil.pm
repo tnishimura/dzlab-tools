@@ -194,7 +194,7 @@ sub localize{
                 carp "localize(): $storefile already exists? overwriting";
             }
             else{
-                carp "localize(): $storefile already exists? NOT overwriting";
+                #carp "localize(): $storefile already exists? NOT overwriting";
                 return $file_or_url;
             }
         }
