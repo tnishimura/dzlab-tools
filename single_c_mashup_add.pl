@@ -61,7 +61,7 @@ sub addcolumn{
 
 
 my $colnum = addcolumn($dbh,$opt_gff, $opt_nickname);
-my $p = GFF::Parser->new(file => $opt_gff);
+my $p = GFF::Parser->new(file => $opt_gff, normalize => 0);
 
 my $insert_sth = $dbh->prepare("insert into scores(chr,coord,_c_$colnum,_t_$colnum) values (?,?,?,?)");
 my $update_sth = $dbh->prepare("update scores set _c_$colnum = ?, _t_$colnum = ? where chr = ? and coord = ?");

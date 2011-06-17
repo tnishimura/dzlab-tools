@@ -46,8 +46,13 @@ while (defined(my $row_ref = $select->fetchrow_arrayref())){
         $c //= 0;
         $t //= 0;
         my $total = $c + $t;
-        my $score = $total > 0 ? $c/($c+$t) : 0;
-        printf "\t%.7f\t%d", $score, $total;
+        if ($total == 0){
+            print "\t.\t.";
+        }
+        else{
+            my $score = $c/$total;
+            printf "\t%.7f\t%d", $score, $total;
+        }
     }
     print "\n";
 }

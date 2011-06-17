@@ -40,6 +40,8 @@ launch("perl -S single_c_mashup_output.pl -d $tmpdb -o $opt_output");
 unlink $tmpdb;
 
 =head1 NAME
+
+single_c_mashup.pl - collect a set of single-c gff files into a single table.
  
  single_c_mashup.pl -o output.txt [[nickname1] file1.gff] [[nickname2] file2.gff] ...
  
