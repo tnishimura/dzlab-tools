@@ -157,7 +157,7 @@ my $ratio_file = "$basename.ratio.txt$nocc";
 launch("perl -S split_on_mismatches_2.pl $nocc_flag -a $eland_a -b $eland_b -oa $eland_filtered_a -ob $eland_filtered_b",
     expected => [ $eland_filtered_a, $eland_filtered_b]);
 
-launch("perl -S split_ratio.pl -o $ratio_file -ea $opt_ecotype_a -eb $opt_ecotype_b -a $eland_filtered_a -b $eland_filtered_b -m $opt_bowtie_mismatches",
+launch("perl -S split_ratio.pl -r $opt_reference_a -o $ratio_file -ea $opt_ecotype_a -eb $opt_ecotype_b -a $eland_filtered_a -b $eland_filtered_b -m $opt_bowtie_mismatches",
     expected => "$ratio_file");
 
 #######################################################################

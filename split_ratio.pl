@@ -14,7 +14,7 @@ use FastaReader;
 
 pod2usage(-verbose => 99,-sections => [qw/NAME SYNOPSIS OPTIONS/]) 
 unless ($opt_label xor $opt_output) && $opt_ecotype_a && $opt_ecotype_b && 
-$opt_bowtie_mismatches && $opt_eland_filtered_b && $opt_eland_filtered_a; 
+$opt_bowtie_mismatches && $opt_eland_filtered_b && $opt_eland_filtered_a && $opt_reference; 
 
 use Log::Log4perl qw/:easy/;
 Log::Log4perl->easy_init( { 
