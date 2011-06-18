@@ -93,7 +93,7 @@ if ($sort) {
         close $GFFIN;
 
         open my $GFFOUT, '>', $gfffile or die("Can't write to file: $gfffile");
-        @gff_data =  gff_sort (\@gff_data);Codornices Park
+        @gff_data =  gff_sort (\@gff_data);
         print $GFFOUT @gff_data;
         close $GFFOUT;
     }
