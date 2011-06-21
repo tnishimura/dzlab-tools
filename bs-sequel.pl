@@ -32,7 +32,7 @@ if (! defined $opt_out_directory){
 
 if (! -d $opt_out_directory) { mkpath ( $opt_out_directory ,  {verbose => 1} ); }
 
-my $logname = catfile($opt_out_directory, $opt_out_directory) . "-" . timestamp() . ".log.txt";
+my $logname = catfile($opt_out_directory, $opt_base_name) . "-" . timestamp() . ".log.txt";
 
 use Log::Log4perl qw/get_logger/;
 my $conf=qq/
