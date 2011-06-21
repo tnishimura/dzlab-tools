@@ -9,11 +9,12 @@ use lib "$FindBin::Bin/lib";
 use FastaReader;
 use DBI;
 use Log::Log4perl qw/:easy/;
-Log::Log4perl->easy_init({ level => $DEBUG, layout => '%d{HH:mm:ss} %.1p > %m%n' });
-my $logger = get_logger();
-
+use List::Util qw/max/;
+use List::MoreUtils qw/all/;
 use DBI;
 
+Log::Log4perl->easy_init({ level => $DEBUG, layout => '%d{HH:mm:ss} %.1p > %m%n' });
+my $logger = get_logger();
 
 {
     my $counter = 0;
@@ -24,8 +25,8 @@ use DBI;
     #$dbh->do("PRAGMA automatic_index = OFF");
     $dbh->do("PRAGMA journal_mode = OFF");
     $dbh->do("PRAGMA cache_size = 80000");
-    #my @context = qw/c cg chh chg t tg thh thg/;
-	my @context = qw/c cg chh chg t/;
+    #my @context = qw/cg chh chg t tg thh thg/;
+	my @context = qw/cg chh chg t/;
     $dbh->do("create table methyl (seq, coord integer, " . join(",", map { "$_ default 0" } @context) . ")");
     $dbh->do("create index idx on methyl (seq,coord)");
 
@@ -65,96 +66,230 @@ use DBI;
     }
 
     sub record_output{
+        # prefix-$seq.single-c-$context.gff.merged
         my $prefix = shift;
+
         $dbh->commit();
 
         my $sth = $dbh->prepare('select seq, coord, ' . join(",", @context) . ' from methyl order by seq, coord');
         $sth->execute();
-        while (defined(my $row = $sth->fetch)){
-            my ($c, $cg, $chg, $chh, $t) = @$row;
 
-            say join "|", @$row;
+        my %filehandles;
+
+        while (defined(my $row = $sth->fetch)){
+            #say join "|", @$row;
+            my ($seq, $coord, $cg, $chg, $chh, $t) = @$row;
+            if (1 < grep { $_ > 1 } ($cg, $chg, $chh)){
+                die "single position should not have more than one context...";
+            }
+            my $context = $cg ? 'CG' : $chh ? 'CHH' : $chg ? 'CHG' : next;
+            my $context_score = max $cg, $chg, $chh;
+
+            my $key = $seq . "_" . $context;
+            if (! exists $filehandles{$key}){
+                open my $writer, q{>}, "$prefix-$seq.single-c.$context.gff.merged";
+                $filehandles{$key} = $writer;
+            }
+
+            my $score = $context_score/($context_score+$t);
+            say {$filehandles{$key}} join "\t", $seq, q{.}, $context, $coord, $coord, $score, q{.}, q{.}, "c=$context_score;t=$t";
+
         }
+        close $_ for values %filehandles;
     }
 }
 
-sub count_methylation{
-    my ($gff_line, $sequence_lengths) = @_;
+{
+    my %stats;
 
-    #my %count = map {$_ => 0} qw/c cg chh chg t tg thh thg/;
+    sub count_methylation{
+        my ($gff_line, $sequence_lengths) = @_;
 
-    my @split = split /\t/, $gff_line;
-    
-    die "gff should be 9 columed..." if @split != 9;
+        my $filtered = $gff_line =~ s/\*$//;
 
-    my ($seq, $start,$end,$strand) = @split[0,3,4,6];
+        my @split = split /\t/, $gff_line;
 
-    return if ($split[0] eq '.');
+        die "gff should be 9 columed..." if @split != 9;
 
-    my ($read_seq, $target_seq);
-    if ($split[2] =~ /([ATCGN]+)$/){
-        $read_seq= $1;
-    }
-    if ($split[8] =~ /target=([ATCGN]+)$/){
-        $target_seq = $1;
-    }
-    die "can't find read or target seq"  unless (defined $read_seq && defined $target_seq);
+        my ($seq, $start,$end,$strand) = @split[0,3,4,6];
 
-    if (length($read_seq) != ($end-$start+1) || length $target_seq != 4 + length $read_seq){
-        die "read size mismatch";
-    }
+        # sequence - create entry in stats if necessary.
 
-    my $reverse = $strand eq '+' ? 0 : $strand eq '-' ? 1 : die "strand should be + or -";
+        return if ($seq eq '.');
+        if (! exists $stats{$seq}){
+            $stats{$seq} = {
+                bp         => 0,
+                unfiltered => { map {$_ => 0} qw/c cg chh chg t tg thh thg/ },
+                filtered   => { map {$_ => 0} qw/c cg chh chg t tg thh thg/ },
+            };
+        }
 
-    my @target_bases = split //,$target_seq;
-    my @read_bases = (q{.}, q{.}, split(//, $read_seq), q{.}, q{.});
+        my $unfiltered_count = $stats{$seq}{unfiltered}; # deref them here, once, for speed
+        my $filtered_count   = $stats{$seq}{filtered};
 
-    my %methlations = ();
+        # Grab sequences
 
-    #say STDERR $start . ($reverse ? ' <- ' : ' -> ') . $end;
-    #say STDERR join q{}, @target_bases;
-    #say STDERR join q{}, @read_bases;
+        my ($read_seq, $target_seq);
+        if ($split[2] =~ /([ATCGN]+)$/){
+            $read_seq= $1;
+        }
+        if ($split[8] =~ /target=([ATCGN]+)$/){
+            $target_seq = $1;
+        }
+        die "can't find read or target seq"  unless (defined $read_seq && defined $target_seq);
 
-    READ:
-    for (my $strand_coord = $start; $strand_coord <= $end; ++$strand_coord){
-        my $i = $strand_coord - $start + 2;
+        my @target_bases = split //,$target_seq;
+        my @read_bases = (q{.}, q{.}, split(//, $read_seq), q{.}, q{.});
 
-        my $methylation;
-        if ($target_bases[$i] eq 'C'){
-            if ($read_bases[$i] eq 'C'){
-                $methylation = 1;
-            }
-            elsif ($read_bases[$i] eq 'T'){
-                $methylation = 0;
-            }
+        # check length
+
+        if (length($read_seq) != ($end-$start+1) || length $target_seq != 4 + length $read_seq){
+            die "read size mismatch";
         }
         else{
-            next READ;
+            $stats{$seq}{bp} += length($read_seq);
         }
 
-        my $abs_coord = $reverse ? $sequence_lengths->{$split[0]} - $strand_coord + 1 : $strand_coord;
+        # reverse?
 
-        my $context;
+        my $reverse = $strand eq '+' ? 0 : $strand eq '-' ? 1 : die "strand should be + or -";
 
-        if ($read_bases[$i + 1] eq 'G'){
-            $context = $methylation ? 'cg' : 'tg';
+        #say STDERR $start . ($reverse ? ' <- ' : ' -> ') . $end;
+        #say STDERR join q{}, @target_bases;
+        #say STDERR join q{}, @read_bases;
+
+        READ:
+        for (my $strand_coord = $start; $strand_coord <= $end; ++$strand_coord){
+            my $i = $strand_coord - $start + 2;
+
+            my $methylation;
+            if ($target_bases[$i] eq 'C'){
+                if ($read_bases[$i] eq 'C'){
+                    $methylation = 1;
+                    if ($filtered){
+                        ++$filtered_count->{'c'};
+                    } else{
+                        ++$unfiltered_count->{'c'};
+                    }
+                }
+                elsif ($read_bases[$i] eq 'T'){
+                    $methylation = 0;
+                    if ($filtered){
+                        ++$filtered_count->{'t'};
+                    } else{
+                        ++$unfiltered_count->{'t'};
+                    }
+                }
+            }
+            else{
+                next READ;
+            }
+
+            my $abs_coord = $reverse ? $sequence_lengths->{$split[0]} - $strand_coord + 1 : $strand_coord;
+
+            my $context;
+
+            if ($target_bases[$i + 1] eq 'G'){
+                $context = $methylation ? 'cg' : 'tg';
+            }
+            elsif ($target_bases[$i + 2] eq 'G'){
+                $context = $methylation ? 'chg' : 'thg';
+            }
+            else {
+                $context = $methylation ? 'chh' : 'thh';
+            }
+
+            if ($filtered){
+                ++$filtered_count->{$context};
+            } else{
+                ++$unfiltered_count->{$context};
+            }
+
+            if ($methylation){
+                record_methylation($seq,$abs_coord,$context);
+            }
+            else{
+                record_methylation($seq,$abs_coord,'t');
+            }
         }
-        elsif ($read_bases[$i + 2] eq 'G'){
-            $context = $methylation ? 'chg' : 'thg';
+    }
+
+    sub rat{
+        my ($x,$y) = @_;
+        if ($x+$y != 0){
+            return sprintf("%.6f", $x/($x+$y));
         }
         else {
-            $context = $methylation ? 'chh' : 'thh';
-        }
-        
-        #++$count{$context};
-        if ($methylation){
-            record_methylation($seq,$abs_coord,$context);
-        }
-        else{
-            record_methylation($seq,$abs_coord,'t');
+            return "0.000000";
         }
     }
+
+    sub print_freq{
+        my $prefix = shift;
+
+        open my $out, '>', "$prefix.freq";
+
+        my @output;
+        push @output, [qw/seq bp overlaps 
+        C CG CHG CHH T TG THG THH C_ratio CG_ratio CHG_ratio CHH_ratio 
+        filtered_C filtered_CG filtered_CHG filtered_CHH 
+        filtered_T filtered_TG filtered_THG filtered_THH filtered_C_ratio filtered_CG_ratio filtered_CHG_ratio filtered_CHH_ratio 
+        /];
+        
+        for my $seq (sort keys %stats){
+            push @output, [
+            $seq,
+            $stats{$seq}{bp},
+            0,
+            $stats{$seq}{unfiltered}{c},
+            $stats{$seq}{unfiltered}{cg},
+            $stats{$seq}{unfiltered}{chg},
+            $stats{$seq}{unfiltered}{chh},
+            $stats{$seq}{unfiltered}{t},
+            $stats{$seq}{unfiltered}{tg},
+            $stats{$seq}{unfiltered}{thg},
+            $stats{$seq}{unfiltered}{thh},
+
+            rat($stats{$seq}{unfiltered}{c}  ,$stats{$seq}{unfiltered}{t} ),
+            rat($stats{$seq}{unfiltered}{cg} ,$stats{$seq}{unfiltered}{tg} ),
+            rat($stats{$seq}{unfiltered}{chg},$stats{$seq}{unfiltered}{thg} ),
+            rat($stats{$seq}{unfiltered}{chh},$stats{$seq}{unfiltered}{thh} ),
+
+            $stats{$seq}{filtered}{c},
+            $stats{$seq}{filtered}{cg},
+            $stats{$seq}{filtered}{chg},
+            $stats{$seq}{filtered}{chh},
+            $stats{$seq}{filtered}{t},
+            $stats{$seq}{filtered}{tg},
+            $stats{$seq}{filtered}{thg},
+            $stats{$seq}{filtered}{thh},
+
+            rat($stats{$seq}{filtered}{c}  , $stats{$seq}{filtered}{t} ),
+            rat($stats{$seq}{filtered}{cg} , $stats{$seq}{filtered}{tg} ),
+            rat($stats{$seq}{filtered}{chg}, $stats{$seq}{filtered}{thg} ),
+            rat($stats{$seq}{filtered}{chh}, $stats{$seq}{filtered}{thh} ),
+            ]
+        }
+
+        #say scalar(@$_) for @output;
+
+        #die "uneven number of lines in freq? dying" unless all { print scalar @$_; 27 == @$_ } @output;
+
+        for my $i (0..26) {
+            my $line = join "\t", map { $_->[$i] } @output;
+            $logger->debug($line);
+            say $out $line;
+        }
+        close $out;
+    }
+
+
 }
+
+use Getopt::Euclid qw( :vars<opt_> );
+use Pod::Usage;
+
+pod2usage(-verbose => 99,-sections => [qw/NAME SYNOPSIS OPTIONS/]) if $opt_help;
 
 my $fr = FastaReader->new(file => "/wip/tools/genomes/AT/TAIR_reference.fas", normalize => 0);
 
@@ -162,12 +297,16 @@ my $seqlengths = $fr->length;
 
 $logger->info(Dumper $seqlengths);
 
-while (defined(my $line = <ARGV>)){
+open my $in, '<', $opt_file;
+
+while (defined(my $line = <$in>)){
     chomp $line;
     count_methylation($line, $seqlengths);
 }
+close $in;
 
-record_output();
+record_output($opt_output_prefix);
+print_freq($opt_output_prefix);
 
 =head1 NAME
 
@@ -189,6 +328,11 @@ Usage examples:
     prefix.default:     '-'
 
 # prefix-$seq.single-c-$context.gff.merged
+
+=item  <file> 
+
+=for Euclid
+    file.type:        readable
 
 =item --help | -h
 
