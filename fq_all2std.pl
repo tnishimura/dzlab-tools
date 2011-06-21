@@ -54,13 +54,27 @@ sub fa2std {
 }
 
 sub fq2fa {
-  while (<>) {
-	if (/^@(\S+)/) {
-	  print ">$1\n";
-	  $_ = <>; print;
-	  <>; <>;
-	}
-  }
+    while (defined(my $line = <>)){
+        chomp $line;
+        if ($line =~ s/^@//){
+            my ($first, $second) = split ' ', $line;
+
+            # most common
+            if ($first =~ m{#0/[12]$}){
+                print ">$first\n";
+            }
+            # new solexa format, 6/20/2011
+            elsif (defined $second && $second =~ /^([12])/){
+                print ">$first#/$1\n";
+            }
+            # handle older reads with no read id's 
+            else{
+                print ">$first#/1\n";
+            }
+        }
+        $_ = <>; print;
+        <>; <>;
+    }
 }
 
 sub scarf2std {
