@@ -28,7 +28,7 @@ if ($opt_output ne '-'){
     select $fh; 
 }
 
-my $config = LoadFile("$FindBin::Bin/coord/$opt_dictionary.alignment");
+my $config = LoadFile("$FindBin::Bin/conf/$opt_dictionary.alignment");
 my $dictionary = $config->{alignment};
 
 # $dictionary == {seq => [[from_start,from_end, to_start, to_end] ... ]}

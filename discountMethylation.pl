@@ -16,7 +16,7 @@ use Getopt::Euclid qw( :vars<opt_> );
 use Pod::Usage;
 use Module::Load::Conditional qw/can_load/;
 use File::CountLines qw/count_lines/;
-
+use File::Temp qw/mktemp tempfile/;
 
 pod2usage(-verbose => 99,-sections => [qw/NAME SYNOPSIS OPTIONS/]) 
 if !$opt_file || !$opt_output_prefix || !$opt_reference;
@@ -46,9 +46,9 @@ if ($has_progressbar){
 {
     my $counter = 0;
     my $increment = 10000;
-    my $filename = 'meow.sqlite3';
+    my $filename = $opt_memory ? ':memory:' : (tempfile("$opt_output_prefix.tmp.XXXXX", UNLINK => 1))[1];
     unlink $filename if -f $filename;
-    my $dbh = DBI->connect("dbi:SQLite:dbname=:memory:","","", {RaiseError => 1, AutoCommit => 0});
+    my $dbh = DBI->connect("dbi:SQLite:dbname=$filename","","", {RaiseError => 1, AutoCommit => 0});
     $dbh->do("PRAGMA journal_mode = OFF");
     $dbh->do("PRAGMA cache_size = 80000");
     $dbh->do("create table methyl (seq, coord integer, context integer, c integer default 0, t integer default 0)");
@@ -63,6 +63,8 @@ if ($has_progressbar){
 	my %inserter = map {
         $_ => $dbh->prepare("insert into methyl(seq, coord, context, $_) values (?,?,?,1)")
     } qw/c t/;
+
+    sub disconnect { $dbh->disconnect }
 
     # if record exists, return context
     sub record_exists{
@@ -110,6 +112,7 @@ if ($has_progressbar){
         $sth->execute();
 
         my %filehandles;
+        my %temp2real;
 
         while (defined(my $row = $sth->fetch)){
             #say join "|", @$row;
@@ -118,8 +121,11 @@ if ($has_progressbar){
 
             my $key = $context;
             if (! exists $filehandles{$key}){
-                open my $writer, q{>}, "$prefix.single-c.$context.gff.merged";
+                my $file = "$prefix.single-c.$context.gff.merged";
+                my $tmpfile = mktemp($file . ".tmp.XXXX");
+                open my $writer, q{>}, $tmpfile;
                 $filehandles{$key} = $writer;
+                $temp2real{$tmpfile} = $file;
             }
             die "why is \$c + \$t == 0? bug, dying" if $c + $t == 0;
 
@@ -128,6 +134,10 @@ if ($has_progressbar){
         }
 
         close $_ for values %filehandles;
+
+        while (my ($tmp,$real) = each %temp2real) {
+            rename $tmp, $real;
+        }
     }
 }
 
@@ -383,7 +393,8 @@ my $seqlengths = $fr->length;
 open my $in, '<', $opt_file;
 
 while (defined(my $line = <$in>)){
-    chomp $line;
+    #chomp $line;
+    $line =~ tr/\n\r//d;
     count_methylation($line, $seqlengths);
 
     if ($. % $pb_increment == 0){
@@ -397,8 +408,13 @@ while (defined(my $line = <$in>)){
 }
 close $in;
 
+
+$pb->update($linecount) if $has_progressbar;
+$logger->info("Done processing! creating single-c and freq file");
+
 record_output($opt_output_prefix);
 print_freq($opt_output_prefix);
+disconnect;
 
 #######################################################################
 # DONE
@@ -438,6 +454,7 @@ Usage examples:
 
 =item --help | -h
 
+=item  -m | --memory 
 
 =back
 
