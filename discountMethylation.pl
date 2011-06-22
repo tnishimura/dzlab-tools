@@ -95,13 +95,14 @@ my $logger = get_logger();
             my ($seq, $coord, $context, $c, $t) = @$row;
             $context = uc $context;
 
-            my $key = $seq . "_" . $context;
+            my $key = $context;
             if (! exists $filehandles{$key}){
-                open my $writer, q{>}, "$prefix-$seq.single-c.$context.gff.merged";
+                open my $writer, q{>}, "$prefix.single-c.$context.gff.merged";
                 $filehandles{$key} = $writer;
             }
+            die "why is \$c + \$t == 0? bug, dying" if $c + $t == 0;
 
-            my $score = $c/($c+$t);
+            my $score = sprintf("%.4f", $c/($c+$t));
             say {$filehandles{$key}} join "\t", $seq, q{.}, $context, $coord, $coord, $score, q{.}, q{.}, "c=$c;t=$t";
         }
 
