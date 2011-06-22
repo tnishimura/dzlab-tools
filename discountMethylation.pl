@@ -19,7 +19,7 @@ use File::CountLines qw/count_lines/;
 
 
 pod2usage(-verbose => 99,-sections => [qw/NAME SYNOPSIS OPTIONS/]) 
-if !$opt_file || !$opt_output_prefix;
+if !$opt_file || !$opt_output_prefix || !$opt_reference;
 Log::Log4perl->easy_init({ level => $DEBUG, layout => '%d{HH:mm:ss} %.1p > %m%n' });
 my $logger = get_logger();
 
@@ -151,11 +151,20 @@ if ($has_progressbar){
 
         return if ($seq eq '.');
         if (! exists $stats{$seq}){
-            $stats{$seq} = {
-                bp         => 0,
-                unfiltered => { map {$_ => 0} qw/c cg chh chg t tg thh thg/ },
-                filtered   => { map {$_ => 0} qw/c cg chh chg t tg thh thg/ },
-            };
+            if ($opt_dinucleotide){
+                $stats{$seq} = {
+                    bp         => 0,
+                    unfiltered => { map {$_ => 0} qw/c cg cc ca ct t tg tc ta tt/ },
+                    filtered   => { map {$_ => 0} qw/c cg cc ca ct t tg tc ta tt/ },
+                };
+            }
+            else{
+                $stats{$seq} = {
+                    bp         => 0,
+                    unfiltered => { map {$_ => 0} qw/c cg chh chg t tg thh thg/ },
+                    filtered   => { map {$_ => 0} qw/c cg chh chg t tg thh thg/ },
+                };
+            }
         }
 
         my $unfiltered_count = $stats{$seq}{unfiltered}; # deref them here, once, for speed
@@ -171,7 +180,7 @@ if ($has_progressbar){
             $target_seq = $1;
         }
         if (!  defined $read_seq || ! defined $target_seq){
-            warn "couldn't parse $gff_line ?";
+            $logger->debug("couldn't parse $gff_line ?");
             return;
         }
         die "can't find read or target seq"  unless (defined $read_seq && defined $target_seq);
@@ -227,14 +236,26 @@ if ($has_progressbar){
 
             my $context;
 
-            if ($target_bases[$i + 1] eq 'G'){
-                $context = $methylation ? 'cg' : 'tg';
+            if ($opt_dinucleotide){
+                my $next = $target_bases[$i + 1];
+                if ( $next eq 'G'){ $context = $methylation ? 'cg' : 'tg'; }
+                elsif ( $next eq 'A'){ $context = $methylation ? 'ca' : 'ta'; }
+                elsif ( $next eq 'C'){ $context = $methylation ? 'cc' : 'tc'; }
+                elsif ( $next eq 'T'){ $context = $methylation ? 'ct' : 'tt'; }
+                else {
+                    next READ;
+                }
             }
-            elsif ($target_bases[$i + 2] eq 'G'){
-                $context = $methylation ? 'chg' : 'thg';
-            }
-            else {
-                $context = $methylation ? 'chh' : 'thh';
+            else{
+                if ($target_bases[$i + 1] eq 'G'){
+                    $context = $methylation ? 'cg' : 'tg';
+                }
+                elsif ($target_bases[$i + 2] eq 'G'){
+                    $context = $methylation ? 'chg' : 'thg';
+                }
+                else {
+                    $context = $methylation ? 'chh' : 'thh';
+                }
             }
 
             if ($filtered){
@@ -257,58 +278,90 @@ if ($has_progressbar){
         }
     }
 
+    # this thing looks ridiculous...
     sub print_freq{
         my $prefix = shift;
 
         open my $out, '>', "$prefix.freq";
 
         my @output;
-        push @output, [qw/seq bp overlaps 
-        C CG CHG CHH T TG THG THH C_ratio CG_ratio CHG_ratio CHH_ratio 
-        filtered_C filtered_CG filtered_CHG filtered_CHH 
-        filtered_T filtered_TG filtered_THG filtered_THH filtered_C_ratio filtered_CG_ratio filtered_CHG_ratio filtered_CHH_ratio 
-        /];
+
+        if ($opt_dinucleotide){
+            push @output, [qw/seq bp overlaps 
+            C CG CT CA CC 
+            T TG TT TA TC
+            C_ratio CG_ratio CT_ratio CA_ratio CC_ratio 
+
+            filtered_C filtered_CG filtered_CT filtered_CA filtered_CC 
+            filtered_T filtered_TG filtered_TT filtered_TA filtered_TC
+
+            filtered_C_ratio filtered_CG_ratio filtered_CT_ratio filtered_CA_ratio filtered_CC_ratio 
+            /];
+        }
+        else{
+            push @output, [qw/seq bp overlaps 
+            C CG CHG CHH 
+            T TG THG THH 
+            C_ratio CG_ratio CHG_ratio CHH_ratio 
+            filtered_C filtered_CG filtered_CHG filtered_CHH 
+            filtered_T filtered_TG filtered_THG filtered_THH 
+            filtered_C_ratio filtered_CG_ratio filtered_CHG_ratio filtered_CHH_ratio 
+            /];
+        }
         
         for my $seq (sort keys %stats){
-            push @output, [
-            $seq,
-            $stats{$seq}{bp},
-            0,
-            $stats{$seq}{unfiltered}{c},
-            $stats{$seq}{unfiltered}{cg},
-            $stats{$seq}{unfiltered}{chg},
-            $stats{$seq}{unfiltered}{chh},
-            $stats{$seq}{unfiltered}{t},
-            $stats{$seq}{unfiltered}{tg},
-            $stats{$seq}{unfiltered}{thg},
-            $stats{$seq}{unfiltered}{thh},
+            if ($opt_dinucleotide){
+                push @output, [
+                $seq, $stats{$seq}{bp}, 0,
 
-            rat($stats{$seq}{unfiltered}{c}  ,$stats{$seq}{unfiltered}{t} ),
-            rat($stats{$seq}{unfiltered}{cg} ,$stats{$seq}{unfiltered}{tg} ),
-            rat($stats{$seq}{unfiltered}{chg},$stats{$seq}{unfiltered}{thg} ),
-            rat($stats{$seq}{unfiltered}{chh},$stats{$seq}{unfiltered}{thh} ),
+                $stats{$seq}{unfiltered}{c}, $stats{$seq}{unfiltered}{cg}, $stats{$seq}{unfiltered}{ct},$stats{$seq}{unfiltered}{ca}, $stats{$seq}{unfiltered}{cc}, 
+                $stats{$seq}{unfiltered}{t}, $stats{$seq}{unfiltered}{tg}, $stats{$seq}{unfiltered}{tt},$stats{$seq}{unfiltered}{ta}, $stats{$seq}{unfiltered}{tc}, 
 
-            $stats{$seq}{filtered}{c},
-            $stats{$seq}{filtered}{cg},
-            $stats{$seq}{filtered}{chg},
-            $stats{$seq}{filtered}{chh},
-            $stats{$seq}{filtered}{t},
-            $stats{$seq}{filtered}{tg},
-            $stats{$seq}{filtered}{thg},
-            $stats{$seq}{filtered}{thh},
+                rat($stats{$seq}{unfiltered}{c}  ,$stats{$seq}{unfiltered}{t} ),
+                rat($stats{$seq}{unfiltered}{cg} ,$stats{$seq}{unfiltered}{tg} ),
+                rat($stats{$seq}{unfiltered}{ct} ,$stats{$seq}{unfiltered}{tt} ),
+                rat($stats{$seq}{unfiltered}{ca} ,$stats{$seq}{unfiltered}{ta} ),
+                rat($stats{$seq}{unfiltered}{cc} ,$stats{$seq}{unfiltered}{tc} ),
 
-            rat($stats{$seq}{filtered}{c}  , $stats{$seq}{filtered}{t} ),
-            rat($stats{$seq}{filtered}{cg} , $stats{$seq}{filtered}{tg} ),
-            rat($stats{$seq}{filtered}{chg}, $stats{$seq}{filtered}{thg} ),
-            rat($stats{$seq}{filtered}{chh}, $stats{$seq}{filtered}{thh} ),
-            ]
+                $stats{$seq}{filtered}{c}, $stats{$seq}{filtered}{cg}, $stats{$seq}{filtered}{ct},$stats{$seq}{filtered}{ca}, $stats{$seq}{filtered}{cc}, 
+                $stats{$seq}{filtered}{t}, $stats{$seq}{filtered}{tg}, $stats{$seq}{filtered}{tt},$stats{$seq}{filtered}{ta}, $stats{$seq}{filtered}{tc}, 
+
+                rat($stats{$seq}{filtered}{c}  ,$stats{$seq}{filtered}{t} ),
+                rat($stats{$seq}{filtered}{cg} ,$stats{$seq}{filtered}{tg} ),
+                rat($stats{$seq}{filtered}{ct} ,$stats{$seq}{filtered}{tt} ),
+                rat($stats{$seq}{filtered}{ca} ,$stats{$seq}{filtered}{ta} ),
+                rat($stats{$seq}{filtered}{cc} ,$stats{$seq}{filtered}{tc} ),
+                ]
+            }
+            else{
+                push @output, [
+                $seq, $stats{$seq}{bp}, 0,
+
+                $stats{$seq}{unfiltered}{c}, $stats{$seq}{unfiltered}{cg}, $stats{$seq}{unfiltered}{chg}, $stats{$seq}{unfiltered}{chh},
+                $stats{$seq}{unfiltered}{t}, $stats{$seq}{unfiltered}{tg}, $stats{$seq}{unfiltered}{thg}, $stats{$seq}{unfiltered}{thh},
+
+                rat($stats{$seq}{unfiltered}{c}  ,$stats{$seq}{unfiltered}{t} ),
+                rat($stats{$seq}{unfiltered}{cg} ,$stats{$seq}{unfiltered}{tg} ),
+                rat($stats{$seq}{unfiltered}{chg},$stats{$seq}{unfiltered}{thg} ),
+                rat($stats{$seq}{unfiltered}{chh},$stats{$seq}{unfiltered}{thh} ),
+
+                $stats{$seq}{filtered}{c}, $stats{$seq}{filtered}{cg}, $stats{$seq}{filtered}{chg}, $stats{$seq}{filtered}{chh},
+                $stats{$seq}{filtered}{t}, $stats{$seq}{filtered}{tg}, $stats{$seq}{filtered}{thg}, $stats{$seq}{filtered}{thh},
+
+                rat($stats{$seq}{filtered}{c}  , $stats{$seq}{filtered}{t} ),
+                rat($stats{$seq}{filtered}{cg} , $stats{$seq}{filtered}{tg} ),
+                rat($stats{$seq}{filtered}{chg}, $stats{$seq}{filtered}{thg} ),
+                rat($stats{$seq}{filtered}{chh}, $stats{$seq}{filtered}{thh} ),
+                ]
+            }
         }
 
         #say scalar(@$_) for @output;
+        my $numcols = $opt_dinucleotide ? 33 : 27;
 
-        #die "uneven number of lines in freq? dying" unless all { print scalar @$_; 27 == @$_ } @output;
+        die "uneven number of lines in freq? dying" unless all { $numcols == scalar @$_ } @output;
 
-        for my $i (0..26) {
+        for my $i (0..$numcols-1) {
             my $line = join "\t", map { $_->[$i] } @output;
             $logger->debug($line);
             say $out $line;
@@ -321,7 +374,7 @@ if ($has_progressbar){
 #######################################################################
 # Main body
 
-my $fr = FastaReader->new(file => "/wip/tools/genomes/AT/TAIR_reference.fas", normalize => 0);
+my $fr = FastaReader->new(file => $opt_reference, normalize => 0);
 
 my $seqlengths = $fr->length;
 
@@ -374,9 +427,17 @@ Usage examples:
 =for Euclid
     file.type:        readable
 
+=item  -r <fasta> | --reference <fasta>
+
+=for Euclid
+    fasta.type:        readable
+
 =item  -pb | --progress-bar 
 
+=item  -d | --dinucleotide 
+
 =item --help | -h
+
 
 =back
 
