@@ -14,10 +14,31 @@ use List::MoreUtils qw/all/;
 use DBI;
 use Getopt::Euclid qw( :vars<opt_> );
 use Pod::Usage;
+use Module::Load::Conditional qw/can_load/;
+use File::CountLines qw/count_lines/;
 
-pod2usage(-verbose => 99,-sections => [qw/NAME SYNOPSIS OPTIONS/]) if $opt_help;
+
+pod2usage(-verbose => 99,-sections => [qw/NAME SYNOPSIS OPTIONS/]) 
+if !$opt_file || !$opt_output_prefix;
 Log::Log4perl->easy_init({ level => $DEBUG, layout => '%d{HH:mm:ss} %.1p > %m%n' });
 my $logger = get_logger();
+
+#######################################################################
+# progress bar!
+
+my $has_progressbar = $opt_progress_bar && can_load(modules => { 'File::CountLines' => undef, 'Term::ProgressBar' => undef });
+my $linecount;
+my $pb_increment = 3000; # heuristically determined
+my $pb;
+my $last_pb_update=0;
+
+if ($has_progressbar){
+    $logger->info("Has Term::ProgressBar, using it");
+    $linecount = count_lines($opt_file);
+    $logger->info("$linecount lines total to process");
+    $pb = Term::ProgressBar->new({count => $linecount,ETA => 'linear'});
+    $pb->minor(1);
+}
 
 #######################################################################
 # Database 
@@ -76,7 +97,6 @@ my $logger = get_logger();
         }
         if (++$counter % $increment == 0){
             $dbh->commit();
-            $logger->debug("$. : $counter");
         }
     }
 
@@ -149,6 +169,10 @@ my $logger = get_logger();
         }
         if ($split[8] =~ /target=([ATCGN]+)$/){
             $target_seq = $1;
+        }
+        if (!  defined $read_seq || ! defined $target_seq){
+            warn "couldn't parse $gff_line ?";
+            return;
         }
         die "can't find read or target seq"  unless (defined $read_seq && defined $target_seq);
 
@@ -301,13 +325,22 @@ my $fr = FastaReader->new(file => "/wip/tools/genomes/AT/TAIR_reference.fas", no
 
 my $seqlengths = $fr->length;
 
-$logger->info(Dumper $seqlengths);
+#$logger->info(Dumper $seqlengths);
 
 open my $in, '<', $opt_file;
 
 while (defined(my $line = <$in>)){
     chomp $line;
     count_methylation($line, $seqlengths);
+
+    if ($. % $pb_increment == 0){
+        if ($has_progressbar){
+            $pb->update($.);
+        }
+        else{
+            $logger->debug($.);
+        }
+    }
 }
 close $in;
 
@@ -340,6 +373,8 @@ Usage examples:
 
 =for Euclid
     file.type:        readable
+
+=item  -pb | --progress-bar 
 
 =item --help | -h
 
