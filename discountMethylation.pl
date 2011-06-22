@@ -12,9 +12,15 @@ use Log::Log4perl qw/:easy/;
 use List::Util qw/max/;
 use List::MoreUtils qw/all/;
 use DBI;
+use Getopt::Euclid qw( :vars<opt_> );
+use Pod::Usage;
 
+pod2usage(-verbose => 99,-sections => [qw/NAME SYNOPSIS OPTIONS/]) if $opt_help;
 Log::Log4perl->easy_init({ level => $DEBUG, layout => '%d{HH:mm:ss} %.1p > %m%n' });
 my $logger = get_logger();
+
+#######################################################################
+# Database 
 
 {
     my $counter = 0;
@@ -22,42 +28,50 @@ my $logger = get_logger();
     my $filename = 'meow.sqlite3';
     unlink $filename if -f $filename;
     my $dbh = DBI->connect("dbi:SQLite:dbname=:memory:","","", {RaiseError => 1, AutoCommit => 0});
-    #$dbh->do("PRAGMA automatic_index = OFF");
     $dbh->do("PRAGMA journal_mode = OFF");
     $dbh->do("PRAGMA cache_size = 80000");
-    #my @context = qw/cg chh chg t tg thh thg/;
-	my @context = qw/cg chh chg t/;
-    $dbh->do("create table methyl (seq, coord integer, " . join(",", map { "$_ default 0" } @context) . ")");
+    $dbh->do("create table methyl (seq, coord integer, context integer, c integer default 0, t integer default 0)");
     $dbh->do("create index idx on methyl (seq,coord)");
 
-    my $checker = $dbh->prepare("select count(seq) from methyl where seq=? and coord=?");
+    my $checker = $dbh->prepare("select count(seq),context from methyl where seq=? and coord=?");
 
-
-	my %updater = map {
+    my %updater = map {
         $_ => $dbh->prepare("update methyl set $_=(select $_ from methyl where seq=? and coord=?)+1 where seq=? and coord=?"),
-    } @context;
+    } qw/c t/;
 
 	my %inserter = map {
-        $_ => $dbh->prepare("insert into methyl(seq, coord, $_) values (?,?,1)")
-    } @context;
+        $_ => $dbh->prepare("insert into methyl(seq, coord, context, $_) values (?,?,?,1)")
+    } qw/c t/;
 
     sub record_exists{
         my ($seq, $coord) = @_;
         $checker->execute($seq,$coord);
-        return $checker->fetch()->[0] == 1;
+        my $row = $checker->fetch();
+        return $row->[0] ? $row->[1] : 0;
     }
 
     sub record_methylation{
         my ($seq, $coord, $context) = @_;
         $context = lc $context;
+        my $base;
+
+        # normalize tg/thg/thh => cg/chg/chh, but record the first base
+        if ($context =~ s/^(c|t)/c/){
+            $base = $1;
+        }
+        else {
+            die "$context not c/t?";
+        }
+
         #say STDERR join ",", @_;
-        if (record_exists($seq,$coord)){
+        if (my $existing_context = record_exists($seq,$coord)){
             #say STDERR "record exists";
-            $updater{$context}->execute($seq,$coord,$seq,$coord);
+            die "incompatible context ($existing_context, $context) at same coord? bug!" if $existing_context ne $context;
+            $updater{$base}->execute($seq,$coord,$seq,$coord);
         }
         else{
             #say STDERR "record d.n.exists";
-            $inserter{$context}->execute($seq, $coord);
+            $inserter{$base}->execute($seq, $coord, $context);
         }
         if (++$counter % $increment == 0){
             $dbh->commit();
@@ -71,19 +85,15 @@ my $logger = get_logger();
 
         $dbh->commit();
 
-        my $sth = $dbh->prepare('select seq, coord, ' . join(",", @context) . ' from methyl order by seq, coord');
+        my $sth = $dbh->prepare('select seq, coord, context, c, t from methyl order by seq, coord');
         $sth->execute();
 
         my %filehandles;
 
         while (defined(my $row = $sth->fetch)){
             #say join "|", @$row;
-            my ($seq, $coord, $cg, $chg, $chh, $t) = @$row;
-            if (1 < grep { $_ > 1 } ($cg, $chg, $chh)){
-                die "single position should not have more than one context...";
-            }
-            my $context = $cg ? 'CG' : $chh ? 'CHH' : $chg ? 'CHG' : next;
-            my $context_score = max $cg, $chg, $chh;
+            my ($seq, $coord, $context, $c, $t) = @$row;
+            $context = uc $context;
 
             my $key = $seq . "_" . $context;
             if (! exists $filehandles{$key}){
@@ -91,13 +101,15 @@ my $logger = get_logger();
                 $filehandles{$key} = $writer;
             }
 
-            my $score = $context_score/($context_score+$t);
-            say {$filehandles{$key}} join "\t", $seq, q{.}, $context, $coord, $coord, $score, q{.}, q{.}, "c=$context_score;t=$t";
-
+            my $score = $c/($c+$t);
+            say {$filehandles{$key}} join "\t", $seq, q{.}, $context, $coord, $coord, $score, q{.}, q{.}, "c=$c;t=$t";
         }
+
         close $_ for values %filehandles;
     }
 }
+
+#######################################################################
 
 {
     my %stats;
@@ -205,12 +217,7 @@ my $logger = get_logger();
                 ++$unfiltered_count->{$context};
             }
 
-            if ($methylation){
-                record_methylation($seq,$abs_coord,$context);
-            }
-            else{
-                record_methylation($seq,$abs_coord,'t');
-            }
+            record_methylation($seq,$abs_coord,$context);
         }
     }
 
@@ -283,13 +290,8 @@ my $logger = get_logger();
         close $out;
     }
 
-
 }
 
-use Getopt::Euclid qw( :vars<opt_> );
-use Pod::Usage;
-
-pod2usage(-verbose => 99,-sections => [qw/NAME SYNOPSIS OPTIONS/]) if $opt_help;
 
 my $fr = FastaReader->new(file => "/wip/tools/genomes/AT/TAIR_reference.fas", normalize => 0);
 
@@ -310,13 +312,13 @@ print_freq($opt_output_prefix);
 
 =head1 NAME
 
-cp.pl - ...
+discountMethylation.pl - ...
 
 =head1 SYNOPSIS
 
 Usage examples:
 
- cp.pl [options]...
+ discountMethylation.pl [options]...
 
 =head1 OPTIONS
 
