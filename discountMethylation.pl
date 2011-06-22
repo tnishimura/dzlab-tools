@@ -43,6 +43,7 @@ my $logger = get_logger();
         $_ => $dbh->prepare("insert into methyl(seq, coord, context, $_) values (?,?,?,1)")
     } qw/c t/;
 
+    # if record exists, return context
     sub record_exists{
         my ($seq, $coord) = @_;
         $checker->execute($seq,$coord);
@@ -293,6 +294,8 @@ my $logger = get_logger();
 
 }
 
+#######################################################################
+# Main body
 
 my $fr = FastaReader->new(file => "/wip/tools/genomes/AT/TAIR_reference.fas", normalize => 0);
 
@@ -310,6 +313,9 @@ close $in;
 
 record_output($opt_output_prefix);
 print_freq($opt_output_prefix);
+
+#######################################################################
+# DONE
 
 =head1 NAME
 
@@ -329,8 +335,6 @@ Usage examples:
 
 =for Euclid
     prefix.default:     '-'
-
-# prefix-$seq.single-c-$context.gff.merged
 
 =item  <file> 
 
