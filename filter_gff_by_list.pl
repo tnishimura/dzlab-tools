@@ -76,14 +76,14 @@ Usage examples:
 
 =item  -l <file> | --list <file>
 
-File with list of 
+File with list of attributes.
 
 =for Euclid
     file.type:        readable
 
 =item -k | --keep
 
-KEEP the gff lines with ID's in list. (Default is to delete, not keep)
+Invert the operation by KEEPing the gff lines with ID's in list. (Default is to delete, not keep)
 
 =back
 
