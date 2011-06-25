@@ -291,7 +291,8 @@ sub read_bowtie {
 
     my ( $read_id, $strand, $target, $coordinate, $sequence, $qualities,
         $alternatives, $snp )
-    = split /\t|\s+/, $bowtie_line;
+    = split /\t/, $bowtie_line;
+    #= split /\t|\s+/, $bowtie_line;
 
     # T: cause of bug! 
     #$strand = '-' if $target =~ s/^RC_//;
