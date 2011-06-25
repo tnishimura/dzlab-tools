@@ -105,7 +105,7 @@ while (my ($chr,$pair) = each %$pairs) {
 
     $logger->info("$leftfile $rightfile $prefix $delta $global");
     $pm->start and next;
-    launch("nucmer -p $prefix -f -g 0 --noextend $leftfile $rightfile",dryrun => $dry,expected => $delta);
+    launch("nucmer -p $prefix -g 0 --noextend -f $leftfile $rightfile",dryrun => $dry,expected => $delta);
     launch("delta-filter -g $delta > $global",dryrun => $dry,expected => $global);
 
     $pm->finish;
@@ -119,12 +119,16 @@ while (my ($chr,$file) = each %globals) {
     open my $fh, '<', $file;
     GLOBAL:
     for my $coords (parse_delta($fh)) {
-        my @s = @$coords;
-        push @{$l2r{alignment}{uc $chr}}, [ @s[0 .. 3] ];
-        push @{$r2l{alignment}{uc $chr}}, [ @s[2,3,0,1] ];
+        for my $c (@$coords) {
+            my @s = @$c;
+            push @{$l2r{alignment}{uc $chr}}, [ @s[0 .. 3] ];
+            push @{$r2l{alignment}{uc $chr}}, [ @s[2,3,0,1] ];
+        }
     }
     close $fh;
 }
+
+say Dumper \%l2r;
 
 DumpFile($outfile_l2r, \%l2r);
 DumpFile($outfile_r2l, \%r2l);

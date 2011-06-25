@@ -16,7 +16,7 @@ pod2usage(-verbose => 99,-sections => [qw/NAME SYNOPSIS OPTIONS/])
 if $opt_help || ! $opt_output || !$opt_input || !$opt_dictionary;
 
 Log::Log4perl->easy_init( { 
-    level    => $INFO,
+    level    => $TRACE,
     layout   => '%p> (%L) %M - %m%n',
     (defined $opt_logfile ? (file => ">$opt_logfile") : ()),
 } );
@@ -29,7 +29,9 @@ if ($opt_output ne '-'){
 }
 
 my $config = LoadFile("$FindBin::Bin/conf/$opt_dictionary.alignment");
+#die "$FindBin::Bin/conf/$opt_dictionary.alignment";
 my $dictionary = $config->{alignment};
+#die Dumper $dictionary;
 
 # $dictionary == {seq => [[from_start,from_end, to_start, to_end] ... ]}
 
@@ -37,7 +39,9 @@ sub convert{
     my ($dictionary, $seq, $coord) = @_;
     $seq = uc $seq;
     my $alignment = $dictionary->{$seq};
+    #say Dumper $alignment;
     if (defined $alignment){
+        #$logger->trace("found alignment");
         # linear search... ok for now.
         for my $island (@$alignment) {
             if ($island->[0] <= $coord && $coord <= $island->[1]){
@@ -47,7 +51,8 @@ sub convert{
         $logger->debug("no appropriate island found for $seq, $coord");
     }
     else {
-        $logger->debug("$seq not found in dictionary");
+        # $logger->debug("$seq not found in dictionary");
+        return $coord;
     }
     return;
 }
@@ -55,11 +60,12 @@ sub convert{
 #say Dumper $dictionary;
 #say convert $dictionary, "CHR03", 1000;
 
-my $parser = GFF::Parser->new(file => $opt_input);
+my $parser = GFF::Parser->new(file => $opt_input, normalize => 0);
 
 while (defined(my $gff = $parser->next())){
-    my $start = convert $dictionary, $gff->sequence(), $gff->start();
-    my $end   = convert $dictionary, $gff->sequence(), $gff->end();
+    #$logger->trace($gff->to_string);
+    my $start = convert $dictionary, uc($gff->sequence()), $gff->start();
+    my $end   = convert $dictionary, uc($gff->sequence()), $gff->end();
     if ($start && $end){
         $gff->start($start);
         $gff->end($end);
