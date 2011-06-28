@@ -31,6 +31,15 @@ my $p = GFF::Parser->new(file => $opt_input,normalize => 1);
 
 my %methylation = (); # { id => [seq, #c, #t, #n] }
 
+if ($opt_no_skip){
+    my $pp = GFF::Parser->new(file => $opt_gff);
+    while (defined(my $gff = $pp->next())){
+        if (defined(my $locus = $gff->get_column($opt_tag))){
+            $methylation{$locus}=[$gff->sequence,$gff->start,$gff->end,$gff->strand,0,0,0];
+        }
+    }
+}
+
 my $counter = Counter->new();
 
 while (defined(my $gff = $p->next())){
@@ -52,8 +61,10 @@ while (defined(my $gff = $p->next())){
                 $methylation{$locus}=[$seq,$start,$end,$strand,0,0,0];
             }
             #my $metharray = $methylation{$locus};
-            $methylation{$locus}[4]+=$c;
-            $methylation{$locus}[5]+=$t;
+            if (defined $c && defined $t){
+                $methylation{$locus}[4]+=$c;
+                $methylation{$locus}[5]+=$t;
+            }
             $methylation{$locus}[6]+=1;
         }
         else{
@@ -68,20 +79,18 @@ for my $id (sort keys %methylation) {
     #if ($c+$t==0){ die "if \$c+\$t is 0 then why is there an entry?"; }
     my $score = $c+$t == 0 ? 0 : sprintf("%.4f", $c/($c+$t));
     say join("\t", $seq, 'win', $opt_feature, $start, $end, $score, $strand, '.',
-        "ID=$id;c=$c;t=$t;n=$n");
+        ($c+$t==0 ? "ID=$id;n=$n" : "ID=$id;c=$c;t=$t;n=$n"));
 }
-
-
 
 =head1 NAME
 
-overlaps_gff.pl 
+window_by_annotation.pl 
 
 =head1 SYNOPSIS
 
 Usage examples:
 
- overlaps_gff.pl -g annotation.gff -k -t 'ID' -o output.gff input.gff
+ window_by_annotation.pl -g annotation.gff -k -t 'ID' -o output.gff input.gff
 
 =head1 REQUIRED ARGUMENTS
 
@@ -119,6 +128,8 @@ Locus tag in --gff annotation file. Defaults to 'ID'.
 
 =for Euclid
     featurename.default:     'window'
+
+=item  -k | --no-skip 
 
 =item --help | -h
 
