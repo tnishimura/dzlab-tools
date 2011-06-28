@@ -15,6 +15,7 @@ our @EXPORT = qw(make_iterators);
 
 sub make_iterators{
     my ($file,$num) = @_;
+    $num ||= 1; # so you can pass 0, like p::fm.
     
     my ($dev,$ino,$mode,$nlink,$uid,$gid,$rdev,$size,
         $atime,$mtime,$ctime,$blksize,$blocks)
