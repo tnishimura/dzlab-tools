@@ -12,6 +12,8 @@ use Getopt::Euclid qw( :vars<opt_> );
 use Pod::Usage;
 use Log::Log4perl qw/:easy/;
 use Counter;
+use Storable qw/dclone/;
+
 Log::Log4perl->easy_init({ level => $DEBUG, layout => '%d{HH:mm:ss} %.1p > %m%n' });
 my $logger = get_logger();
 
@@ -29,14 +31,34 @@ $logger->info("done");
 
 my $p = GFF::Parser->new(file => $opt_input,normalize => 1);
 
-my %methylation = (); # { id => [seq, #c, #t, #n] }
+my %methylation = %{create_meth_hash()}; # { id => [seq, #c, #t, #n] }
 
-if ($opt_no_skip){
-    my $pp = GFF::Parser->new(file => $opt_gff);
-    while (defined(my $gff = $pp->next())){
-        if (defined(my $locus = $gff->get_column($opt_tag))){
-            $methylation{$locus}=[$gff->sequence,$gff->start,$gff->end,$gff->strand,0,0,0];
+{
+    my $memo;
+    sub create_meth_hash{
+        if (defined $memo){
+            return dclone($memo);
         }
+        
+        my %methylation = ();
+        my $pp = GFF::Parser->new(file => $opt_gff);
+        while (defined(my $gff = $pp->next())){
+            if (defined(my $locus = $gff->get_column($opt_tag))){
+                $methylation{$locus}=[$gff->sequence,$gff->start,$gff->end,$gff->strand,0,0,0];
+            }
+        }
+        my $memo = \%methylation;
+        return dclone($memo);
+    }
+}
+
+sub add_methylation{
+    my ($meth_hash1, $meth_hash2) = @_;
+
+    for my $id (sort keys %$meth_hash1) {
+        $meth_hash1->{$id}[4] += $meth_hash2->{$id}[4];
+        $meth_hash1->{$id}[5] += $meth_hash2->{$id}[5];
+        $meth_hash1->{$id}[6] += $meth_hash2->{$id}[6];
     }
 }
 
@@ -77,13 +99,15 @@ while (defined(my $gff = $p->next())){
 for my $id (sort keys %methylation) {
     my ($seq, $start, $end, $strand, $c, $t, $n) = @{$methylation{$id}};
     #if ($c+$t==0){ die "if \$c+\$t is 0 then why is there an entry?"; }
-    if ($opt_report_count){
-        say join("\t", $seq, 'win', $opt_feature, $start, $end, $n, $strand, '.', "ID=$id");
-    }
-    else{
-        my $score = $c+$t == 0 ? 0 : sprintf("%.4f", $c/($c+$t));
-        say join("\t", $seq, 'win', $opt_feature, $start, $end, $score, $strand, '.',
-            ($c+$t==0 ? "ID=$id;n=$n" : "ID=$id;c=$c;t=$t;n=$n"));
+    if ($opt_no_skip || $n > 0){
+        if ($opt_report_count){
+            say join("\t", $seq, 'win', $opt_feature, $start, $end, $n, $strand, '.', "ID=$id");
+        }
+        else{
+            my $score = $c+$t == 0 ? 0 : sprintf("%.4f", $c/($c+$t));
+            say join("\t", $seq, 'win', $opt_feature, $start, $end, $score, $strand, '.',
+                ($c+$t==0 ? "ID=$id;n=$n" : "ID=$id;c=$c;t=$t;n=$n"));
+        }
     }
 }
 
