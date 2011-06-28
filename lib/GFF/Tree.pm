@@ -31,10 +31,15 @@ has file => (
     required => 1,
 );
 
+has normalize => (
+    is => 'ro',
+    default => 1,
+);
+
 
 sub BUILD{
     my ($self) = @_;
-    my $p = GFF::Parser->new(file => $self->file);
+    my $p = GFF::Parser->new(file => $self->file, normalize => $self->normalize);
     while (defined(my $gff = $p->next())){
         my ($seq, $start, $end) = ($gff->sequence, $gff->start, $gff->end);
 
