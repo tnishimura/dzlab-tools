@@ -77,9 +77,14 @@ while (defined(my $gff = $p->next())){
 for my $id (sort keys %methylation) {
     my ($seq, $start, $end, $strand, $c, $t, $n) = @{$methylation{$id}};
     #if ($c+$t==0){ die "if \$c+\$t is 0 then why is there an entry?"; }
-    my $score = $c+$t == 0 ? 0 : sprintf("%.4f", $c/($c+$t));
-    say join("\t", $seq, 'win', $opt_feature, $start, $end, $score, $strand, '.',
-        ($c+$t==0 ? "ID=$id;n=$n" : "ID=$id;c=$c;t=$t;n=$n"));
+    if ($opt_report_count){
+        say join("\t", $seq, 'win', $opt_feature, $start, $end, $n, $strand, '.', "ID=$id");
+    }
+    else{
+        my $score = $c+$t == 0 ? 0 : sprintf("%.4f", $c/($c+$t));
+        say join("\t", $seq, 'win', $opt_feature, $start, $end, $score, $strand, '.',
+            ($c+$t==0 ? "ID=$id;n=$n" : "ID=$id;c=$c;t=$t;n=$n"));
+    }
 }
 
 =head1 NAME
@@ -128,6 +133,8 @@ Locus tag in --gff annotation file. Defaults to 'ID'.
 
 =for Euclid
     featurename.default:     'window'
+
+=item  -n | --report-count 
 
 =item  -k | --no-skip 
 
