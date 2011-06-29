@@ -53,7 +53,10 @@ pod2usage( -verbose => 1 )
             or ( !$frequencies and !$paired ) );
 
 # redirect standard output to file if requested
-if ($output) {
+if ($output && $output eq '-') {
+    # stdout
+}
+elsif ($output) {
     open my $USER_OUT, '>', $output
         or croak "Can't open $output for writing: $!";
     select $USER_OUT;
