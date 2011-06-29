@@ -100,7 +100,7 @@ for my $file (@opt_files) {
         }
         # round up to the nearest window (101-150 to 150, 151-200 to 200, etc for w50)
         my $windowed_position = ($start - 1) + ($opt_window_size - ($start - 1) % $opt_window_size);
-        $sth->execute($gff->sequence, $windowed_position, $gff->get_column('c'), $gff->get_column('t'));
+        $sth->execute($gff->sequence, $windowed_position, ($gff->get_column('c')//0), ($gff->get_column('t')//0));
     }
 }
 
@@ -115,7 +115,7 @@ if ($opt_verbose){
 # Select
 
 my $select = $dbh->prepare(<<SELECT );
-    select sequence, position, sum(c) as c, sum(t) as t, (cast(sum(c) as real)/((sum(t)+sum(c)))) as score
+    select sequence, position, sum(c) as c, sum(t) as t, count(*) as n
     from gff 
     group by sequence, position
     order by sequence, position
@@ -126,7 +126,7 @@ $select->execute();
 my %last_ends; 
 
 while (defined(my $row = $select->fetchrow_hashref())){
-    my ($sequence, $position, $c, $t) = @{$row}{qw/sequence position c t/};
+    my ($sequence, $position, $c, $t, $n) = @{$row}{qw/sequence position c t n/};
     my ($current_start, $current_end) = ($position - $opt_window_size + 1, $position);
     my $score = sprintf "%.4f", ($c+$t == 0)? 0 : $c/($c+$t);
 
@@ -144,11 +144,11 @@ while (defined(my $row = $select->fetchrow_hashref())){
 
     # if it's the last window, trim appropriately
     if (exists $lengths{uc $sequence} && $current_end >= $lengths{uc $sequence}){
-        say join "\t", $sequence, '.', $feature, $current_start,$lengths{uc $sequence}, $score, '.', '.', "c=$c;t=$t";
+        say join "\t", $sequence, '.', $feature, $current_start,$lengths{uc $sequence}, $score, '.', '.', "c=$c;t=$t;n=$n";
         $last_ends{$sequence} = $lengths{uc $sequence};
     }
     else{
-        say join "\t", $sequence, '.', $feature, $current_start,$current_end, $score, '.', '.', "c=$c;t=$t";
+        say join "\t", $sequence, '.', $feature, $current_start,$current_end, $score, '.', '.', "c=$c;t=$t;n=$n";
         $last_ends{$sequence}   = $current_end   + $opt_window_size;
     }
 }
