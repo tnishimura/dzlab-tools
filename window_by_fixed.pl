@@ -128,7 +128,7 @@ my %last_ends;
 while (defined(my $row = $select->fetchrow_hashref())){
     my ($sequence, $position, $c, $t, $n) = @{$row}{qw/sequence position c t n/};
     my ($current_start, $current_end) = ($position - $opt_window_size + 1, $position);
-    my $score = sprintf "%.4f", ($c+$t == 0)? 0 : $c/($c+$t);
+    my $score = $opt_report_count ? $n : sprintf "%.4f", ($c+$t == 0)? 0 : $c/($c+$t);
 
     if (!exists $last_ends{$sequence}){
         $last_ends{$sequence} = $opt_window_size;
@@ -137,7 +137,8 @@ while (defined(my $row = $select->fetchrow_hashref())){
     # catch up
     if ($opt_no_skip){
         while ($last_ends{$sequence} < $position ){
-            say join "\t", $sequence, '.', $feature, $last_ends{$sequence}-$opt_window_size+1, $last_ends{$sequence}, ('.') x 4;
+            say join "\t", $sequence, '.', $feature, $last_ends{$sequence}-$opt_window_size+1, 
+            $last_ends{$sequence}, ($opt_report_count ? 0 : '.'), ('.') x 3;
             $last_ends{$sequence}+=$opt_window_size;
         }
     }
@@ -231,6 +232,9 @@ Don't omit windows without any scores.  Currently only works for files with sing
 
 =item -v | --verbose
 
+=item  -n | --report-count 
+
+Report 'n' in the scores column instead of c/(c+t).
 
 =back
 
