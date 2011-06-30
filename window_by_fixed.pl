@@ -20,8 +20,12 @@ pod2usage(-verbose => 99,-sections => [qw/NAME SYNOPSIS OPTIONS/]) if $opt_help;
 if (! $opt_no_skip && $opt_reference){
     warn "why are you giving me a reference file if you're not going to do --no-skip?";
 }
+if ($opt_debug && $opt_memory){
+    die "--debug and --memory incompatible";
+}
 
 my $counter = Counter->new();
+my $feature;
 
 #######################################################################
 # Get lengths
@@ -57,28 +61,31 @@ else {
 #######################################################################
 # Create Table
 
-my $dbh = DBI->connect("dbi:SQLite:dbname=$tmpfile","","", {RaiseError => 1, AutoCommit => 0});
+my $dbh = $opt_debug  ? DBI->connect("dbi:SQLite:dbname=$opt_debug","","", {RaiseError => 1, AutoCommit => 0}) :
+          $opt_memory ? DBI->connect("dbi:SQLite:dbname=:memory:","","", {RaiseError => 1, AutoCommit => 0})   :
+                        DBI->connect("dbi:SQLite:dbname=$tmpfile","","", {RaiseError => 1, AutoCommit => 0});
+
+if ($opt_debug) {
+    $feature = 'DEBUG';
+    goto SELECT;
+}
+
 $dbh->do("PRAGMA automatic_index = OFF");
 $dbh->do("PRAGMA journal_mode = OFF");
 $dbh->do("PRAGMA cache_size = 80000");
 
 $dbh->do(q{
-    create table gff (sequence, position integer, c integer, t integer, n integer)
+    create table gff (sequence text, position integer, c integer, t integer, n integer)
     });
 
-$dbh->do("create index idx1 on gff (sequence,position)");
+$dbh->do("create index idx1 on gff (position,sequence)");
 my $insert_sth = $dbh->prepare("insert into gff (sequence, position, c, t, n) values (?,?,?,?,1)");
-my $update_sth = $dbh->prepare("update gff set c=?, t=?, n=? where sequence=? and position=?");
-my $checker_sth = $dbh->prepare("select count(*) as present, c, t, n from gff where sequence=? and position=?");
-#my %inserted = ();
+my $update_sth = $dbh->prepare("update gff set c=?, t=?, n=? where position=? and sequence=? ");
+my $checker_sth = $dbh->prepare("select count(*) as present, c, t, n from gff where position=? and sequence=?");
 sub record{
     my ($sequence, $position, $new_c, $new_t) = @_;
     my $key = $sequence . "~" . $position;
 
-    #if (exists $inserted{$key}){
-
-    #}
-    
     $checker_sth->execute($sequence, $position); 
     my ($exists, $c, $t, $n) = $checker_sth->fetchrow_array;
     if ($exists){
@@ -99,7 +106,6 @@ if ($opt_verbose){
     say STDERR "started inserting at: " . timestamp();
 }
 
-my $feature;
 
 #my $counter = 0;
 #my $commit_size = 20000;
@@ -137,16 +143,9 @@ if ($opt_verbose){
 #######################################################################
 # Select
 
-my $select = $dbh->prepare(<<SELECT );
-    select sequence, position, c, t, n from gff 
-SELECT
+SELECT:
 
-#my $select = $dbh->prepare(<<SELECT );
-#    select sequence, position, sum(c) as c, sum(t) as t, count(*) as n
-#    from gff 
-#    group by sequence, position
-#    order by sequence, position
-#SELECT
+my $select = $dbh->prepare(" select sequence, position, c, t, n from gff order by sequence, position");
 
 $select->execute();
 
@@ -215,7 +214,9 @@ if ($opt_verbose){
 }
 
 $dbh->disconnect;
-unlink $tmpfile;
+if (!$opt_debug && !$opt_memory){
+    unlink $tmpfile;
+}
 
 =head1 NAME
  
@@ -262,6 +263,13 @@ Don't omit windows without any scores.  Currently only works for files with sing
 =item  -n | --report-count 
 
 Report 'n' in the scores column instead of c/(c+t).
+
+=item  --debug <sqlite>
+
+=for Euclid
+    sqlite.type:        readable
+
+=item  -m | --memory 
 
 =back
 

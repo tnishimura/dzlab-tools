@@ -25,13 +25,18 @@ has '_increment' => (
     init_arg => 'increment',
 );
 
+has verbose => (
+    is => 'ro',
+    default => 0,
+);
+
 sub increment{
     my $self = shift;
 
     my $c = $self->_inc_counter;
 
     if ($c % $self->_increment == 0){
-        say STDERR $c;
+        say STDERR $c if $self->verbose;
         return $c;
     }
     return 0;
