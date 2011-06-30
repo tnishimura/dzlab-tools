@@ -22,7 +22,7 @@ if !$opt_reference || !$opt_input;
 
 (my $prefix = $opt_reference) =~ s/\.\w+$//;
 $prefix = basename($prefix);
-(my $bowtie = $opt_input) =~ s/\.\w+$/.bowtie-vs-genome_$prefix/;
+(my $bowtie = $opt_input) =~ s/\.\w+$/.vs-genome_$prefix.bowtie/;
 my $gff = $bowtie . ".gff";
 my $w50 = $bowtie . ".w50.gff";
 
