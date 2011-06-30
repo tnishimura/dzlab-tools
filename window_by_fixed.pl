@@ -13,12 +13,15 @@ use GFF::Parser;
 use DZUtil qw/timestamp/;
 use File::Temp qw/mktemp/;
 use FastaReader;
+use Counter;
 
 pod2usage(-verbose => 99,-sections => [qw/NAME SYNOPSIS OPTIONS/]) if $opt_help;
 
 if (! $opt_no_skip && $opt_reference){
     warn "why are you giving me a reference file if you're not going to do --no-skip?";
 }
+
+my $counter = Counter->new();
 
 #######################################################################
 # Get lengths
@@ -54,19 +57,40 @@ else {
 #######################################################################
 # Create Table
 
-my $dbh = DBI->connect("dbi:SQLite:dbname=$tmpfile","","", {RaiseError => 1, AutoCommit => 1});
+my $dbh = DBI->connect("dbi:SQLite:dbname=$tmpfile","","", {RaiseError => 1, AutoCommit => 0});
 $dbh->do("PRAGMA automatic_index = OFF");
 $dbh->do("PRAGMA journal_mode = OFF");
 $dbh->do("PRAGMA cache_size = 80000");
 
 $dbh->do(q{
-    create table gff (sequence, position numeric, c numeric, t numeric)
+    create table gff (sequence, position integer, c integer, t integer, n integer)
     });
 
-#$dbh->do("create index idx1 on tab (seq,position,c,t)");
-my $sth = $dbh->prepare("insert into gff (sequence, position, c, t) values (?,?,?,?)");
+$dbh->do("create index idx1 on gff (sequence,position)");
+my $insert_sth = $dbh->prepare("insert into gff (sequence, position, c, t, n) values (?,?,?,?,1)");
+my $update_sth = $dbh->prepare("update gff set c=?, t=?, n=? where sequence=? and position=?");
+my $checker_sth = $dbh->prepare("select count(*) as present, c, t, n from gff where sequence=? and position=?");
+#my %inserted = ();
+sub record{
+    my ($sequence, $position, $new_c, $new_t) = @_;
+    my $key = $sequence . "~" . $position;
 
-$dbh->{AutoCommit} = 0;
+    #if (exists $inserted{$key}){
+
+    #}
+    
+    $checker_sth->execute($sequence, $position); 
+    my ($exists, $c, $t, $n) = $checker_sth->fetchrow_array;
+    if ($exists){
+        $update_sth->execute($c+$new_c, $t+$new_t, $n+1, $sequence, $position);
+    }
+    else{
+        $insert_sth->execute($sequence, $position, $new_c, $new_t);
+    }
+}
+
+
+say STDERR "tmp DB $tmpfile created";
 
 #######################################################################
 # Insert
@@ -77,16 +101,14 @@ if ($opt_verbose){
 
 my $feature;
 
-my $counter = 0;
-my $commit_size = 20000;
+#my $counter = 0;
+#my $commit_size = 20000;
 for my $file (@opt_files) {
     my $p = GFF::Parser->new(file => $file, normalize => 0);
     while (defined(my $gff = $p->next())){
-        if (++$counter % $commit_size == 0){
+        if (my $count = $counter->increment()){
             $dbh->commit;
-            if ($opt_verbose){
-                say STDERR $counter;
-            }
+
         }
         if (defined $feature && defined $gff->feature && $feature ne $gff->feature){
             die "merging more than one feature at once? not supported yet";
@@ -100,7 +122,8 @@ for my $file (@opt_files) {
         }
         # round up to the nearest window (101-150 to 150, 151-200 to 200, etc for w50)
         my $windowed_position = ($start - 1) + ($opt_window_size - ($start - 1) % $opt_window_size);
-        $sth->execute($gff->sequence, $windowed_position, ($gff->get_column('c')//0), ($gff->get_column('t')//0));
+        record($gff->sequence, $windowed_position, ($gff->get_column('c')//0), ($gff->get_column('t')//0));
+        #$insert_sth->execute($gff->sequence, $windowed_position, ($gff->get_column('c')//0), ($gff->get_column('t')//0));
     }
 }
 
@@ -115,11 +138,15 @@ if ($opt_verbose){
 # Select
 
 my $select = $dbh->prepare(<<SELECT );
-    select sequence, position, sum(c) as c, sum(t) as t, count(*) as n
-    from gff 
-    group by sequence, position
-    order by sequence, position
+    select sequence, position, c, t, n from gff 
 SELECT
+
+#my $select = $dbh->prepare(<<SELECT );
+#    select sequence, position, sum(c) as c, sum(t) as t, count(*) as n
+#    from gff 
+#    group by sequence, position
+#    order by sequence, position
+#SELECT
 
 $select->execute();
 

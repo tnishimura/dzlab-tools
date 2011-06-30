@@ -32,7 +32,9 @@ sub increment{
 
     if ($c % $self->_increment == 0){
         say STDERR $c;
+        return $c;
     }
+    return 0;
 }
 
 no Moose;
