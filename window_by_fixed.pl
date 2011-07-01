@@ -24,7 +24,7 @@ if ($opt_debug && $opt_memory){
     die "--debug and --memory incompatible";
 }
 
-my $counter = Counter->new();
+my $counter = Counter->new(verbose => 1);
 my $feature;
 
 #######################################################################
@@ -81,15 +81,15 @@ $dbh->do(q{
 $dbh->do("create index idx1 on gff (position,sequence)");
 my $insert_sth = $dbh->prepare("insert into gff (sequence, position, c, t, n) values (?,?,?,?,1)");
 my $update_sth = $dbh->prepare("update gff set c=?, t=?, n=? where position=? and sequence=? ");
-my $checker_sth = $dbh->prepare("select count(*) as present, c, t, n from gff where position=? and sequence=?");
+my $checker_sth = $dbh->prepare("select count(*), c, t, n from gff where position=? and sequence=?");
 sub record{
     my ($sequence, $position, $new_c, $new_t) = @_;
     my $key = $sequence . "~" . $position;
 
-    $checker_sth->execute($sequence, $position); 
+    $checker_sth->execute($position,$sequence); 
     my ($exists, $c, $t, $n) = $checker_sth->fetchrow_array;
     if ($exists){
-        $update_sth->execute($c+$new_c, $t+$new_t, $n+1, $sequence, $position);
+        $update_sth->execute($c+$new_c, $t+$new_t, $n+1, $position, $sequence);
     }
     else{
         $insert_sth->execute($sequence, $position, $new_c, $new_t);
@@ -114,8 +114,8 @@ for my $file (@opt_files) {
     while (defined(my $gff = $p->next())){
         if (my $count = $counter->increment()){
             $dbh->commit;
-
         }
+
         if (defined $feature && defined $gff->feature && $feature ne $gff->feature){
             die "merging more than one feature at once? not supported yet";
         }
@@ -128,7 +128,12 @@ for my $file (@opt_files) {
         }
         # round up to the nearest window (101-150 to 150, 151-200 to 200, etc for w50)
         my $windowed_position = ($start - 1) + ($opt_window_size - ($start - 1) % $opt_window_size);
-        record($gff->sequence, $windowed_position, ($gff->get_column('c')//0), ($gff->get_column('t')//0));
+        if ($opt_report_count){
+            record($gff->sequence, $windowed_position, 0, 0);
+        }
+        else{
+            record($gff->sequence, $windowed_position, ($gff->get_column('c')//0), ($gff->get_column('t')//0));
+        }
         #$insert_sth->execute($gff->sequence, $windowed_position, ($gff->get_column('c')//0), ($gff->get_column('t')//0));
     }
 }
@@ -138,6 +143,10 @@ $dbh->{AutoCommit} = 1;
 
 if ($opt_verbose){
     say STDERR "done inserting at: " . timestamp();
+}
+
+if (! defined $feature){
+    $feature = "w$opt_window_size";
 }
 
 #######################################################################
@@ -214,7 +223,7 @@ if ($opt_verbose){
 }
 
 $dbh->disconnect;
-if (!$opt_debug && !$opt_memory){
+if (!$opt_debug && !$opt_memory && !$opt_keep_intermediate){
     unlink $tmpfile;
 }
 
@@ -266,10 +275,13 @@ Report 'n' in the scores column instead of c/(c+t).
 
 =item  --debug <sqlite>
 
+
 =for Euclid
     sqlite.type:        readable
 
 =item  -m | --memory 
+
+=item  --keep-intermediate
 
 =back
 
