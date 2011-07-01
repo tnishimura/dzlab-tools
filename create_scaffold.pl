@@ -26,7 +26,8 @@ my $parser = GFF::Parser->new(skip => 1,file => $opt_gff);
 
 while (my $gff = $parser->next()){
     print format_fasta(
-        sprintf("%s | %s, %s, %s", $gff->get_column($opt_locus_id),$gff->start, $gff->end, $gff->strand),
+        #sprintf("%s | %s, %s, %s", $gff->get_column($opt_locus_id),$gff->start, $gff->end, $gff->strand),
+        $gff->get_column($opt_locus_id),
         fasta_subseq($fasta,$gff->sequence,$gff->start, $gff->end, coord => 'f', rc => $gff->strand eq '-' ? 1 : 0)
     );
 }
