@@ -1,0 +1,45 @@
+#!/usr/bin/env perl
+use 5.10.0;
+use strict;
+use warnings FATAL => "all";
+use Data::Dumper;
+use feature 'say';
+use autodie;
+use File::Find;
+use File::Basename;
+use File::Spec::Functions;
+use Pod::Usage;
+use Getopt::Long;
+
+END {close STDOUT}
+
+my $dir;
+my $out = '-';
+my $verbose;
+my $result = GetOptions (
+    "dir|d=s" => \$dir,
+    "out|o=s" => \$out,
+    "verbose|v" => \$verbose,
+);
+
+if ($out ne '-'){
+    say STDERR "overwriting $out" if -f $out && $verbose;
+    open my $fh, '>', $out;
+    select $fh;
+}
+if (!$dir || ! -d $dir){
+    say STDERR "usage: $0 -d dir/with/files.gz [-o output.txt] [-v]";
+}
+
+my @files = glob(catfile($dir,"*.gz"));
+
+printf STDERR "unzipping %d files total\n", scalar @files if $verbose;
+
+for my $f (@files) {
+    say STDERR "unzipping $f" if $verbose;
+    open my $pipe, '-|', 'gunzip', '-c', $f;
+    while (defined(my $line = <$pipe>)){
+        print $line;
+    }
+    close $pipe;
+}
