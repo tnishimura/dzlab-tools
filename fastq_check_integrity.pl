@@ -5,11 +5,17 @@ use Data::Dumper;
 use feature 'say';
 use autodie;
 use List::MoreUtils qw/all/;
+use Term::ProgressBar;
 
-my $counter = 0;
 for my $file (@ARGV) {
 
     my $size = (stat($file))[7];
+
+    say "$file:";
+
+    my $pb = Term::ProgressBar->new({count => $size});
+    my $counter = 0;
+    $pb->minor(0);
 
     open my $in, '<', $file;
 
@@ -29,7 +35,7 @@ for my $file (@ARGV) {
                 die "malformed FASTQ quad @ $.\n" . join "", @lines;
             }
         }
-        printf("%f\n",tell($in)/$size) if ++$counter % 100_000 == 0;
+        $pb->update(tell($in)) if ++$counter % 100_000 == 0;
     }
 
     close $in;
