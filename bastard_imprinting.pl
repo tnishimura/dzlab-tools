@@ -8,6 +8,7 @@ use List::Util qw/sum/;
 use Log::Log4perl qw/get_logger/;
 use File::Spec::Functions;
 use File::Basename;
+use File::Path;
 use Getopt::Euclid qw( :vars<opt_> );
 use Pod::Usage;
 use FindBin;
@@ -18,11 +19,13 @@ use DZUtil qw/split_names chext timestamp/;
 use Parallel::ForkManager;
 my $pm = Parallel::ForkManager->new($opt_parallel);
 
-
 pod2usage(-verbose => 99,-sections => [qw/NAME SYNOPSIS OPTIONS/]) 
 unless $opt_output_directory && $opt_reference_a && $opt_reference_b && $opt_raw && $opt_ecotype_a && $opt_ecotype_b && scalar %opt_left_splice;
 
-my $logname = $opt_output_directory . "-" . timestamp() . ".log.txt";
+if (! -d $opt_output_directory) { mkpath ( $opt_output_directory ,  {verbose => 1} ); }
+
+my $logname = catfile($opt_output_directory, $opt_basename) . "-" . timestamp() . ".log.txt";
+my $bowtie_logname = catfile($opt_output_directory, $opt_basename). "-" . timestamp() . ".log-bowtie.txt";
 
 my $conf=qq/
     log4perl.logger          = DEBUG, Print
@@ -78,7 +81,7 @@ my $singlecdir_b = catfile($opt_output_directory, "single-c-$opt_ecotype_b$nocc"
 my $windowdir_a  = catfile($opt_output_directory, "windows-$opt_ecotype_a$nocc");
 my $windowdir_b  = catfile($opt_output_directory, "windows-$opt_ecotype_b$nocc");
 
-for ( $opt_output_directory, $singlecdir_a, $singlecdir_b, $windowdir_a, $windowdir_b){
+for ( $singlecdir_a, $singlecdir_b, $windowdir_a, $windowdir_b){
     mkdir $_;
     if (! -d $_) {$logger->logdie("can't create $_");}
 }
@@ -140,24 +143,24 @@ my $max_hits_arg = $opt_max_hits ? " --strata -k 1 -m $opt_max_hits " : "";
 
 if ($pm->start == 0){
     launch("bowtie $bsrc_reference_a $max_hits_arg -f -B 1 -v $opt_bowtie_mismatches --norc --best -5 $left_trim5 -3 $left_trim3 $rawc2t $left_bowtie_a",
-        expected => $left_bowtie_a, force => $opt_force);
+        also => $bowtie_logname, expected => $left_bowtie_a, force => $opt_force, id => 'left-a', accum => 1);
     $pm->finish;
 }
 if ($pm->start == 0){
     launch("bowtie $bsrc_reference_b $max_hits_arg -f -B 1 -v $opt_bowtie_mismatches --norc --best -5 $left_trim5 -3 $left_trim3 $rawc2t $left_bowtie_b",
-        expected => $left_bowtie_b, force => $opt_force);
+        also => $bowtie_logname, expected => $left_bowtie_b, force => $opt_force, id => 'left-b', accum => 1);
     $pm->finish;
 }
 
 if (!$single_sided){
     if ($pm->start == 0){
         launch("bowtie $bsrc_reference_a $max_hits_arg -f -B 1 -v $opt_bowtie_mismatches --norc --best -5 $right_trim5 -3 $right_trim3 $rawc2t $right_bowtie_a",
-            expected => $right_bowtie_a, force => $opt_force);
+            also => $bowtie_logname, expected => $right_bowtie_a, force => $opt_force, ,id => 'right-a', accum => 1);
         $pm->finish;
     }
     if ($pm->start == 0){
         launch("bowtie $bsrc_reference_b $max_hits_arg -f -B 1 -v $opt_bowtie_mismatches --norc --best -5 $right_trim5 -3 $right_trim3 $rawc2t $right_bowtie_b",
-            expected => $right_bowtie_b, force => $opt_force);
+            also => $bowtie_logname, expected => $right_bowtie_b, force => $opt_force, ,id => 'right-b', accum => 1);
         $pm->finish;
     }
 }
