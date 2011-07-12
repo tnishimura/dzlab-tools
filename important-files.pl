@@ -40,7 +40,10 @@ find( sub {
         # default extensions
         if (/\.log$/ || /\.table.txt$/ || /\.freq$/ || /\.ends$/ || 
             /\.avg$/ || /ratio\.txt$/ || /ratio\.txt\.no_coord_check$/ ||
-            /\.log\.txt$/ )
+            /\.log\.txt$/ ||
+            # source code
+            /\.pl$/ || /\.sh$/ 
+        )
         { 
             $accum{$File::Find::name} = 1;
         }
