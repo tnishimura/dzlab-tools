@@ -33,6 +33,7 @@ if (! defined $opt_out_directory){
 if (! -d $opt_out_directory) { mkpath ( $opt_out_directory ,  {verbose => 1} ); }
 
 my $logname = catfile($opt_out_directory, $opt_base_name) . "-" . timestamp() . ".log.txt";
+my $bowtie_logname = catfile($opt_out_directory, $opt_base_name). "-" . timestamp() . ".log-bowtie.txt";
 
 use Log::Log4perl qw/get_logger/;
 my $conf=qq/
@@ -230,7 +231,7 @@ if (! -f $eland_left_post || ($do_right && !-f $eland_right_post)){
 # align with bowtie
     if ($pm->start == 0){
         launch("bowtie $opt_reference.c2t -f -B 1 -v $opt_mismatches -5 $l5trim -3 $l3trim --best $mh_args --norc $fasta_left_converted ??", 
-            expected => $eland_left, dryrun => $dry, id => "left bowtie", accum => 1);
+            expected => $eland_left, dryrun => $dry, id => "left bowtie", accum => 1, also => $bowtie_logname);
         launch("perl -S parse_bowtie.pl -u $fasta_left -s @left_splice  $eland_left -o ??", 
             expected => $eland_left_post, dryrun => $dry, id => "left parse_bowtie");
         $pm->finish;
@@ -242,13 +243,13 @@ if (! -f $eland_left_post || ($do_right && !-f $eland_right_post)){
             my $r5trim = $right_splice[0] - 1;
             if ($opt_single_ends) {
                 launch("bowtie $opt_reference.c2t -f -B 1 -v $opt_mismatches -5 $r5trim -3 $r3trim --best $mh_args --norc $fasta_left_converted ??" , 
-                    expected => $eland_right, dryrun => $dry, id => "right bowtie", accum => 1);
+                    expected => $eland_right, dryrun => $dry, id => "right bowtie", accum => 1, also => $bowtie_logname);
                 launch("perl -S parse_bowtie.pl -u $fasta_left -s @right_splice  $eland_right -o ??", 
                     expected => $eland_right_post, dryrun => $dry, id => "right parse_bowtie");
             }
             else {
                 launch("bowtie $opt_reference.g2a -f -B 1 -v $opt_mismatches -5 $r5trim -3 $r3trim --best $mh_args --norc $fasta_right_converted ??" , 
-                    expected => $eland_right, dryrun => $dry, id => "right bowtie", accum => 1);
+                    expected => $eland_right, dryrun => $dry, id => "right bowtie", accum => 1, also => $bowtie_logname);
                 launch("perl -S parse_bowtie.pl -u $fasta_right -s @right_splice  $eland_right -o ??", 
                     expected => $eland_right_post, dryrun => $dry, id => "right parse_bowtie");
             }

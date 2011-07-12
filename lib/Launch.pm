@@ -34,8 +34,17 @@ sub launch{
     my $dryrun    = delete $opt{dryrun} // 0;
     my $id        = delete $opt{id} // "";
     my $accum     = delete $opt{accum} // 0;
+    my $also      = delete $opt{also} // 0;
     $id = $id ? "($id)" : "";
 
+    #######################################################################
+    # also : print to some other file as well.
+
+    my $also_fh;
+
+    if ($also){
+        open $also_fh, '>>', $also;
+    }
 
     my @expected;
     if (exists $opt{expected}){
@@ -91,6 +100,7 @@ sub launch{
                     else{
                         $logger->debug($o);
                     }
+                    syswrite $also_fh, $o if $also;
                 },
                 stderr_handler => sub{ 
                     my $e  ="stderr $id: " . shift;
@@ -101,6 +111,7 @@ sub launch{
                     else{
                         $logger->debug($e);
                     }
+                    syswrite $also_fh, $e if $also;
                 },
             });
         $success = $rv->{exit_code};
@@ -111,9 +122,11 @@ sub launch{
     }
 
     if ($accum){
-        $logger->info("Output of $cmd was:\n");
-        $logger->info(join "", "\n", @output_accum);
+        $logger->info("===== Output of $cmd was:\n");
+        $logger->info(join "", "\n", map { "= " . $_ } @output_accum);
+        $logger->info("=====\n");
     }
+    close $also_fh if $also;
 
     if ($success == 0){
         my $exp = join ", ", @expected;
