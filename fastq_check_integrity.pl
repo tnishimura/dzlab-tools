@@ -37,7 +37,9 @@ for my $file (@ARGV) {
         }
         $pb->update(tell($in)) if ++$counter % 100_000 == 0;
     }
+    $pb->update($size);
 
     close $in;
 }
 say "OK";
+exit 0;
