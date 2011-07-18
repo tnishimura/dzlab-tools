@@ -123,9 +123,9 @@ for my $file (@opt_files) {
         $feature //= $gff->feature;
 
         my ($start, $end) = ($gff->start, $gff->end);
-        if ($start != $end){
-            die "$0 is only for single-c file";
-        }
+        #if ($start != $end){
+        #    die "$0 is only for single-c file";
+        #}
         # round up to the nearest window (101-150 to 150, 151-200 to 200, etc for w50)
         my $windowed_position = ($start - 1) + ($opt_window_size - ($start - 1) % $opt_window_size);
         if ($opt_report_count){
