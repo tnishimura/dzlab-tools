@@ -4,7 +4,7 @@ use warnings;
 use Data::Dumper;
 use feature 'say';
 use autodie;
-use Math::BigFloat lib => 'GMP';
+#use Math::BigFloat lib => 'GMP';
 use List::Util qw/sum/;
 use Pod::Usage;
 use Getopt::Long;
@@ -18,7 +18,7 @@ my $input;
 my $output = q{-};
 my $help;
 my $pval = .000_1;
-my $threshold = $pval/1000.0;
+my $log_threshold = -200;
 my $result = GetOptions (
     "input|i=s"     => \$input,
     "output|o=s"    => \$output,
@@ -27,36 +27,33 @@ my $result = GetOptions (
     "column-c|c=i"  => \$colc,
     "column-d|d=i"  => \$cold,
     "p-value|p=i"   => \$pval,
+    "threshold|t=i" => \$log_threshold,
     "sep|s=s"       => \$sep,
     "help"          => \$help,
 );
-pod2usage(-verbose => 99) if (!($cola && $colb && $colc && $cold && $input) || $help || !$result);
+pod2usage(-verbose => 99) 
+if (!($cola && $colb && $colc && $cold && $input) || $log_threshold > 0 || $help || !$result);
 
-my $log_threshold = log($threshold);
-
+# logfactorial(n) = log10(n!)
 sub logfactorial {
     my ($n) = @_;
     return 0 if $n==0;
     my $accum = 0;
+    my $log10 = log(10);
     for (my $i=1 ; $i<=$n ; $i++){
-        $accum += log($i);
+        $accum += log($i)/$log10;
     }
     return $accum;
 };
 
-sub fet{
+sub fet_using_log{
     my ($a,$b,$c,$d) = @_;
     my $n = $a+$b+$c+$d;
     my $logp = sum (
         logfactorial($a+$b) , logfactorial($c+$d) , logfactorial($a+$c) , logfactorial($b+$d) , 
         -logfactorial($a)   , -logfactorial($b)   , -logfactorial($c)   , -logfactorial($d)   , -logfactorial($n) , 
     );
-    if ($logp < $log_threshold){
-        return ('+', "< $threshold");
-    } else{
-        my $p = exp($logp);
-        return (($p < $pval ? '+' : '-'), sprintf('%10.10f', exp($logp)));
-    }
+    return ($logp < $log_threshold ? 0 : sprintf("%g",10 ** $logp));
 }
 
 if ($sep eq 'tab'){
@@ -79,7 +76,7 @@ while (defined (my $line = <$fh>)){
     my @parts = split /$sep/, $line;
     my ($a, $b, $c, $d) = @parts[$cola-1, $colb-1, $colc-1, $cold-1];
 
-    say $outfh join $sep, @parts, fet($a,$b,$c,$d);
+    say $outfh join $sep, @parts, fet_using_log($a,$b,$c,$d);
 }
 
 close $fh;
@@ -126,6 +123,8 @@ fisher_exact_test.pl -a 2 -b 4 -c 6 -d 8 -i input.txt -o output.txt
                      Otherwise, '-'. Default: .0001
  --input         -i  Input file
  --output        -o  Output file (default to screen)
+ --threshold     -t  Report 0 for p-value if it is less than 10^threshold.
+                     (default -200).
 
  --help        print this information
 
