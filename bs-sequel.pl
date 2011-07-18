@@ -346,7 +346,12 @@ mfor \@base_gff_split, \@single_c_split, sub{
 $pm->wait_all_children;
 
 launch("perl -S collect-freqs.pl -o $basename.single-c.freq $single_c_dir", dryrun => $dry);
-#copy($logname,$opt_out_directory);
+
+chdir $single_c_dir;
+for my $cont (@contexts) {
+    my @files = glob("*$cont*.merged");
+    launch("single_c_concat.pl " . join(" ", @files), dryrun => $dry);
+}
 
 =head1 NAME
 
