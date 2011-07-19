@@ -72,6 +72,26 @@ You may have to log out and back in to see the effects of this.
 
 =over
 
+=item 1.1.7 (2011-07-18)
+
+=over 2
+
+=item * L<ends_analysis_batch.pl> allows running ends analysis in bulk according to config files.
+
+=item * L<bs-sequel.pl> produces single-c files concatenated by context (as well as the usual chromosome specific ones).
+
+=item * L<fisher_exact_test.pl> can accept arbitrary thresholds, and also do 'real' calculations without logarithmic 
+approximations
+
+=item * L<bs-sequel.pl> and L<bastard_imprinting.pl> creates a separate log file for bowtie, so you don't have to go looking for it.
+
+=item * Added L<bulk-gunzip> script to unzip new CASAVA formatted split-.gz files that we're getting from Leath.
+
+=item * L<window_by_fixed.pl> now can handle non-single-c files (like evenly
+spaced windows)--- BUT it still cannot handle overlapping input files. 
+
+=back
+
 =item 1.1.0 (2011-06-14)
 
 First release with the new L<single_c_mashup.pl> script. 
