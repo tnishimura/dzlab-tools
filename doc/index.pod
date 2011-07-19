@@ -72,11 +72,17 @@ You may have to log out and back in to see the effects of this.
 
 =over
 
-=item 1.1.7 (2011-07-18)
+=item 1.1.8 (2011-07-18)
 
 =over 2
 
 =item * L<ends_analysis_batch.pl> allows running ends analysis in bulk according to config files.
+
+=back
+
+=item 1.1.7 (2011-07-18)
+
+=over 2
 
 =item * L<bs-sequel.pl> produces single-c files concatenated by context (as well as the usual chromosome specific ones).
 
