@@ -260,15 +260,26 @@ sub make_scores_iterator {
         my $flag_start = $gene_info{$gene}[0];
         my $flag_end   = $gene_info{$gene}[1];
         my $strand     = $gene_info{$gene}[2];
+        if ($debug){
+            say "gene: $gene";
+            say "gene_start: $gene_start";
+            say "gene_end: $gene_end";
+            say "flag_start: $flag_start";
+            say "flag_end: $flag_end";
+            say "strand: $strand";
+        }
 
         for my $index ( 0 .. $num_bins - 1 ) {
             # if '-', go from $num_bins -> 0
             $index =  $strand eq q{-} ? $num_bins - $index - 1 : $index;
 
-            my $gene_forward_relcoord = ($strand eq '+' ? $gene_start : $gene_end) - $distance + $index * $bin_width;
+            my $gene_forward_relcoord = 
+            ( (($strand eq '+' && $five_prime) || ($strand eq '-' && $three_prime)) ?  $gene_start : $gene_end) 
+            - $distance + $index * $bin_width;
             my $in_flag = $flag_start <= $gene_forward_relcoord && $gene_forward_relcoord <= $flag_end;
 
-            #say "$index, $gene_forward_relcoord, $in_flag";
+            say "$index, $gene_forward_relcoord, $in_flag"
+                if ($debug);
 
             if (defined $local_genes{$gene}->{scores}[$index]){
                 push @scores,
