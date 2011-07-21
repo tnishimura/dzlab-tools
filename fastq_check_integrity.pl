@@ -21,6 +21,7 @@ for my $file (@ARGV) {
 
     while (! eof $in){
         my @lines = map { scalar <$in> } (1 .. 4);
+        my @lens = map { length $_ } @lines;
 
         # all undef
         if (all { ! defined $_ } @lines){
@@ -31,7 +32,12 @@ for my $file (@ARGV) {
             if (grep { ! defined $_ } @lines){
                 die "uneven number of lines @ around $."
             }
-            elsif ($lines[0] !~ /^@/ || $lines[2] !~ /^\+/ || length $lines[0] != length $lines[2] ||  length $lines[1] != length $lines[3]){
+            elsif ($lines[0] !~ /^@/ 
+                || $lines[2] !~ /^\+/ 
+                # third line could be just a lone '+', in newer fastq files
+                || ($lens[0] != $lens[2] && $lines[2] !~ /^\+$/)
+                || $lens[1] != $lens[3] 
+                ){
                 die "malformed FASTQ quad @ $.\n" . join "", @lines;
             }
         }
