@@ -22,6 +22,8 @@ my $three_prime    = 0;
 my $five_prime     = 0;
 my $attribute_id   = 'ID';
 my $output         = '-';
+my $debug;
+my $zero_flag_region;
 
 # gff-annotation = /path/to/annotation.gff
 # bin-width      = 100
@@ -57,6 +59,8 @@ my $result = GetOptions(
     'five-prime|5'       => \$five_prime,
     'extract-id|x=s'     => \$attribute_id,
     'output|o=s'         => \$output,
+    'debug'              => \$debug,
+    'zero'               => \$zero_flag_region,
     'verbose|v'          => sub { use diagnostics; },
     'quiet|q'            => sub { no warnings; },
     'help|h'             => sub { pod2usage( -verbose => 1 ); },
@@ -110,13 +114,29 @@ my %flag_parameters = (
 # index and offset the loci annotations data based on stop flag
 # { seqname => { 
 #      start_coord => 
-#           [flag_start         = '-', flag_end, strand, attributes, 
+#           [flag_start, flag_end, strand, attributes, 
 #            original_start, original_end]}}
+# attribute = locus id
 my $annotation = offset_gff_annotation(
     index_gff_annotation( $gff_annotation, $attribute_id ),
     $stop_flag_dispatch->{$stop_flag},
     \%flag_parameters
 );
+
+#say STDERR Dumper $annotation;
+
+#######################################################################
+# locus->coord-matrix lookup 
+
+my %gene_info;
+while (my ($seqname,$start2coords) = each %$annotation) {
+    while (my ($start,$coords) = each %$start2coords) {
+        $gene_info{$coords->[3]} = $coords;
+    }
+}
+
+
+#say STDERR Dumper $annotation;
 
 my $num_bins           = 2 * int( $distance / $bin_width );
 my %genes              = (); # hash of loci id hashes with scores/strand keys
@@ -178,15 +198,33 @@ while ( my $gff_line = $gff_iterator->() ) {
 
     # Step 7: Save score into its appropriate bin, record its strand
     push @{ $genes{ $locus->[3] }->{scores}[$index] }, $score;
-    $genes{ $locus->[3] }->{strand} = $locus->[2];
 }
+
+#say STDERR Dumper \%genes;
 
 # Step 8: Iterate over scores for each gene and print those
+#say Dumper \%genes;
 my $scores_iterator = make_scores_iterator( \%genes );
 while ( my ( $locus, $scores_ref ) = $scores_iterator->($num_bins) ) {
-    print join( "\t", $locus, @{$scores_ref} ), "\n";
+    if ($debug){
+        my $counter = -$distance;
+        print "$locus\n";
+        my @scores_copy = @$scores_ref;
+        while (scalar @scores_copy){
+            print "$counter\t";
+            for (1 .. 10){
+                my $score = shift @scores_copy;
+                print "\t:$score";
+                $counter+=$bin_width;
+            }
+            print "\n";
+        }
+        print "\n";
+    }
+    else{
+        print join( "\t", $locus, @{$scores_ref} ), "\n";
+    }
 }
-
 
 ## done
 
@@ -206,28 +244,44 @@ sub weight_score {
 
 sub make_scores_iterator {
     my ($genes_ref) = @_;
-    my @genes = sort keys %{$genes_ref};
+    #die Dumper $genes_ref;
+    my %local_genes = %$genes_ref;
+    my @genes_names = sort keys %local_genes;
 
     return sub {
         my ($num_bins) = @_;
 
-        my $gene = shift @genes || return;
+        my $gene = shift @genes_names || return;
         my @scores = ();
 
+        #say Dumper $gene_info{$gene};
+        my $gene_start = $gene_info{$gene}[4];
+        my $gene_end   = $gene_info{$gene}[5];
+        my $flag_start = $gene_info{$gene}[0];
+        my $flag_end   = $gene_info{$gene}[1];
+        my $strand     = $gene_info{$gene}[2];
+
         for my $index ( 0 .. $num_bins - 1 ) {
+            # if '-', go from $num_bins -> 0
+            $index =  $strand eq q{-} ? $num_bins - $index - 1 : $index;
 
-            # reverse bin orientation for reverse strand genes
-            $index = $num_bins - $index - 1
-                if $genes{$gene}->{strand} eq q{-};
+            my $gene_forward_relcoord = ($strand eq '+' ? $gene_start : $gene_end) - $distance + $index * $bin_width;
+            my $in_flag = $flag_start <= $gene_forward_relcoord && $gene_forward_relcoord <= $flag_end;
 
-            push @scores,
-                (
-                defined $genes{$gene}->{scores}[$index]
-                ? sprintf( "%g",
-                    ( sum @{ $genes{$gene}->{scores}[$index] } )
-                        / @{ $genes{$gene}->{scores}[$index] } )
-                : 'na'
-                );
+            #say "$index, $gene_forward_relcoord, $in_flag";
+
+            if (defined $local_genes{$gene}->{scores}[$index]){
+                push @scores,
+                sprintf( "%g",
+                    ( sum @{ $local_genes{$gene}{scores}[$index] } )
+                        / @{ $local_genes{$gene}{scores}[$index] } ) ;
+            } 
+            elsif($zero_flag_region && $in_flag){
+                push @scores, 0;
+            } 
+            else{
+                push @scores, 'na';
+            }
         }
         return ( $gene, \@scores );
     }
@@ -531,6 +585,9 @@ __END__
  -3, --three-prime    center analysis on 3' end                          [0]
  -5, --five-prime     center analysis on 5' end                          [1]
  -x, --extract-id     GFF 3 attribute tag pointing to locus ID           [ID]
+     --zero           If a bin has no scores mapping to it, but it is 
+                      valid for analysis according to stop flag, output 
+                      0 instead of 'na'.
  -o, --output         filename to write results to (defaults to STDOUT)
  -v, --verbose        output perl's diagnostic and warning messages
  -q, --quiet          supress perl's diagnostic and warning messages
