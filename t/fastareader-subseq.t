@@ -56,6 +56,11 @@ for my $slurp (0, 1) {
     is($f->get('CHr1' , 0  , 9  , coord => 'r' , rc => 0, base => 0) , 'TTTTAGATGT', "base 0 reverse 1-10 (slurp=$slurp)");
     is($f->get('cHR1' , 10 , 19 , coord => 'r' , rc => 0, base => 0) , 'AAAAAAGTAT', "base 0 reverse 11-20 (slurp=$slurp)");
 
+    is($f->get('CHR1' , 1  , 1 , coord => 'f' , base => 1) , 'C' , "base 1 forward 1-1 (slurp=$slurp)");
+    is($f->get('CHR1' , $lengths{chr1}, $lengths{chr1}  , 1 , coord => 'f' , base => 1) , 'T' , "base 1 forward last-last (slurp=$slurp)");
+
+    # bug:
+    #is($f->get('CHR1' , 1, $lengths{chr1}  , 1 , coord => 'f' , base => 1) , $f->get('chr1') , "base 1 forward last-last (slurp=$slurp)");
 }
 
 
