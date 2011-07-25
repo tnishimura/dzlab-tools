@@ -15,10 +15,11 @@ sub rc{
 }
 
 for my $slurp (0, 1) {
-    my $f = FastaReader->new(file => 't/test.fasta', ht => sub { s/>(\w+)/\U$1/; return $_ }, slurp => $slurp );
+    my $f = FastaReader->new(file => 't/test.fasta', ht => sub { s/>(\w+)/$1/; return $_ }, slurp => $slurp );
 
-    is_deeply($f->length, { CHR1 => 711, CHR2 => 1185, CHR3 => 711, CHR4 => 474, CHR5 => 711, CHRC => 711, CHRM => 1343,}, "seq size");
-    is_deeply([sort $f->sequence_list], [sort qw/CHR1 CHR2 CHR3 CHR4 CHR5 CHRC CHRM/]);
+    is_deeply($f->length, { CHR1 => 711, CHR2 => 1185, CHR3 => 711, CHR4 => 474, CHR5 => 711, CHRC => 711, CHRM => 1343,}, "seq size with internal length hash");
+    is_deeply({$f->sequence_lengths}, { chr1 => 711, chr2 => 1185, chr3 => 711, chr4 => 474, chr5 => 711, chrc => 711, chrm => 1343,}, "seq size with sequence_length");
+    is_deeply([sort $f->sequence_list], [sort qw/chr1 chr2 chr3 chr4 chr5 chrc chrm/], "sequence_list");
 
     is($f->get('CHR1' , 1  , 10 , coord => 'f' , base => 1) , 'CCCTAAACCC' , "base 1 forward 1-10 (slurp=$slurp)");
     is($f->get('CHr1' , 11 , 20 , coord => 'f' , base => 1) , 'TAAACCCTAA' , "base 1 forward 11-20 (slurp=$slurp)");
