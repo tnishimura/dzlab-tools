@@ -21,6 +21,14 @@ for my $slurp (0, 1) {
     is_deeply({$f->sequence_lengths}, { chr1 => 711, chr2 => 1185, chr3 => 711, chr4 => 474, chr5 => 711, chrc => 711, chrm => 1343,}, "seq size with sequence_length");
     is_deeply([sort $f->sequence_list], [sort qw/chr1 chr2 chr3 chr4 chr5 chrc chrm/], "sequence_list");
 
+    for ($f->sequence_list){
+        ok($f->has_sequence($_), "has_sequence");
+
+    }
+    for (1 .. 10){
+        ok(! $f->has_sequence('khr' . int(rand 100)), "! has_sequence");
+    }
+
     is($f->get('CHR1' , 1  , 10 , coord => 'f' , base => 1) , 'CCCTAAACCC' , "base 1 forward 1-10 (slurp=$slurp)");
     is($f->get('CHr1' , 11 , 20 , coord => 'f' , base => 1) , 'TAAACCCTAA' , "base 1 forward 11-20 (slurp=$slurp)");
     is($f->get('ChR1' , 0  , 9  , coord => 'f' , base => 0) , 'CCCTAAACCC' , "base 0 forward 0-9 (slurp=$slurp)");

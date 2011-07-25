@@ -332,6 +332,10 @@ returns hash of sequence names to lengths.
 
 returns list of sequence names, sorted.
 
+=head2 has_sequence()
+
+check if particular sequence was in fasta file.
+
 =head2 get(SEQNAME, START, END, coord => 'f' | 'r', base => 0 | 1, rc => 0 | 1)
 
 Get subsequence (START, END) from SEQNAME.  coord is from forward strand by
