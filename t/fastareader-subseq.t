@@ -23,10 +23,17 @@ for my $slurp (0, 1) {
 
     for ($f->sequence_list){
         ok($f->has_sequence($_), "has_sequence");
-
     }
     for (1 .. 10){
         ok(! $f->has_sequence('khr' . int(rand 100)), "! has_sequence");
+    }
+
+    my %lengths = $f->sequence_lengths();
+
+    if ($slurp){
+        while (my ($seq,$len) = each %lengths) {
+            is(length($f->get($seq,undef, undef)), $len, "whole seq length for $seq");
+        }
     }
 
     is($f->get('CHR1' , 1  , 10 , coord => 'f' , base => 1) , 'CCCTAAACCC' , "base 1 forward 1-10 (slurp=$slurp)");
@@ -48,6 +55,7 @@ for my $slurp (0, 1) {
     is($f->get('CHR1' , 11 , 20 , coord => 'r' , rc => 0, base => 1) , 'AAAAAAGTAT', "base 1 reverse 11-20 (slurp=$slurp)");
     is($f->get('CHr1' , 0  , 9  , coord => 'r' , rc => 0, base => 0) , 'TTTTAGATGT', "base 0 reverse 1-10 (slurp=$slurp)");
     is($f->get('cHR1' , 10 , 19 , coord => 'r' , rc => 0, base => 0) , 'AAAAAAGTAT', "base 0 reverse 11-20 (slurp=$slurp)");
+
 }
 
 

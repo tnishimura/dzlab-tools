@@ -114,7 +114,6 @@ sub BUILD{
         croak "file argument to FastaReader needs to be file handle or file name" . Dumper $self;
     }
 
-
     my $current;
     my %lengths; # use tmp hash b/c calling set_length every time is slow
     my %sequences;
@@ -188,8 +187,19 @@ sub get{
     my $totlen = $self->_get_length($seqid);
     my $lastindex = $totlen - 1;
 
-    $start //= $base ? 1 : 0;
-    $end   //= $base ? $totlen : $totlen - 1;
+    if (! defined $start && ! defined $end ){
+        if ($self->slurp()){
+            my $whole = $self->_get_sequence($seqid);
+            if ($rc){
+                $whole =~ tr/acgtACGT/tgcaTGCA/;
+                $whole = reverse $whole;
+            }
+            return $whole;
+        }
+        else{
+            croak "whole sequence get only supported with slurp()ing on";
+        }
+    }
 
     # everything in base 0 coord now.
     $start -= $base;
