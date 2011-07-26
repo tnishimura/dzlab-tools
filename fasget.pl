@@ -11,31 +11,53 @@ use FastaReader;
 use Getopt::Euclid qw( :vars<opt_> );
 use Pod::Usage;
 
-pod2usage(-verbose => 99,-sections => [qw/NAME SYNOPSIS OPTIONS/]) if $opt_help;
+pod2usage(-verbose => 99,-sections => [qw/NAME SYNOPSIS OPTIONS/]) 
+if ($opt_help || ($opt_coord ne 'f' && $opt_coord ne 'r'));
 
-if ($opt_output ne '-'){
+if ($opt_output ne '-' ){
     open my $fh, '>', $opt_output;
     select $fh; 
 }
 
-say $opt_sequence;
-say $opt_range{'start'};
-say $opt_range{'end'};
+my $r = FastaReader->new(file => $opt_fasta, slurp => ! $opt_no_slurp);
 
-my $r = FastaReader->new(file => $opt_fasta);
+if (!defined $opt_sequence && ! defined $opt_range{start} && ! defined $opt_range{end}){
+    my %lengths = $r->sequence_lengths;
+    for (sort keys %lengths){
+        say "$_:\t" . $lengths{$_};
+    }
+}
+elsif (defined $opt_sequence && ! defined $opt_range{start} && ! defined $opt_range{end}){
+    say $r->get_pretty($opt_sequence, undef, undef, rc    => $opt_reverse_compliment);
+}
+else{
+    say $r->get_pretty($opt_sequence, $opt_range{start}, $opt_range{end}, 
+        coord => $opt_coord,
+        rc    => $opt_reverse_compliment,
+        base  => $opt_base);
+}
 
-say Dumper $r->length;
-say $r->get($opt_sequence, $opt_range{start}, $opt_range{end}, coord => 'f', base => 1);
 
 =head1 NAME
  
-fasta.pl
+fasget.pl
  
 =head1 SYNOPSIS
 
- fasta.pl
+ fasget.pl
 
 =head1 REQUIRED ARGUMENTS
+
+=over
+
+=item  <fasta> 
+
+=for Euclid
+    fasta.type:        readable
+
+=back
+
+=head1 OPTIONS
 
 =over
 
@@ -49,16 +71,28 @@ fasta.pl
     end.type:        int, end >= 1 
     end.type.error:  <fasta> must be > 1
 
-=item  <fasta> 
+=item  -c <coordinate> | --coord <coordinate>
+
+Coordinate. Can be 'f' or 'r'. Default 'f'.
 
 =for Euclid
-    fasta.type:        readable
+    coordinate.default:     'f'
 
-=back
+=item -rc | --reverse-compliment
 
-=head1 OPTIONS
+Whether to reverse-complement chunk. Default off.
 
-=over
+=item  -b <base> | --base <base>
+
+The coordinate of the first base. Default 1.
+
+=for Euclid
+    base.default:     1
+    base.type:        int, base >= 0 && base <= 1
+
+=item -l | --no-slurp
+
+Do not slurp entire file into memory. 
 
 
 =item -o <file> | --output <file>

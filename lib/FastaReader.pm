@@ -174,6 +174,23 @@ sub _get_iter{
     };
 }
 
+sub get_pretty{
+    my ($self, $seqid, $start, $end, %opts) = @_;
+
+    my $sequence = $self->get($seqid, $start, $end, %opts);
+
+    my @accum = (">${seqid}_${start}_${end}");
+    my $length = length $sequence;
+
+    my $pos = 0;
+
+    while ($pos < $length){
+        push @accum, substr $sequence, $pos, 80; 
+        $pos+=80;
+    }
+    return join "\n", @accum;
+}
+
 # coord = 'f' if coords rel to 5', 'r' if 3'
 # base  = 1 or 0
 # rc    = whether to rc chunk
@@ -363,6 +380,11 @@ base.
 
 Default is coord => 'f', base => 1, rc => 0 (if coord => 'f') or 1 (if coord =>
 'r').
+
+=head2 get_pretty(...)
+
+Exactly the same as get() except it returns a FASTA-formated string (with
+header line and line breaks), suitable for printing.
 
 =cut
 
