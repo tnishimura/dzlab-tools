@@ -218,6 +218,12 @@ sub get{
             #croak "whole sequence get only supported with slurp()ing on";
         }
     }
+    elsif (! defined $end){
+        $end = $base + $lastindex;
+    }
+    elsif (! defined $start){
+        $start = $base;
+    }
 
     # everything in base 0 coord now.
     $start -= $base;

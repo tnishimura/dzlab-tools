@@ -73,6 +73,10 @@ for my $slurp (0, 1) {
     is($f->get('chr1' , $chr1len - 10, $chr1len-1, coord => 'f' , base => 0) , 'TTTTAGATGT' , "base 0 forward last ten (slurp=$slurp)");
     is($f->get('cHr1' , $chr1len - 9, $chr1len, coord => 'f' , base => 1) , 'TTTTAGATGT' , "base 1 forward last ten (slurp=$slurp)");
 
+    is($f->get('ChR1' , undef  , 10 , coord => 'r' , rc => 0, base => 1) , 'TTTTAGATGT', "base 1 reverse 1-10 first ten with undef start(slurp=$slurp)");
+    is($f->get('ChR1' , undef  , 9  , coord => 'f' , rc => 1, base => 0) , rc('CCCTAAACCC') , "base 0 forward rc 0-9 with undef start(slurp=$slurp)");
+    is($f->get('cHr1' , $chr1len - 9, undef, coord => 'f' , base => 1) , 'TTTTAGATGT' , "base 1 forward last ten with undef end(slurp=$slurp)");
+    is($f->get('cHr1' , $chr1len - 4, undef, coord => 'f' , base => 1) , 'GATGT' , "base 1 forward last ten with undef end(slurp=$slurp)");
 }
 
 
