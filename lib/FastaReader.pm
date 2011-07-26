@@ -197,7 +197,8 @@ sub get{
             return $whole;
         }
         else{
-            croak "whole sequence get only supported with slurp()ing on";
+            return $self->get($seqid, 1, $totlen);
+            #croak "whole sequence get only supported with slurp()ing on";
         }
     }
 
@@ -287,8 +288,15 @@ sub get{
                 push @accum, substr $chunk, $left - $chunk_first_pos, $right-$left +1;
             }
 
+            # left              right
+            # |-----------------|
+            #     |----------|    chunk
+            elsif ($left <= $chunk_first_pos && $chunk_last_pos <= $right){
+                push @accum, $chunk;
+            }
+
             else {
-                croak "wha?";
+                croak "wha? chunk: ($chunk_first_pos, $chunk_last_pos), left/right: ($left, $right)";
             }
 
             $chunk_first_pos = $chunk_first_pos + $chunk_length;
