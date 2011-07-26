@@ -7,7 +7,7 @@ use Moose;
 use Carp;
 use autodie;    
 
-has filename_or_handle => (
+has filename => (
     is => 'ro',
     required => 1,
     init_arg => 'file',
@@ -101,14 +101,9 @@ has header_transform => (
 sub BUILD{
     my ($self) = @_;
     my $fh;
-    if (ref $self->filename_or_handle eq 'GLOB'){
-        $fh = $self->filename_or_handle;
-    }
-    elsif (!ref $self->filename_or_handle && -f $self->filename_or_handle ){
-        open $fh, '<', $self->filename_or_handle
-            or croak "cannot open $self->filename_or_handle";
-    } elsif (! -f $self->filename_or_handle){
-        croak $self->filename_or_handle . " doesn't exist?";
+    if (defined $self->filename && -f $self->filename ){
+        open $fh, '<', $self->filename
+            or croak "cannot open $self->filename";
     }
     else {
         croak "file argument to FastaReader needs to be file handle or file name" . Dumper $self;
@@ -151,27 +146,42 @@ sub BUILD{
 
 sub _get_iter{
     my ($self, $seq) = @_;
+    $seq = uc $seq;
     if (! $self->has_sequence($seq)){
         croak "no such sequence $seq";
     }
     my $pos = $self->_get_location($seq);
-    my $fh = $self->filehandle();
-    seek $fh, $pos, 0;
+    
+    # may need to share fh in the future if there are thousands of seqs in
+    # fasta and calling make_iterators()
+    open my $fh, '<', $self->filename;
+    seek $fh, $pos, 0; 
+
+    #say "_get_iter on $seq from pos $pos $fh";
 
     my $done = 0;
     return sub{
-        if (defined(my $line = <$fh>)){
+        #seek $fh, $pos, 0; # seek in sub if sharing fh's.
+
+        # this could be more sophisticated, like reading only X bytes at a time.
+        if (defined(my $line = <$fh>)){ 
             $line =~ tr/\r\n//d;
             if ($line =~ /^>/){
                 $done = 1;
                 return;
             }
+            # $pos = tell $fh; # necessary if seeking in sub{}
             return uc $line;
         }
         else{
             return;
         }
     };
+}
+
+sub make_iterators{
+    my $self = shift;
+    return map { $_ => $self->_get_iter($_) } $self->sequence_list();
 }
 
 sub get_pretty{
