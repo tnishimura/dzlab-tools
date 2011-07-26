@@ -1,8 +1,8 @@
 package FastaReader;
 use strict;
-use warnings;
+use warnings FATAL => "all";
 use Data::Dumper;
-use feature 'say';
+use 5.010_000;
 use Moose;
 use Carp;
 use autodie;    
@@ -201,6 +201,23 @@ sub get_pretty{
     return join "\n", @accum;
 }
 
+sub get_context{
+    my ($self, $seqid, $position, %opt) = @_;
+    my ($start, $end) = 
+    ($opt{rc} && (! exists $opt{coord} || $opt{coord} eq 'f') || 
+        !$opt{rc} && (exists $opt{coord} && $opt{coord} eq 'r') )
+    ? ($position - 2, $position) 
+    : ($position, $position + 2);
+
+    my $triple = uc $self->get($seqid, $start, $end, %opt);
+
+    given ([split //, $triple]){
+        when ($_->[1] eq 'G'){ return 'CG'; }
+        when ($_->[2] eq 'G'){ return 'CHG'; }
+        default { return 'CHH'; }
+    }
+}
+
 # coord = 'f' if coords rel to 5', 'r' if 3'
 # base  = 1 or 0
 # rc    = whether to rc chunk
@@ -246,7 +263,7 @@ sub get{
         croak "start/end = ($start/$end) out of bounds)";
     }
     if ($coord ne 'f' && $coord ne 'r'){
-        croak "\$coord needs tobe 'f' or 'r', case insensitive ";
+        croak "\$coord needs to be 'f' or 'r', case insensitive ";
     }
 
     my $left;
