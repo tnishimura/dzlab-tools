@@ -41,10 +41,10 @@ has length => (
 );
 
 sub _set_length { $_[0]->length()->{uc $_[1]} = $_[2]; }
-sub _get_length { $_[0]->length()->{uc $_[1]}; }
+sub get_length { $_[0]->length()->{uc $_[1]}; }
 sub sequence_lengths { 
     my $self = shift;
-    return map { $_ => $self->_get_length($_); } $self->sequence_list;
+    return map { $_ => $self->get_length($_); } $self->sequence_list;
 }
 
 #######################################################################
@@ -98,6 +98,9 @@ has header_transform => (
     documentation => "sub which messes with header via \$_",
 );
 
+#######################################################################
+# Constructor
+
 sub BUILD{
     my ($self) = @_;
     my $fh;
@@ -144,6 +147,9 @@ sub BUILD{
     $self->filehandle($fh);
 }
 
+#######################################################################
+# iterator
+
 sub _get_iter{
     my ($self, $seq) = @_;
     $seq = uc $seq;
@@ -184,6 +190,9 @@ sub make_iterators{
     return map { $_ => $self->_get_iter($_) } $self->sequence_list();
 }
 
+#######################################################################
+# get_pretty
+
 sub get_pretty{
     my ($self, $seqid, $start, $end, %opts) = @_;
 
@@ -201,22 +210,41 @@ sub get_pretty{
     return join "\n", @accum;
 }
 
+#######################################################################
+# get_context
+
+# croak on non-c/non-t position
+# return undef when triplet falls off edge
+# otherwise return context CG, CHG, CHH
 sub get_context{
     my ($self, $seqid, $position, %opt) = @_;
-    my ($start, $end) = 
-    ($opt{rc} && (! exists $opt{coord} || $opt{coord} eq 'f') || 
-        !$opt{rc} && (exists $opt{coord} && $opt{coord} eq 'r') )
-    ? ($position - 2, $position) 
-    : ($position, $position + 2);
 
-    my $triple = uc $self->get($seqid, $start, $end, %opt);
+    $seqid = uc $seqid;
 
-    given ([split //, $triple]){
-        when ($_->[1] eq 'G'){ return 'CG'; }
-        when ($_->[2] eq 'G'){ return 'CHG'; }
-        default { return 'CHH'; }
+    # extract options
+    my $rc        = $opt{rc};
+    my $base      = $opt{base} // 1;
+    $opt{lenient} = 1;
+
+    my ($start, $end) = $rc ? ($position - 2, $position) : ($position, $position + 2);
+
+    my @split = split //, uc $self->get($seqid, $start, $end, %opt);
+
+    if ($split[0] ne 'C' && $split[0] ne 'T'){
+        croak "get_context called on non-C/non-T position";
     }
+
+    given (\@split){
+        when (@split > 1  && $_->[1] eq 'G'){ return 'CG'; }
+        when (@split == 3 && $_->[2] eq 'G'){ return 'CHG'; }
+        when (@split == 3){ return 'CHH'; }
+        default { return; }
+    }
+
 }
+
+#######################################################################
+# get - main sequence retrieval function
 
 # coord = 'f' if coords rel to 5', 'r' if 3'
 # base  = 1 or 0
@@ -228,7 +256,7 @@ sub get{
     my $base      = $opt{base} // 1;
     $seqid = uc $seqid;
 
-    my $totlen = $self->_get_length($seqid);
+    my $totlen = $self->get_length($seqid);
     my $lastindex = $totlen - 1;
 
     if (! defined $start && ! defined $end ){
@@ -255,6 +283,11 @@ sub get{
     # everything in base 0 coord now.
     $start -= $base;
     $end   -= $base;
+
+    if ($opt{lenient}){
+        if ($start < 0){ $start = 0; }
+        if ($lastindex < $end){ $end = $lastindex; }
+    }
 
     if ($end < $start){
         croak "get: end ($end) < start ($start)?";
@@ -396,6 +429,10 @@ Lazy Fasta reader.
 
 returns hash of sequence names to lengths.
 
+=head2 get_length(SEQNAME)
+
+returns length of specific sequence.
+
 =head2 sequence_list()
 
 returns list of sequence names, sorted.
@@ -418,6 +455,12 @@ Default is coord => 'f', base => 1, rc => 0 (if coord => 'f') or 1 (if coord =>
 
 Exactly the same as get() except it returns a FASTA-formated string (with
 header line and line breaks), suitable for printing.
+
+=head2 get_context(SEQNAME, POS, base => 0 | 1, rc => 0 | 1)
+
+Get the context at position POS.  Return 'CG', 'CHH', or 'CHG', or undef when
+POS is an edge case and falls off edge without proper context. Croak when POS
+out of bounds.
 
 =cut
 

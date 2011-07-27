@@ -17,6 +17,8 @@ sub rc{
 for my $slurp (0, 1) {
     my $f = FastaReader->new(file => 't/test.fasta', ht => sub { s/>(\w+)/$1/; return $_ }, slurp => $slurp );
     my %lengths = $f->sequence_lengths();
+    my $chr1len = $f->get_length("chr1");
+    my $chr4len = $f->get_length("chr4");
 
     #######################################################################
     # Basics
@@ -66,7 +68,6 @@ for my $slurp (0, 1) {
     is($f->get('CHr1' , 0  , 9  , coord => 'r' , rc => 0, base => 0) , 'TTTTAGATGT', "base 0 reverse 1-10 (slurp=$slurp)");
     is($f->get('cHR1' , 10 , 19 , coord => 'r' , rc => 0, base => 0) , 'AAAAAAGTAT', "base 0 reverse 11-20 (slurp=$slurp)");
 
-    my $chr1len = $lengths{chr1};
     is($f->get('CHR1' , 1  , 1 , coord => 'f' , base => 1) , 'C' , "base 1 forward 1-1 (slurp=$slurp)");
     is($f->get('CHR1' , $chr1len, $chr1len, coord => 'f' , base => 1) , 'T' , "base 1 forward last-last (slurp=$slurp)");
 
@@ -79,15 +80,27 @@ for my $slurp (0, 1) {
     is($f->get('cHr1' , $chr1len - 4, undef, coord => 'f' , base => 1) , 'GATGT' , "base 1 forward last ten with undef end(slurp=$slurp)");
 
     #######################################################################
-    # contexts
+    # lenient
+
+    is($f->get('CHR1' , 0  , 10 , coord => 'f' , base => 1, lenient => 1) , 'CCCTAAACCC' , "lenient base 1 forward 1-10 (slurp=$slurp)");
+    is($f->get('ChR1' , -10  , 10 , coord => 'r' , base => 1, lenient => 1) , rc('TTTTAGATGT') , "lenient base 1 reverse rc 1-10 (slurp=$slurp)");
+    is($f->get('cHr1' , $chr1len - 9, $chr1len + 1, coord => 'f' , base => 1,lenient => 1) , 'TTTTAGATGT' , "lenient base 1 forward last ten (slurp=$slurp)");
+
+    #######################################################################
+    # death
+    #is($f->get('CHR1' , 0  , 0 , coord => 'f' , base => 1, lenient => 1) , 'CCCTAAACCC' , "lenient base 1 forward 1-10 (slurp=$slurp)");
     
     for my $base (0,1){
         is($f->get_context('chr1', 2+$base, base => $base, rc => 0), 'CHH', "context 1 base $base");
         is($f->get_context('chr1', 7+$base, base => $base, rc => 0), 'CHH', "context 2 base $base");
         is($f->get_context('chr2', 474+$base, base => $base, rc => 0), 'CG', "context 3 base $base");
         is($f->get_context('chr1', 160+$base, base => $base, rc => 0), 'CG', "context 4 base $base");
-        is($f->get_context('chr1', 4+$base, base => $base, rc => 1, coord => 'r'), 'CHH', "context 5 base $base rc/r");
-        is($f->get_context('chr2', 2+$base, base => $base, rc => 1, coord => 'f'), 'CHG', "context 6 base $base rc/f");
+
+    #    # out of bounds should return undef
+        ok(! defined $f->get_context('chr4', 1, rc => 1), "context edge case 1");
+        ok(! defined $f->get_context('chr4', 2, rc => 1), "context edge case 2");
+        ok(! defined $f->get_context('chr1', $chr1len, rc => 0), "context edge case 3");
+        ok(! defined $f->get_context('chr4', $chr4len, rc => 0), "context edge case 4");
     }
     
 }
