@@ -48,6 +48,58 @@ sub sequence_lengths {
 }
 
 #######################################################################
+# subseqs
+
+my $increment = 1000;
+
+has subseqs => (
+    traits    => ['Hash'],
+    is        => 'ro',
+    isa       => 'HashRef[Str]',
+    default   => sub { {} },
+    handles   => {
+        __get_subseq => 'get',
+        __set_subseq => 'set',
+    },
+);
+
+sub _set_subseq {
+    my ($self, $name, $seq) = @_;
+    $name = uc $name;
+    my $length = length $seq;
+    my $pos = 0;
+    while ($pos < $length){
+        my $subseq = substr $seq, $pos, ($increment + $pos >= $length ? ($length - $pos): $increment);
+        $self->__set_subseq("$name-$pos",$subseq);
+        $pos += $increment;
+    }
+}
+
+sub _get_subseq {
+    # start, end are 0-based
+    my ($self, $name, $start, $end) = @_;
+    $name = uc $name;
+    my $len = $end - $start + 1;
+
+    #say "name $name, start $start, end $end, len $len";
+
+    my @accum;
+
+    my $subseq_start; # the first coord of subseq retrieved
+
+    my $chunk_start = $start - $start % $increment; # first chunk which contains seq for substr
+    my $chunk_end   = $end - $end % $increment;     # last chunk which contains seq for substr
+    my $i = $chunk_start;
+    while ($i <= $chunk_end){
+        #say $i;
+        push @accum, $self->__get_subseq("$name-$i");
+        $i += $increment;
+    }
+
+    return substr join("",@accum), $start - $chunk_start, $len;
+}
+
+#######################################################################
 # get or set entire sequence
 
 has sequence => (
@@ -55,10 +107,13 @@ has sequence => (
     is        => 'ro',
     isa       => 'HashRef[Str]',
     default   => sub { {} },
+    handles   => {
+        __get_sequence => 'get',
+    },
 );
 
 sub _set_sequence { $_[0]->sequence()->{uc $_[1]} = $_[2]; }
-sub _get_sequence { $_[0]->sequence()->{uc $_[1]}; }
+sub _get_sequence { $_[0]->__get_sequence(uc $_[1]) }
 sub has_sequence { exists $_[0]->length()->{uc $_[1]}; }
 
 #######################################################################
@@ -141,6 +196,7 @@ sub BUILD{
         $self->_set_length($seq => $len);
         if ($self->slurp){
             $self->_set_sequence($seq => join '', @{$sequences{$seq}});
+            $self->_set_subseq($seq => join '', @{$sequences{$seq}});
         }
     }
 
@@ -157,7 +213,6 @@ sub _get_iter{
         croak "no such sequence $seq";
     }
     my $pos = $self->_get_location($seq);
-    
     # may need to share fh in the future if there are thousands of seqs in
     # fasta and calling make_iterators()
     open my $fh, '<', $self->filename;
@@ -214,12 +269,13 @@ sub get_pretty{
 # get_context
 
 # croak on non-c/non-t position
-# return undef when triplet falls off edge
+# return CHH when triplet falls off edge
 # otherwise return context CG, CHG, CHH
 sub get_context{
     my ($self, $seqid, $position, %opt) = @_;
-
     $seqid = uc $seqid;
+
+    #say join ",", $seqid, $position; 
 
     # extract options
     my $rc        = $opt{rc};
@@ -228,17 +284,18 @@ sub get_context{
 
     my ($start, $end) = $rc ? ($position - 2, $position) : ($position, $position + 2);
 
+    #say uc $self->get($seqid, $start, $end, %opt);
     my @split = split //, uc $self->get($seqid, $start, $end, %opt);
 
     if ($split[0] ne 'C' && $split[0] ne 'T'){
-        croak "get_context called on non-C/non-T position";
+        croak "get_context called on non-C/non-T position: " . join("", @split) . " (rc = $rc, base = $base, pos = $position, seq = $seqid)";
     }
 
     given (\@split){
-        when (@split > 1  && $_->[1] eq 'G'){ return 'CG'; }
+        when (@split >= 2 && $_->[1] eq 'G'){ return 'CG'; }
         when (@split == 3 && $_->[2] eq 'G'){ return 'CHG'; }
         when (@split == 3){ return 'CHH'; }
-        default { return; }
+        default { return 'CHH'; }
     }
 
 }
@@ -310,8 +367,9 @@ sub get{
     }
 
     if ($self->slurp){
-        my $full = $self->_get_sequence($seqid);
-        my $retrieved = substr $full, $left, $right-$left +1;
+        #my $retrieved = substr $self->_get_sequence($seqid), $left, $right-$left +1;
+        my $retrieved = $self->_get_subseq($seqid, $left, $right);
+        #warn $retrieved;
 
         if ($rc){
             $retrieved =~ tr/acgtACGT/tgcaTGCA/;
