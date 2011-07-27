@@ -18,20 +18,35 @@ my $logger = get_logger();
 END {close STDOUT}
 
 pod2usage(-verbose => 99,-sections => [qw/NAME SYNOPSIS OPTIONS/]) 
-if !$opt_scaffold || !$opt_input;
+if !$opt_scaffold || !$opt_left_reads;
 
 (my $prefix = $opt_scaffold) =~ s/\.\w+$//;
 $prefix=basename($prefix);
-(my $bowtie = $opt_input) =~ s/\.\w+$/.vs-scaffold_$prefix.bowtie/;
+(my $bowtie = $opt_left_reads) =~ s/\.\w+$/.vs-scaffold_$prefix.bowtie/;
 my $output = $opt_output // $bowtie . ".freq";
+my $log = "$bowtie.log";
 
-say $opt_input;
+say $opt_left_reads;
 say $bowtie;
 
-launch("bowtie $opt_scaffold $opt_input ?? -v 2 -B 1 --best",
-    expected => $bowtie,
-    dryrun => $opt_dry,
-);
+
+if (defined $opt_right_reads){
+    launch("bowtie $opt_scaffold -1 $opt_left_reads -2 $opt_right_reads ?? -v 2 -B 1 --best",
+        expected => $bowtie,
+        id => 'bowtie',
+        also => $log,
+        dryrun => $opt_dry,
+    );
+}
+else {
+    launch("bowtie $opt_scaffold $opt_left_reads ?? -v 2 -B 1 --best",
+        expected => $bowtie,
+        id => 'bowtie',
+        also => $log,
+        dryrun => $opt_dry,
+    );
+}
+
 launch(qq{perl -S parse_bowtie.pl -i "$opt_regex"  -r $opt_scaffold -o ?? -f $bowtie},
     expected => $output,
     dryrun => $opt_dry,
@@ -55,7 +70,12 @@ launch(qq{perl -S parse_bowtie.pl -i "$opt_regex"  -r $opt_scaffold -o ?? -f $bo
 
 =item  -n | --dry 
 
-=item <input>
+=item -1 <input> | --left-reads <input>
+
+=for Euclid
+    input.type:        readable
+
+=item -2 <input> | --right-reads <input>
 
 =for Euclid
     input.type:        readable
