@@ -48,58 +48,6 @@ sub sequence_lengths {
 }
 
 #######################################################################
-# subseqs
-
-my $increment = 1000;
-
-has subseqs => (
-    traits    => ['Hash'],
-    is        => 'ro',
-    isa       => 'HashRef[Str]',
-    default   => sub { {} },
-    handles   => {
-        __get_subseq => 'get',
-        __set_subseq => 'set',
-    },
-);
-
-sub _set_subseq {
-    my ($self, $name, $seq) = @_;
-    $name = uc $name;
-    my $length = length $seq;
-    my $pos = 0;
-    while ($pos < $length){
-        my $subseq = substr $seq, $pos, ($increment + $pos >= $length ? ($length - $pos): $increment);
-        $self->__set_subseq("$name-$pos",$subseq);
-        $pos += $increment;
-    }
-}
-
-sub _get_subseq {
-    # start, end are 0-based
-    my ($self, $name, $start, $end) = @_;
-    $name = uc $name;
-    my $len = $end - $start + 1;
-
-    #say "name $name, start $start, end $end, len $len";
-
-    my @accum;
-
-    my $subseq_start; # the first coord of subseq retrieved
-
-    my $chunk_start = $start - $start % $increment; # first chunk which contains seq for substr
-    my $chunk_end   = $end - $end % $increment;     # last chunk which contains seq for substr
-    my $i = $chunk_start;
-    while ($i <= $chunk_end){
-        #say $i;
-        push @accum, $self->__get_subseq("$name-$i");
-        $i += $increment;
-    }
-
-    return substr join("",@accum), $start - $chunk_start, $len;
-}
-
-#######################################################################
 # get or set entire sequence
 
 has sequence => (
@@ -107,13 +55,18 @@ has sequence => (
     is        => 'ro',
     isa       => 'HashRef[Str]',
     default   => sub { {} },
-    handles   => {
-        __get_sequence => 'get',
-    },
 );
 
-sub _set_sequence { $_[0]->sequence()->{uc $_[1]} = $_[2]; }
-sub _get_sequence { $_[0]->__get_sequence(uc $_[1]) }
+sub _set_sequence { $_[0]->sequence()->{uc $_[1]} = \$_[2]; }
+sub _get_sequence { ${ $_[0]->sequence()->{uc $_[1]} } }
+sub _get_sub_sequence {
+    # always base 0, forward coord, rc = 0
+    my ($self, $seqid, $left, $right) = @_;
+    my $ref = $self->sequence()->{uc $seqid};
+    return substr $$ref, $left, $right-$left +1;
+
+    #my $retrieved = substr $self->_get_sequence($seqid), $left, $right-$left +1;
+}
 sub has_sequence { exists $_[0]->length()->{uc $_[1]}; }
 
 #######################################################################
@@ -196,7 +149,6 @@ sub BUILD{
         $self->_set_length($seq => $len);
         if ($self->slurp){
             $self->_set_sequence($seq => join '', @{$sequences{$seq}});
-            $self->_set_subseq($seq => join '', @{$sequences{$seq}});
         }
     }
 
@@ -337,6 +289,7 @@ sub get{
         $start = $base;
     }
 
+    ### 
     # everything in base 0 coord now.
     $start -= $base;
     $end   -= $base;
@@ -346,6 +299,8 @@ sub get{
         if ($lastindex < $end){ $end = $lastindex; }
     }
 
+    ###
+    # error check
     if ($end < $start){
         croak "get: end ($end) < start ($start)?";
     }
@@ -356,6 +311,8 @@ sub get{
         croak "\$coord needs to be 'f' or 'r', case insensitive ";
     }
 
+    ###
+    # left/right are the 0-base, forward strand coordinates.
     my $left;
     my $right;
 
@@ -367,8 +324,8 @@ sub get{
     }
 
     if ($self->slurp){
+        my $retrieved = $self->_get_sub_sequence($seqid, $left, $right);
         #my $retrieved = substr $self->_get_sequence($seqid), $left, $right-$left +1;
-        my $retrieved = $self->_get_subseq($seqid, $left, $right);
         #warn $retrieved;
 
         if ($rc){
