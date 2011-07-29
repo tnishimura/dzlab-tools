@@ -235,7 +235,7 @@ sub get_context{
     #say join ",", $seqid, $position; 
 
     # extract options
-    my $rc        = $opt{rc};
+    my $rc        = $opt{rc} // 0;
     my $base      = $opt{base} // 1;
     $opt{lenient} = 1;
 
