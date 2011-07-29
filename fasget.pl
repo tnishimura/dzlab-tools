@@ -23,9 +23,13 @@ my $r = FastaReader->new(file => $opt_fasta, slurp => ! $opt_no_slurp);
 
 if (!defined $opt_sequence && ! defined $opt_range{start} && ! defined $opt_range{end}){
     my %lengths = $r->sequence_lengths;
+    
+    my $total = 0;
     for (sort keys %lengths){
         say "$_:\t" . $lengths{$_};
+        $total += $lengths{$_};
     }
+    say "total:\t" . $total; 
 }
 elsif (defined $opt_sequence && ! defined $opt_range{start} && ! defined $opt_range{end}){
     say $r->get_pretty($opt_sequence, undef, undef, rc    => $opt_reverse_compliment);
