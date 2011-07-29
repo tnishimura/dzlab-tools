@@ -48,29 +48,15 @@ while (my ($seq,$iter) = each %iterators) {
         BASE:
         for my $index (0 .. $#bases){
             my $base = uc $bases[$index];
-            #print $base;
-            my $dometh = rand(1) < $bs_rate;
+            if ($base eq 'C'){
+                my $context = $fr->get_context($seq, $position, base => 1);
 
-            my $reverse = $base eq 'C' ? 0 : $base eq 'G' ? 1 : undef;
-
-            if (defined $reverse){
-
-                my $context = $fr->get_context($seq, $position, base => 1, rc => $reverse);
-                #my $context = 'C';
-
-                if ($base eq 'C' && $dometh){
+                if (rand(1) < $bs_rate){
                     say $coord_fh join "\t", $seq, "C", $context, $position, $position, qw/. + . ./;
                 }
-                elsif ($base eq 'C' && ! $dometh){
+                else {
                     say $coord_fh join "\t", $seq, "T", $context, $position, $position, qw/. + . ./;
                     $bases[$index] = 'T';
-                }
-                elsif ($base eq 'G' && $dometh){
-                    say $coord_fh join "\t", $seq, "C", $context, $position, $position, qw/. - . ./;
-                }
-                elsif ($base eq 'G' && ! $dometh){
-                    say $coord_fh join "\t", $seq, "T", $context, $position, $position, qw/. - . ./;
-                    $bases[$index] = 'A';
                 }
             }
 
