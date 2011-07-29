@@ -17,18 +17,24 @@ END {close STDOUT}
 # read in genome, bisulte treat at random rate,
 # shear into pieces and spit out fastq
 
-my $num_reads   = 10_000;
-my $read_length = 100;
-my $out_file;
-
 my $result = GetOptions (
-    "num-reads|n=i"   => \$num_reads,
-    "read-length|l=i" => \$read_length,
-    "out-file|o=s"    => \$out_file,
+    "num-reads|n=i"   => \(my $num_reads = 10_000),
+    "read-length|l=i" => \(my $read_length = 100),
+    "out-file|o=s"    => \(my $out_file),
+    "tag|t=s"         => \(my $tag),
+    "no-rc|f"         => \(my $norc),
+    "reverse-coordinate" => \(my $reverse_coordinates)
 );
 
+if ($reverse_coordinates && ! $norc){
+    say "--reverse-coordinate only really makes sense with --no-rc, quitting";
+    exit 1;
+}
+
 unless (defined $out_file && @ARGV == 1 && -f $ARGV[0]){
-    say "usage: $0 [-n #numreads] [-l read_length] [-o out.fastq] input";
+    say "usage: $0 [--reverse-coordinates] [--no-rc] [-n #numreads] [-l read_length] [-o out.fastq] input";
+    say "  --reverse-coordinates flips the coordinates and strand symbol in output. use for rc genomes";
+    say "  --no-rc means don't shear the rc strand. use for rc genomes";
     exit 1;
 }
 
@@ -52,9 +58,17 @@ for (1 .. $num_reads){
     my $seq   = rmultinomial(@$multargs);
     my $start = int(rand($seqlen{$seq}-$read_length))+1;
     my $stop  = $start + $read_length -1;
-    my $rc   = rand() > .50;
-    say "\@$seq:$start:$stop:" . ($rc ? '-' : '+');
-    say $fr->get($seq, $start, $stop, base => 1, rc => $rc);
+    my $get_rc   = $norc ? 0 : rand() > .50;
+    my $strand_label = ($norc && $reverse_coordinates || !$reverse_coordinates && $get_rc) ? '-' : '+';
+    
+    my ($real_start, $real_stop) = ($start, $stop);
+    if ($reverse_coordinates){
+        $real_start = ($seqlen{$seq} - $stop  + 1); # flip start/stop
+        $real_stop  = ($seqlen{$seq} - $start + 1);
+    }
+
+    say "\@$seq:$real_start:$real_stop:$strand_label";
+    say $fr->get($seq, $start, $stop, base => 1, rc => $get_rc);
     say "+";
     say $quality;
 } 
