@@ -14,6 +14,8 @@ use Pod::Usage;
 pod2usage(-verbose => 99,-sections => [qw/NAME SYNOPSIS OPTIONS/]) 
 if ($opt_help || ($opt_coord ne 'f' && $opt_coord ne 'r'));
 
+$opt_reverse_compliment //= 0;
+
 if ($opt_output ne '-' ){
     open my $fh, '>', $opt_output;
     select $fh; 
@@ -82,9 +84,12 @@ Coordinate. Can be 'f' or 'r'. Default 'f'.
 =for Euclid
     coordinate.default:     'f'
 
-=item -rc | --reverse-compliment
+=item -[no-]rc | --reverse-compliment
 
 Whether to reverse-complement chunk. Default off.
+
+=for Euclid
+    false: -no-rc
 
 =item  -b <base> | --base <base>
 
