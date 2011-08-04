@@ -41,10 +41,10 @@ has length => (
 );
 
 sub _set_length { $_[0]->length()->{uc $_[1]} = $_[2]; }
-sub _get_length { $_[0]->length()->{uc $_[1]}; }
+sub get_length { $_[0]->length()->{uc $_[1]}; }
 sub sequence_lengths { 
     my $self = shift;
-    return map { $_ => $self->_get_length($_); } $self->sequence_list;
+    return map { $_ => $self->get_length($_); } $self->sequence_list;
 }
 
 #######################################################################
@@ -57,8 +57,16 @@ has sequence => (
     default   => sub { {} },
 );
 
-sub _set_sequence { $_[0]->sequence()->{uc $_[1]} = $_[2]; }
-sub _get_sequence { $_[0]->sequence()->{uc $_[1]}; }
+sub _set_sequence { $_[0]->sequence()->{uc $_[1]} = \$_[2]; }
+sub _get_sequence { ${ $_[0]->sequence()->{uc $_[1]} } }
+sub _get_sub_sequence {
+    # always base 0, forward coord, rc = 0
+    my ($self, $seqid, $left, $right) = @_;
+    my $ref = $self->sequence()->{uc $seqid};
+    return substr $$ref, $left, $right-$left +1;
+
+    #my $retrieved = substr $self->_get_sequence($seqid), $left, $right-$left +1;
+}
 sub has_sequence { exists $_[0]->length()->{uc $_[1]}; }
 
 #######################################################################
@@ -97,6 +105,9 @@ has header_transform => (
     init_arg => 'ht',
     documentation => "sub which messes with header via \$_",
 );
+
+#######################################################################
+# Constructor
 
 sub BUILD{
     my ($self) = @_;
@@ -144,6 +155,9 @@ sub BUILD{
     $self->filehandle($fh);
 }
 
+#######################################################################
+# iterator
+
 sub _get_iter{
     my ($self, $seq) = @_;
     $seq = uc $seq;
@@ -151,7 +165,6 @@ sub _get_iter{
         croak "no such sequence $seq";
     }
     my $pos = $self->_get_location($seq);
-    
     # may need to share fh in the future if there are thousands of seqs in
     # fasta and calling make_iterators()
     open my $fh, '<', $self->filename;
@@ -184,12 +197,20 @@ sub make_iterators{
     return map { $_ => $self->_get_iter($_) } $self->sequence_list();
 }
 
+#######################################################################
+# get_pretty
+
 sub get_pretty{
     my ($self, $seqid, $start, $end, %opts) = @_;
 
     my $sequence = $self->get($seqid, $start, $end, %opts);
 
-    my @accum = (">${seqid}_${start}_${end}");
+    my @accum = 
+    defined $start && defined $end ? (">${seqid}_${start}_${end}") :
+    defined $start ?  (">${seqid}_${start}_end") :
+    defined $end ?  (">${seqid}_start_${end}") :
+    (">${seqid}");
+
     my $length = length $sequence;
 
     my $pos = 0;
@@ -201,22 +222,43 @@ sub get_pretty{
     return join "\n", @accum;
 }
 
+#######################################################################
+# get_context
+
+# croak on non-c/non-t position
+# return CHH when triplet falls off edge
+# otherwise return context CG, CHG, CHH
 sub get_context{
     my ($self, $seqid, $position, %opt) = @_;
-    my ($start, $end) = 
-    ($opt{rc} && (! exists $opt{coord} || $opt{coord} eq 'f') || 
-        !$opt{rc} && (exists $opt{coord} && $opt{coord} eq 'r') )
-    ? ($position - 2, $position) 
-    : ($position, $position + 2);
+    $seqid = uc $seqid;
 
-    my $triple = uc $self->get($seqid, $start, $end, %opt);
+    #say join ",", $seqid, $position; 
 
-    given ([split //, $triple]){
-        when ($_->[1] eq 'G'){ return 'CG'; }
-        when ($_->[2] eq 'G'){ return 'CHG'; }
+    # extract options
+    my $rc        = $opt{rc} // 0;
+    my $base      = $opt{base} // 1;
+    $opt{lenient} = 1;
+
+    my ($start, $end) = $rc ? ($position - 2, $position) : ($position, $position + 2);
+
+    #say uc $self->get($seqid, $start, $end, %opt);
+    my @split = split //, uc $self->get($seqid, $start, $end, %opt);
+
+    if ($split[0] ne 'C' && $split[0] ne 'T'){
+        croak "get_context called on non-C/non-T position: " . join("", @split) . " (rc = $rc, base = $base, pos = $position, seq = $seqid)";
+    }
+
+    given (\@split){
+        when (@split >= 2 && $_->[1] eq 'G'){ return 'CG'; }
+        when (@split == 3 && $_->[2] eq 'G'){ return 'CHG'; }
+        when (@split == 3){ return 'CHH'; }
         default { return 'CHH'; }
     }
+
 }
+
+#######################################################################
+# get - main sequence retrieval function
 
 # coord = 'f' if coords rel to 5', 'r' if 3'
 # base  = 1 or 0
@@ -228,22 +270,16 @@ sub get{
     my $base      = $opt{base} // 1;
     $seqid = uc $seqid;
 
-    my $totlen = $self->_get_length($seqid);
+    my $totlen = $self->get_length($seqid);
     my $lastindex = $totlen - 1;
 
     if (! defined $start && ! defined $end ){
-        if ($self->slurp()){
-            my $whole = $self->_get_sequence($seqid);
-            if ($rc){
-                $whole =~ tr/acgtACGT/tgcaTGCA/;
-                $whole = reverse $whole;
-            }
-            return $whole;
+        my $whole = $self->slurp() ? $self->_get_sequence($seqid) : $self->get($seqid, 1, $totlen);
+        if ($rc){
+            $whole =~ tr/acgtACGT/tgcaTGCA/;
+            $whole = reverse $whole;
         }
-        else{
-            return $self->get($seqid, 1, $totlen);
-            #croak "whole sequence get only supported with slurp()ing on";
-        }
+        return $whole;
     }
     elsif (! defined $end){
         $end = $base + $lastindex;
@@ -252,10 +288,18 @@ sub get{
         $start = $base;
     }
 
+    ### 
     # everything in base 0 coord now.
     $start -= $base;
     $end   -= $base;
 
+    if ($opt{lenient}){
+        if ($start < 0){ $start = 0; }
+        if ($lastindex < $end){ $end = $lastindex; }
+    }
+
+    ###
+    # error check
     if ($end < $start){
         croak "get: end ($end) < start ($start)?";
     }
@@ -266,6 +310,8 @@ sub get{
         croak "\$coord needs to be 'f' or 'r', case insensitive ";
     }
 
+    ###
+    # left/right are the 0-base, forward strand coordinates.
     my $left;
     my $right;
 
@@ -277,8 +323,9 @@ sub get{
     }
 
     if ($self->slurp){
-        my $full = $self->_get_sequence($seqid);
-        my $retrieved = substr $full, $left, $right-$left +1;
+        my $retrieved = $self->_get_sub_sequence($seqid, $left, $right);
+        #my $retrieved = substr $self->_get_sequence($seqid), $left, $right-$left +1;
+        #warn $retrieved;
 
         if ($rc){
             $retrieved =~ tr/acgtACGT/tgcaTGCA/;
@@ -361,6 +408,28 @@ sub get{
     }
 }
 
+#######################################################################
+# Utilities
+
+
+sub rc_file{
+    my ($in, $out) = @_;
+    my $f = FastaReader->new(file => $in, slurp => 0);
+    my $outfh;
+    if (ref $out eq 'GLOB'){
+        $outfh = $out;
+    }
+    else {
+        open $outfh, '>', $out;
+    }
+
+    for my $seq ($f->sequence_list()) {
+        say $outfh $f->get_pretty($seq,undef,undef,rc => 1);
+    }
+    if (! ref $out eq 'GLOB'){
+        close $outfh;
+    }
+}
 
 no Moose;
 __PACKAGE__->meta->make_immutable;
@@ -396,6 +465,10 @@ Lazy Fasta reader.
 
 returns hash of sequence names to lengths.
 
+=head2 get_length(SEQNAME)
+
+returns length of specific sequence.
+
 =head2 sequence_list()
 
 returns list of sequence names, sorted.
@@ -418,6 +491,12 @@ Default is coord => 'f', base => 1, rc => 0 (if coord => 'f') or 1 (if coord =>
 
 Exactly the same as get() except it returns a FASTA-formated string (with
 header line and line breaks), suitable for printing.
+
+=head2 get_context(SEQNAME, POS, base => 0 | 1, rc => 0 | 1)
+
+Get the context at position POS.  Return 'CG', 'CHH', or 'CHG', or undef when
+POS is an edge case and falls off edge without proper context. Croak when POS
+out of bounds.
 
 =cut
 

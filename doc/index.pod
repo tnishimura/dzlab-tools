@@ -68,9 +68,17 @@ distros), put this in your ~/.profile or ~/.bash_profile:
 
 You may have to log out and back in to see the effects of this. 
 
-=head2 ChangeLog
+=head2 ChangeLog (incomplete)
 
 =over
+
+=item 1.2.03 (2011-07-28)
+
+=over 2
+
+=item * L<ends_analysis.pl> - added --no-skip flag, to print out genes even if nothing mapped to it. 
+
+=back
 
 =item 1.1.8 (2011-07-18)
 

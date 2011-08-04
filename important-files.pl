@@ -14,7 +14,9 @@ my $windows;
 my $singlec;
 my $inter;
 my $divorce;
+my $copy;
 my $result = GetOptions (
+    "copy|c=s" => \$copy,
     "single-c|s" => \$singlec,
     "windows|w"  => \$windows,
     "intermidiate|i" => \$inter,
@@ -67,6 +69,7 @@ find( sub {
         }
     }, @dirs) if @dirs;
 
+
 my $total_size = 0;
 for my $file (@files, sort keys %accum) {
     my ($dev,$ino,$mode,$nlink,$uid,$gid,$rdev,$size, $atime,$mtime,$ctime,$blksize,$blocks) = stat($file);
@@ -77,3 +80,10 @@ for my $file (@files, sort keys %accum) {
 $total_size /= 1024*1024;
 say STDERR "Total size: $total_size MB";
 
+if (defined $copy && -d $copy){
+    open my $rsync, '|-', "rsync -avWP --files-from=- . $copy";
+    for my $file (@files, sort keys %accum) {
+        say $rsync $file;
+    }
+    close $rsync;
+}

@@ -2,7 +2,7 @@
 use strict;
 use warnings;
 use Data::Dumper;
-use feature 'say';
+use 5.010_000;
 use autodie;
 use FindBin;
 use lib "$FindBin::Bin/lib";
@@ -51,7 +51,7 @@ if ($has_progressbar){
     my $dbh = DBI->connect("dbi:SQLite:dbname=$filename","","", {RaiseError => 1, AutoCommit => 0});
     $dbh->do("PRAGMA journal_mode = OFF");
     $dbh->do("PRAGMA cache_size = 80000");
-    $dbh->do("create table methyl (seq, coord integer, context integer, c integer default 0, t integer default 0)");
+    $dbh->do("create table methyl (seq, coord integer, context, c integer default 0, t integer default 0)");
     $dbh->do("create index idx on methyl (seq,coord)");
 
     my $checker = $dbh->prepare("select count(seq),context from methyl where seq=? and coord=?");
@@ -183,10 +183,12 @@ if ($has_progressbar){
         # Grab sequences
 
         my ($read_seq, $target_seq);
-        if ($split[2] =~ /([ATCGN]+)$/){
+        #if ($split[2] =~ /([ATCGN]+)$/){
+        if ($split[2] =~ /([A-Z]+)$/){
             $read_seq= $1;
         }
-        if ($split[8] =~ /target=([ATCGN]+)$/){
+        #if ($split[8] =~ /target=([ATCGN]+)$/){
+        if ($split[8] =~ /target=([A-Z]+)$/){
             $target_seq = $1;
         }
         if (!  defined $read_seq || ! defined $target_seq){
@@ -201,7 +203,7 @@ if ($has_progressbar){
         # check length
 
         if (length($read_seq) != ($end-$start+1) || length $target_seq != 4 + length $read_seq){
-            die "read size mismatch";
+            die "read size mismatch\n$read_seq\n$target_seq";
         }
         else{
             $stats{$seq}{bp} += length($read_seq);
@@ -218,42 +220,31 @@ if ($has_progressbar){
         READ:
         for (my $strand_coord = $start; $strand_coord <= $end; ++$strand_coord){
             my $i = $strand_coord - $start + 2;
+            my $abs_coord = $reverse ? $sequence_lengths->{$split[0]} - $strand_coord + 1 : $strand_coord;
+            my $context;
 
+            # first position
             my $methylation;
             if ($target_bases[$i] eq 'C'){
-                if ($read_bases[$i] eq 'C'){
-                    $methylation = 1;
-                    if ($filtered){
-                        ++$filtered_count->{'c'};
-                    } else{
-                        ++$unfiltered_count->{'c'};
-                    }
-                }
-                elsif ($read_bases[$i] eq 'T'){
-                    $methylation = 0;
-                    if ($filtered){
-                        ++$filtered_count->{'t'};
-                    } else{
-                        ++$unfiltered_count->{'t'};
-                    }
+                given ($read_bases[$i]){
+                    when ('C'){ $methylation = 1; }
+                    when ('T'){ $methylation = 0; }
+                    default { next READ; }
                 }
             }
             else{
                 next READ;
             }
 
-            my $abs_coord = $reverse ? $sequence_lengths->{$split[0]} - $strand_coord + 1 : $strand_coord;
-
-            my $context;
+            # second/third position
 
             if ($opt_dinucleotide){
-                my $next = $target_bases[$i + 1];
-                if ( $next eq 'G'){ $context = $methylation ? 'cg' : 'tg'; }
-                elsif ( $next eq 'A'){ $context = $methylation ? 'ca' : 'ta'; }
-                elsif ( $next eq 'C'){ $context = $methylation ? 'cc' : 'tc'; }
-                elsif ( $next eq 'T'){ $context = $methylation ? 'ct' : 'tt'; }
-                else {
-                    next READ;
+                given ($target_bases[$i+1]){
+                    when ('G'){ $context = $methylation ? 'cg' : 'tg'; }
+                    when ('A'){ $context = $methylation ? 'ca' : 'ta'; }
+                    when ('C'){ $context = $methylation ? 'cc' : 'tc'; }
+                    when ('T'){ $context = $methylation ? 'ct' : 'tt'; }
+                    default { next READ; }
                 }
             }
             else{
@@ -270,8 +261,10 @@ if ($has_progressbar){
 
             if ($filtered){
                 ++$filtered_count->{$context};
+                ++$filtered_count->{$methylation ? 'c' : 't'};
             } else{
                 ++$unfiltered_count->{$context};
+                ++$filtered_count->{$methylation ? 'c' : 't'};
             }
 
             record_methylation($seq,$abs_coord,$context);
@@ -386,7 +379,8 @@ if ($has_progressbar){
 
 my $fr = FastaReader->new(file => $opt_reference, normalize => 0);
 
-my $seqlengths = $fr->length;
+#my $seqlengths = $fr->length;
+my $seqlengths = {$fr->sequence_lengths};
 
 #$logger->info(Dumper $seqlengths);
 

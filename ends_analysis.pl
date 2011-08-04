@@ -61,6 +61,7 @@ my $result = GetOptions(
     'output|o=s'         => \$output,
     'debug'              => \$debug,
     'zero'               => \$zero_flag_region,
+    'no-skip'            => \(my $noskip),
     'verbose|v'          => sub { use diagnostics; },
     'quiet|q'            => sub { no warnings; },
     'help|h'             => sub { pod2usage( -verbose => 1 ); },
@@ -117,23 +118,34 @@ my %flag_parameters = (
 #           [flag_start, flag_end, strand, attributes, 
 #            original_start, original_end]}}
 # attribute = locus id
+my $index_annotation = index_gff_annotation( $gff_annotation, $attribute_id );
+
 my $annotation = offset_gff_annotation(
-    index_gff_annotation( $gff_annotation, $attribute_id ),
+    $index_annotation,
     $stop_flag_dispatch->{$stop_flag},
     \%flag_parameters
 );
 
 #say STDERR Dumper $annotation;
+say STDERR scalar map { values %$_ } values %$index_annotation;
 
 #######################################################################
 # locus->coord-matrix lookup 
 
 my %gene_info;
+my %gene_seen;
+
+while (my ($seqname,$start2coords) = each %$index_annotation) {
+    while (my ($start,$coords) = each %$start2coords) {
+        $gene_seen{$coords->[3]} = 0;
+    }
+}
 while (my ($seqname,$start2coords) = each %$annotation) {
     while (my ($start,$coords) = each %$start2coords) {
         $gene_info{$coords->[3]} = $coords;
     }
 }
+
 
 
 #say STDERR Dumper $annotation;
@@ -198,6 +210,7 @@ while ( my $gff_line = $gff_iterator->() ) {
 
     # Step 7: Save score into its appropriate bin, record its strand
     push @{ $genes{ $locus->[3] }->{scores}[$index] }, $score;
+    $gene_seen{$locus->[3]} = 1;
 }
 
 #say STDERR Dumper \%genes;
@@ -246,13 +259,21 @@ sub make_scores_iterator {
     my ($genes_ref) = @_;
     #die Dumper $genes_ref;
     my %local_genes = %$genes_ref;
-    my @genes_names = sort keys %local_genes;
+
+    my @genes_names = $noskip ? sort keys %gene_seen : sort keys %local_genes;
 
     return sub {
         my ($num_bins) = @_;
 
         my $gene = shift @genes_names || return;
         my @scores = ();
+
+        # if gene was not seen AND there's no entry in gene_info,
+        # it means it didn't get past offset_annotation b/c it didn't lead to 
+        # proper flag start/end.  Else, it can go forward even if it wasn't seen.
+        if ($noskip && ! $gene_seen{$gene} && ! exists $gene_info{$gene}){
+            return ($gene, [('na') x $num_bins]);
+        }
 
         #say Dumper $gene_info{$gene};
         my $gene_start = $gene_info{$gene}[4];
@@ -402,7 +423,7 @@ sub offset_gff_annotation {
 
     my $offset_gff_annotation = {};
 
-    return unless $gff_annotation and $flag_parser;
+    return unless ($gff_annotation and $flag_parser);
 
     for my $seqid ( sort keys %{$gff_annotation} ) {
 
@@ -599,6 +620,8 @@ __END__
      --zero           If a bin has no scores mapping to it, but it is 
                       valid for analysis according to stop flag, output 
                       0 instead of 'na'.
+     --no-skip        create an entry for gene even if there was nothing
+                      found.
  -o, --output         filename to write results to (defaults to STDOUT)
  -v, --verbose        output perl's diagnostic and warning messages
  -q, --quiet          supress perl's diagnostic and warning messages

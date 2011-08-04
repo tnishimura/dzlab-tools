@@ -15,8 +15,12 @@ sub rc{
 }
 
 for my $slurp (0, 1) {
+#for my $slurp (0) {
     my $f = FastaReader->new(file => 't/test.fasta', ht => sub { s/>(\w+)/$1/; return $_ }, slurp => $slurp );
     my %lengths = $f->sequence_lengths();
+    my $chr1len = $f->get_length("chr1");
+    my $chr4len = $f->get_length("chr4");
+    my $chrmlen = $f->get_length("chrm");
 
     #######################################################################
     # Basics
@@ -36,12 +40,14 @@ for my $slurp (0, 1) {
     #######################################################################
     # Get whole
     
+    say Dumper \%lengths;
     while (my ($seq,$len) = each %lengths) {
         is(length($f->get($seq,undef, undef)), $len, "whole seq length for $seq");
         if ($slurp){
             is($f->get($seq, 1, $lengths{$seq}, coord => 'f' , base => 1) , $f->get($seq) , "get($seq) whole implied vs get($seq) whole explicit");
         }
     }
+    is(substr($f->get('chr1', undef, undef, coord => 'f', base => 1,rc => 1),0, 10), rc('TTTTAGATGT'), "get whole implicit rc");
 
     #######################################################################
     # Subseq
@@ -50,6 +56,17 @@ for my $slurp (0, 1) {
     is($f->get('CHr1' , 11 , 20 , coord => 'f' , base => 1) , 'TAAACCCTAA' , "base 1 forward 11-20 (slurp=$slurp)");
     is($f->get('ChR1' , 0  , 9  , coord => 'f' , base => 0) , 'CCCTAAACCC' , "base 0 forward 0-9 (slurp=$slurp)");
     is($f->get('chr1' , 10 , 19 , coord => 'f' , base => 0) , 'TAAACCCTAA' , "base 0 forward 10-19 (slurp=$slurp)");
+
+    for my $base (0,1){
+        is($f->get('CHRm' , 1028-$base, 1037 -$base, coord => 'f' , base => 1-$base) , 'ACACCGTTTT' , "base $base forward beyond 1000 (slurp=$slurp)");
+        is($f->get('CHrm' , 1028-$base, 1037 -$base, coord => 'f' , rc => 1,base => 1-$base) , rc('ACACCGTTTT') , "base $base forward beyond 1000 rc (slurp=$slurp)");
+        is($f->get('CHrm' , $chrmlen-9-$base, $chrmlen-$base, coord => 'r' , rc => 0,base => 1-$base) , 'GGATCCGTTC', "base $base reverse beyond 1000 (slurp=$slurp)");
+        is($f->get('CHrm' , $chrmlen-9-$base, $chrmlen-$base, coord => 'r' , rc => 1,base => 1-$base) , rc('GGATCCGTTC') , "base $base reverse beyond 1000 rc (slurp=$slurp)");
+    }
+    
+    is($f->get('CHrm' , 948, 1026, coord => 'f' , rc => 0,base => 0) , 
+        'AAGTGAGCTCACTAGCTGCTTGTTGTCTTGTAGAGTAGAAGACTTATAGATTAAAATTCTCCAACATATAGATGTCCTT', 
+        "base 0 across increment(slurp=$slurp)");
 
     is($f->get('CHR1' , 1  , 10 , coord => 'f' , rc => 1, base => 1) , rc('CCCTAAACCC') , "base 1 forward rc 1-10 (slurp=$slurp)");
     is($f->get('CHr1' , 11 , 20 , coord => 'f' , rc => 1, base => 1) , rc('TAAACCCTAA') , "base 1 forward rc 11-20 (slurp=$slurp)");
@@ -66,7 +83,6 @@ for my $slurp (0, 1) {
     is($f->get('CHr1' , 0  , 9  , coord => 'r' , rc => 0, base => 0) , 'TTTTAGATGT', "base 0 reverse 1-10 (slurp=$slurp)");
     is($f->get('cHR1' , 10 , 19 , coord => 'r' , rc => 0, base => 0) , 'AAAAAAGTAT', "base 0 reverse 11-20 (slurp=$slurp)");
 
-    my $chr1len = $lengths{chr1};
     is($f->get('CHR1' , 1  , 1 , coord => 'f' , base => 1) , 'C' , "base 1 forward 1-1 (slurp=$slurp)");
     is($f->get('CHR1' , $chr1len, $chr1len, coord => 'f' , base => 1) , 'T' , "base 1 forward last-last (slurp=$slurp)");
 
@@ -79,15 +95,27 @@ for my $slurp (0, 1) {
     is($f->get('cHr1' , $chr1len - 4, undef, coord => 'f' , base => 1) , 'GATGT' , "base 1 forward last ten with undef end(slurp=$slurp)");
 
     #######################################################################
-    # contexts
+    # lenient
+
+    is($f->get('CHR1' , 0  , 10 , coord => 'f' , base => 1, lenient => 1) , 'CCCTAAACCC' , "lenient base 1 forward 1-10 (slurp=$slurp)");
+    is($f->get('ChR1' , -10  , 10 , coord => 'r' , base => 1, lenient => 1) , rc('TTTTAGATGT') , "lenient base 1 reverse rc 1-10 (slurp=$slurp)");
+    is($f->get('cHr1' , $chr1len - 9, $chr1len + 1, coord => 'f' , base => 1,lenient => 1) , 'TTTTAGATGT' , "lenient base 1 forward last ten (slurp=$slurp)");
+
+    #######################################################################
+    # death
+    #is($f->get('CHR1' , 0  , 0 , coord => 'f' , base => 1, lenient => 1) , 'CCCTAAACCC' , "lenient base 1 forward 1-10 (slurp=$slurp)");
     
     for my $base (0,1){
         is($f->get_context('chr1', 2+$base, base => $base, rc => 0), 'CHH', "context 1 base $base");
         is($f->get_context('chr1', 7+$base, base => $base, rc => 0), 'CHH', "context 2 base $base");
         is($f->get_context('chr2', 474+$base, base => $base, rc => 0), 'CG', "context 3 base $base");
         is($f->get_context('chr1', 160+$base, base => $base, rc => 0), 'CG', "context 4 base $base");
-        is($f->get_context('chr1', 4+$base, base => $base, rc => 1, coord => 'r'), 'CHH', "context 5 base $base rc/r");
-        is($f->get_context('chr2', 2+$base, base => $base, rc => 1, coord => 'f'), 'CHG', "context 6 base $base rc/f");
+
+        # out of bounds should return CHH
+        is($f->get_context('chr4', 1, rc => 1),'CHH', "context edge case 1");
+        is($f->get_context('chr4', 2, rc => 1),'CHH', "context edge case 2");
+        is($f->get_context('chr1', $chr1len, rc => 0),'CHH', "context edge case 3");
+        is($f->get_context('chr4', $chr4len, rc => 0),'CHH', "context edge case 4");
     }
     
 }
@@ -160,20 +188,20 @@ CACGGTTAATAATATCAGCCCAAGTATTAATAACACGTCCTTGACTATCAACTACTGATTGGTTGAAATTGAAACCATT
 TAGGTTGAAAGCCATAGTACTAATACCTAAAGCAGTAAACCAAATACCTACTACCGGCCAAGCCGCTAAGAAGAAATGT
 AAAGAACGAGAATTGTTGAAACTAGCATATTGGAAAATCAATCGGCCAAAATAACCGTGAGCAGCTACAATGTTGTAAG
 >chrm
-GGATCCGTTCGAAACAGGTTAGCCTACTATAATATAAGGATTGGATTCTAATAAGTTCGAAACAGGTTAGCCTTAGCCT
-ACTATAGGATTAGATCTTTCTTATCAACCTACTAACTTCTTCCTTGTTGGGATGAGAAACCCTTTTGCAACCAAGCGTG
-CTTTGAGTTTGTCAAGGGACCCATCTGCATTCAGTTTCACTCTGAAAACCCATTTACAACCGAGAAGATTCATGTCAGG
-TGATGCGGGAACTAAGTCCCAAGTGTGATTCTGTGTTAATGCCGACATCTCTTCTTGCATAGCTTGTCTCCATCCTGGG
-AGGCAGACGTAATGGTTTTTGGTTCAGAGGGAGTGTATTTTTGTGTAAACAGGTTGTAACGAGGATTAGGCTTGCGAAT
-ACCATCCTTTGCCCGAGTGATCATATGATGTCTATTAGGTGAAAGTAGCTCAGGAGCAGCTGTCCCAACATCAAAAAAG
-GTACCGCTGTCGCCAATAGGAACAGGATCTGAGCCTGCCGTACGCACAGGACAGTCTCTTTCTGATGTGGTAGCAGTTC
-CAGGAGCAATCGCAGAGACAATTGAAGGATCTGCAGATTCGCAATCAGAGCCTGTGAAACCGGGAAGATGTCGAGATAG
-CAGGAGAAGAATTAGCAGTATGTGAGTGCGGAAGCAGAGTGGAGGATCGAGGGACCTGTGAAGGTGTGATAAAGGAACT
-GTCTGTTGAAACAGAAGGGACATATGAAGGTTTAGAACCAAGCTGCCAAGCACGAAGCAGAGAACTTGGATACGGTGGG
-ATGAGATGGTGATAACAGTCCTGAAAACGAAAGACTAGAGCTCTTGCCCAACTGACAGGCTTCACAAACAGAAAGATCC
-CTTTTATTAATAACTATAGCTTTACTAGTCTTGAGTTGTTGGAGAACTTGAGGATTTGGATGCCCAAGCCTATAATGCC
-AAGTGAGCTCACTAGCTGCTTGTTGTCTTGTAGAGTAGAAGACTTATAGATTAAAATTCTCCAACATATAGATGTCCTT
-ACACCGTTTTCCTTTGCTCAGCAGGCTCCGTGTTTGCTTGTCCTTTATGCATACTTCGTTAGCATCAAACTCAAAGAAG
+GGATCCGTTCGAAACAGGTTAGCCTACTATAATATAAGGATTGGATTCTAATAAGTTCGAAACAGGTTAGCCTTAGCCT 0
+ACTATAGGATTAGATCTTTCTTATCAACCTACTAACTTCTTCCTTGTTGGGATGAGAAACCCTTTTGCAACCAAGCGTG 79
+CTTTGAGTTTGTCAAGGGACCCATCTGCATTCAGTTTCACTCTGAAAACCCATTTACAACCGAGAAGATTCATGTCAGG 158
+TGATGCGGGAACTAAGTCCCAAGTGTGATTCTGTGTTAATGCCGACATCTCTTCTTGCATAGCTTGTCTCCATCCTGGG 237
+AGGCAGACGTAATGGTTTTTGGTTCAGAGGGAGTGTATTTTTGTGTAAACAGGTTGTAACGAGGATTAGGCTTGCGAAT 316
+ACCATCCTTTGCCCGAGTGATCATATGATGTCTATTAGGTGAAAGTAGCTCAGGAGCAGCTGTCCCAACATCAAAAAAG 395
+GTACCGCTGTCGCCAATAGGAACAGGATCTGAGCCTGCCGTACGCACAGGACAGTCTCTTTCTGATGTGGTAGCAGTTC 474
+CAGGAGCAATCGCAGAGACAATTGAAGGATCTGCAGATTCGCAATCAGAGCCTGTGAAACCGGGAAGATGTCGAGATAG 553
+CAGGAGAAGAATTAGCAGTATGTGAGTGCGGAAGCAGAGTGGAGGATCGAGGGACCTGTGAAGGTGTGATAAAGGAACT 632
+GTCTGTTGAAACAGAAGGGACATATGAAGGTTTAGAACCAAGCTGCCAAGCACGAAGCAGAGAACTTGGATACGGTGGG 711
+ATGAGATGGTGATAACAGTCCTGAAAACGAAAGACTAGAGCTCTTGCCCAACTGACAGGCTTCACAAACAGAAAGATCC 790
+CTTTTATTAATAACTATAGCTTTACTAGTCTTGAGTTGTTGGAGAACTTGAGGATTTGGATGCCCAAGCCTATAATGCC 869
+AAGTGAGCTCACTAGCTGCTTGTTGTCTTGTAGAGTAGAAGACTTATAGATTAAAATTCTCCAACATATAGATGTCCTT 948
+ACACCGTTTTCCTTTGCTCAGCAGGCTCCGTGTTTGCTTGTCCTTTATGCATACTTCGTTAGCATCAAACTCAAAGAAG 1027
 CATGGATAAATCATCACAAAGTTTGGACACAGAGAGAAGAGACTTAGTTATGAAAGGACAAACAAGAACTTCATTTAAT
 GGTAAACTACCTGATGAGCTTGGTAGATTGGTAGATCCAACATGAGTGATGGGCAAGAAGGCTCCATCCCCAACCATCA
 CACTGTCGGATCCCACATAAGGTTGTGACTGTTGGAGGTGATGAGCAGAATTGGTAATGTGAGAGGAGGCACCAGAATC
