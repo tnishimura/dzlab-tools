@@ -271,6 +271,33 @@ else{
 launch("perl -S collect_align_stats.pl $eland_left_post $eland_right_post $base_gff $opt_organism $opt_batch > ??", expected =>  $base_log, dryrun => $dry);
 
 #######################################################################
+# discountMethylation.pl
+
+if ($opt_new_cm){
+    my $single_c_prefix = catfile($single_c_dir, $opt_base_name);
+    my @single = map { "$single_c_prefix.single-c.$_.gff.merged" } @contexts;
+    launch("perl -S discountMethylation.pl -r $opt_reference -o $single_c_prefix $base_gff",
+        expected => [@single], dryrun => $dry,
+    );
+
+    unless ($opt_no_windowing){
+        for my $sc (@single) {
+            my $windows_base = basename($sc);
+            if ($windows_base !~ s/\.single-c/.w$opt_window_size/){
+                $logger->logdie("$sc- naming screwed up?");
+            }
+            my $window = catfile($windows_dir, $windows_base);
+
+            launch("perl -S window_by_fixed.pl -w $opt_window_size --reference $opt_reference --output ?? --no-skip $sc", 
+                expected => $window, dryrun => $dry, id => "window-$sc");
+        }
+    }
+
+    $logger->info("DONE!");
+    exit 0;
+}
+
+#######################################################################
 # Split correlate
 
 $logger->info("Splitting $base_gff by group");
@@ -519,11 +546,11 @@ Default 0 (meaning no subprocesses).
 =for Euclid
     threads.default:     0
 
+=item --new-cm
+
+Use the new discountMethylation.pl instead of theolder countMethylation.pl. (EXPERIMENTAL)
+
 =item  --dry 
-
-=back
-
-=over
 
 =item -h | --help
 
