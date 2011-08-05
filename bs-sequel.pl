@@ -179,109 +179,81 @@ unless (@contexts) {
     else {@contexts = qw(CG CHG CHH)}
 }
 
-#my $fasta_left = "$basename_left.fa";
-#my $fasta_right = "$basename_right.fa";
-
-#my $fasta_left_converted = "$basename_left.c2t";
-#my $fasta_right_converted = "$basename_right.g2a";
-
-#my $eland_left  = "${basename_left}_$left_splice[0]-$left_splice[1].eland3";
-#my $eland_right = $do_right ? "${basename_right}_$right_splice[0]-$right_splice[1].eland3" : "";
-#
-#my $eland_left_post = "$eland_left.post";
-#my $eland_right_post = $do_right ? "$eland_right.post" : $eland_left_post;
-
 my $eland_left_post  = "${basename_left}_$left_splice[0]-$left_splice[1].eland3.post";
 my $eland_right_post = $do_right ? "${basename_right}_$right_splice[0]-$right_splice[1].eland3.post" : "";
-
-if (! -f $eland_left_post || ($do_right && !-f $eland_right_post)){
-
-#######################################################################
-# convert reads
-
-#    launch("perl -S fq_all2std.pl fq2fa $opt_left_read > ??",  expected => $fasta_left, dryrun => $dry);
-#    launch("perl -S convert.pl c2t $fasta_left > ??", expected =>  $fasta_left_converted, dryrun => $dry);
-#    unless ($opt_single_ends) {
-#        launch("perl -S fq_all2std.pl fq2fa $opt_right_read > ??", expected =>  $fasta_right, dryrun => $dry);
-#        launch("perl -S convert.pl g2a $fasta_right > ??", expected =>  $fasta_right_converted, dryrun => $dry);
-#    }
 
 #######################################################################
 # convert genomes & build bowtie indices
 
-    launch("perl -S rcfas.pl $opt_reference > ??", expected =>  "$opt_reference.rc", dryrun => $dry);
-    launch("perl -S convert.pl c2t $opt_reference.rc > ??", expected =>  "$opt_reference.c2t", dryrun => $dry);
-    unless ($opt_single_ends) {
-        launch("perl -S convert.pl g2a $opt_reference.rc > ??", expected =>  "$opt_reference.g2a", dryrun => $dry);
-    }
+launch("perl -S rcfas.pl $opt_reference > ??", expected =>  "$opt_reference.rc", dryrun => $dry);
+launch("perl -S convert.pl c2t $opt_reference.rc > ??", expected =>  "$opt_reference.c2t", dryrun => $dry);
+unless ($opt_single_ends) {
+    launch("perl -S convert.pl g2a $opt_reference.rc > ??", expected =>  "$opt_reference.g2a", dryrun => $dry);
+}
 
-    launch("bowtie-build $opt_reference.c2t $opt_reference.c2t", expected =>  "$opt_reference.c2t.1.ebwt", dryrun => $dry);
-    unless ($opt_single_ends) {
-        launch("bowtie-build $opt_reference.g2a $opt_reference.g2a", expected =>  "$opt_reference.g2a.1.ebwt", dryrun => $dry);
-    }
+launch("bowtie-build $opt_reference.c2t $opt_reference.c2t", expected =>  "$opt_reference.c2t.1.ebwt", dryrun => $dry);
+unless ($opt_single_ends) {
+    launch("bowtie-build $opt_reference.g2a $opt_reference.g2a", expected =>  "$opt_reference.g2a.1.ebwt", dryrun => $dry);
+}
 
 #######################################################################
 # bowtie
 
 
-    my $mh_args = $opt_max_hits ? " --strata  -k $opt_max_hits -m $opt_max_hits " : q{ };
+my $mh_args = $opt_max_hits ? " --strata  -k $opt_max_hits -m $opt_max_hits " : q{ };
 
 # align with bowtie
-    if ($pm->start == 0){
-        my $l3trim = $read_size - $left_splice[1];
-        my $l5trim = $left_splice[0] - 1;
-        launch(join(" | ", 
-                "perl -S fq_all2std.pl fq2fa $opt_left_read", 
-                "perl -S convert.pl c2t -",
-                "bowtie $opt_reference.c2t -f -B 1 -v $opt_mismatches -5 $l5trim -3 $l3trim --best $mh_args --norc - ",
-                "perl -S parse_bowtie.pl -u $opt_left_read -s @left_splice -o ??", 
-            ),
-            expected => $eland_left_post, dryrun => $dry, id => "left parse_bowtie",
-            id => "left bowtie", accum => 1, also => $bowtie_logname);
+if ($pm->start == 0){
+    my $l3trim = $read_size - $left_splice[1];
+    my $l5trim = $left_splice[0] - 1;
+    launch(join(" | ", 
+            "perl -S fq_all2std.pl fq2fa $opt_left_read", 
+            "perl -S convert.pl c2t -",
+            "bowtie $opt_reference.c2t -f -B 1 -v $opt_mismatches -5 $l5trim -3 $l3trim --best $mh_args --norc - ",
+            "perl -S parse_bowtie.pl -u $opt_left_read -s @left_splice -o ??", 
+        ),
+        expected => $eland_left_post, dryrun => $dry, id => "left parse_bowtie",
+        id => "left bowtie", accum => 1, also => $bowtie_logname);
 
-        #launch("bowtie $opt_reference.c2t -f -B 1 -v $opt_mismatches -5 $l5trim -3 $l3trim --best $mh_args --norc $fasta_left_converted ??", 
-        #    expected => $eland_left, dryrun => $dry, id => "left bowtie", accum => 1, also => $bowtie_logname);
-        #launch("perl -S parse_bowtie.pl -u $fasta_left -s @left_splice  $eland_left -o ??", 
-        #    expected => $eland_left_post, dryrun => $dry, id => "left parse_bowtie");
-        $pm->finish;
-    }
+    #launch("bowtie $opt_reference.c2t -f -B 1 -v $opt_mismatches -5 $l5trim -3 $l3trim --best $mh_args --norc $fasta_left_converted ??", 
+    #    expected => $eland_left, dryrun => $dry, id => "left bowtie", accum => 1, also => $bowtie_logname);
+    #launch("perl -S parse_bowtie.pl -u $fasta_left -s @left_splice  $eland_left -o ??", 
+    #    expected => $eland_left_post, dryrun => $dry, id => "left parse_bowtie");
+    $pm->finish;
+}
 
-    if ($pm->start == 0){
-        if ($do_right){
-            my $r3trim = $read_size - $right_splice[1];
-            my $r5trim = $right_splice[0] - 1;
-            if ($opt_single_ends) {
-                launch(join(" | ", 
-                        "perl -S fq_all2std.pl fq2fa $opt_left_read", 
-                        "perl -S convert.pl c2t -",
-                        "bowtie $opt_reference.c2t -f -B 1 -v $opt_mismatches -5 $r5trim -3 $r3trim --best $mh_args --norc - ",
-                        "perl -S parse_bowtie.pl -u $opt_left_read -s @right_splice  -o ??", 
-                    ),
-                    expected => $eland_right_post, dryrun => $dry, id => "left parse_bowtie",
-                    id => "right bowtie", accum => 1, also => $bowtie_logname);
-            }
-            else {
-                launch(join(" | ", 
-                        "perl -S fq_all2std.pl fq2fa $opt_right_read", 
-                        "perl -S convert.pl c2t -",
-                        "bowtie $opt_reference.g2a -f -B 1 -v $opt_mismatches -5 $r5trim -3 $r3trim --best $mh_args --norc - ",
-                        "perl -S parse_bowtie.pl -u $opt_right_read -s @right_splice  -o ??", 
-                    ),
-                    expected => $eland_right_post, dryrun => $dry, id => "left parse_bowtie",
-                    id => "right bowtie", accum => 1, also => $bowtie_logname);
-            }
+if ($pm->start == 0){
+    if ($do_right){
+        my $r3trim = $read_size - $right_splice[1];
+        my $r5trim = $right_splice[0] - 1;
+        if ($opt_single_ends) {
+            launch(join(" | ", 
+                    "perl -S fq_all2std.pl fq2fa $opt_left_read", 
+                    "perl -S convert.pl c2t -",
+                    "bowtie $opt_reference.c2t -f -B 1 -v $opt_mismatches -5 $r5trim -3 $r3trim --best $mh_args --norc - ",
+                    "perl -S parse_bowtie.pl -u $opt_left_read -s @right_splice  -o ??", 
+                ),
+                expected => $eland_right_post, dryrun => $dry, id => "left parse_bowtie",
+                id => "right bowtie", accum => 1, also => $bowtie_logname);
         }
         else {
-            $eland_right_post = $eland_left_post;
+            launch(join(" | ", 
+                    "perl -S fq_all2std.pl fq2fa $opt_right_read", 
+                    "perl -S convert.pl c2t -",
+                    "bowtie $opt_reference.g2a -f -B 1 -v $opt_mismatches -5 $r5trim -3 $r3trim --best $mh_args --norc - ",
+                    "perl -S parse_bowtie.pl -u $opt_right_read -s @right_splice  -o ??", 
+                ),
+                expected => $eland_right_post, dryrun => $dry, id => "left parse_bowtie",
+                id => "right bowtie", accum => 1, also => $bowtie_logname);
         }
-        $pm->finish;
     }
+    else {
+        $eland_right_post = $eland_left_post;
+    }
+    $pm->finish;
+}
 
-    $pm->wait_all_children;
-}
-else{
-    $logger->info(".eland3.post already exists, don't re-create intermediate files up to then");
-}
+$pm->wait_all_children;
 
 #######################################################################
 # Correlate
