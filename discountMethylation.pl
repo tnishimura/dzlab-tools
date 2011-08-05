@@ -147,7 +147,8 @@ if ($has_progressbar){
     my %stats;
 
     sub count_methylation{
-        my ($gff_line, $sequence_lengths) = @_;
+        my ($gff_line, $fr) = @_;
+        #die "$gff_line\n" . Dumper $sequence_lengths;
 
         my $filtered = $gff_line =~ s/\*$//;
 
@@ -211,14 +212,10 @@ if ($has_progressbar){
 
         my $reverse = $strand eq '+' ? 0 : $strand eq '-' ? 1 : die "strand should be + or -";
 
-        #say STDERR $start . ($reverse ? ' <- ' : ' -> ') . $end;
-        #say STDERR join q{}, @target_bases;
-        #say STDERR join q{}, @read_bases;
-
         READ:
         for (my $strand_coord = $start; $strand_coord <= $end; ++$strand_coord){
             my $i = $strand_coord - $start + 2;
-            my $abs_coord = $reverse ? $sequence_lengths->{$split[0]} - $strand_coord + 1 : $strand_coord;
+            my $abs_coord = $reverse ? $fr->get_length($split[0]) - $strand_coord + 1 : $strand_coord;
             my $context;
 
             # first position
@@ -377,16 +374,12 @@ if ($has_progressbar){
 
 my $fr = FastaReader->new(file => $opt_reference, normalize => 0);
 
-my $seqlengths = $fr->length;
-
-#$logger->info(Dumper $seqlengths);
-
 open my $in, '<', $opt_file;
 
 while (defined(my $line = <$in>)){
     #chomp $line;
     $line =~ tr/\n\r//d;
-    count_methylation($line, $seqlengths);
+    count_methylation($line, $fr);
 
     if ($. % $pb_increment == 0){
         if ($has_progressbar){
