@@ -46,8 +46,7 @@ my $result = GetOptions(
 
 # Check required command line parameters
 pod2usage( -verbose => 1 )
-    unless @ARGV
-        and $result
+    unless $result
         and ( $type eq 'concise' xor $type eq 'verbose' )
         and (  ( $frequencies xor $paired )
             or ( !$frequencies and !$paired ) );
