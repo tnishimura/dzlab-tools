@@ -183,10 +183,12 @@ if ($has_progressbar){
         # Grab sequences
 
         my ($read_seq, $target_seq);
-        if ($split[2] =~ /([ATCGN]+)$/){
+        #if ($split[2] =~ /([ATCGN]+)$/){
+        if ($split[2] =~ /([A-Z]+)$/){
             $read_seq= $1;
         }
-        if ($split[8] =~ /target=([ATCGN]+)$/){
+        #if ($split[8] =~ /target=([ATCGN]+)$/){
+        if ($split[8] =~ /target=([A-Z]+)$/){
             $target_seq = $1;
         }
         if (!  defined $read_seq || ! defined $target_seq){
@@ -201,7 +203,7 @@ if ($has_progressbar){
         # check length
 
         if (length($read_seq) != ($end-$start+1) || length $target_seq != 4 + length $read_seq){
-            die "read size mismatch";
+            die "read size mismatch\n$read_seq\n$target_seq";
         }
         else{
             $stats{$seq}{bp} += length($read_seq);
@@ -377,7 +379,8 @@ if ($has_progressbar){
 
 my $fr = FastaReader->new(file => $opt_reference, normalize => 0);
 
-my $seqlengths = $fr->length;
+#my $seqlengths = $fr->length;
+my $seqlengths = {$fr->sequence_lengths};
 
 #$logger->info(Dumper $seqlengths);
 

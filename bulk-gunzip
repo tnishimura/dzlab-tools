@@ -37,7 +37,8 @@ printf STDERR "unzipping %d files total\n", scalar @files if $verbose;
 
 for my $f (@files) {
     say STDERR "unzipping $f" if $verbose;
-    open my $pipe, '-|', 'gunzip', '-c', $f;
+    #open my $pipe, '-|', 'gunzip', '-c', $f;
+    open my $pipe, '-|', "gunzip -c $f";
     while (defined(my $line = <$pipe>)){
         print $line;
     }

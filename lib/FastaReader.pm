@@ -205,7 +205,12 @@ sub get_pretty{
 
     my $sequence = $self->get($seqid, $start, $end, %opts);
 
-    my @accum = (">${seqid}_${start}_${end}");
+    my @accum = 
+    defined $start && defined $end ? (">${seqid}_${start}_${end}") :
+    defined $start ?  (">${seqid}_${start}_end") :
+    defined $end ?  (">${seqid}_start_${end}") :
+    (">${seqid}");
+
     my $length = length $sequence;
 
     my $pos = 0;
@@ -230,7 +235,7 @@ sub get_context{
     #say join ",", $seqid, $position; 
 
     # extract options
-    my $rc        = $opt{rc};
+    my $rc        = $opt{rc} // 0;
     my $base      = $opt{base} // 1;
     $opt{lenient} = 1;
 
@@ -269,18 +274,12 @@ sub get{
     my $lastindex = $totlen - 1;
 
     if (! defined $start && ! defined $end ){
-        if ($self->slurp()){
-            my $whole = $self->_get_sequence($seqid);
-            if ($rc){
-                $whole =~ tr/acgtACGT/tgcaTGCA/;
-                $whole = reverse $whole;
-            }
-            return $whole;
+        my $whole = $self->slurp() ? $self->_get_sequence($seqid) : $self->get($seqid, 1, $totlen);
+        if ($rc){
+            $whole =~ tr/acgtACGT/tgcaTGCA/;
+            $whole = reverse $whole;
         }
-        else{
-            return $self->get($seqid, 1, $totlen);
-            #croak "whole sequence get only supported with slurp()ing on";
-        }
+        return $whole;
     }
     elsif (! defined $end){
         $end = $base + $lastindex;
@@ -409,6 +408,28 @@ sub get{
     }
 }
 
+#######################################################################
+# Utilities
+
+
+sub rc_file{
+    my ($in, $out) = @_;
+    my $f = FastaReader->new(file => $in, slurp => 0);
+    my $outfh;
+    if (ref $out eq 'GLOB'){
+        $outfh = $out;
+    }
+    else {
+        open $outfh, '>', $out;
+    }
+
+    for my $seq ($f->sequence_list()) {
+        say $outfh $f->get_pretty($seq,undef,undef,rc => 1);
+    }
+    if (! ref $out eq 'GLOB'){
+        close $outfh;
+    }
+}
 
 no Moose;
 __PACKAGE__->meta->make_immutable;

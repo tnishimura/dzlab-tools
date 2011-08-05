@@ -47,6 +47,7 @@ for my $slurp (0, 1) {
             is($f->get($seq, 1, $lengths{$seq}, coord => 'f' , base => 1) , $f->get($seq) , "get($seq) whole implied vs get($seq) whole explicit");
         }
     }
+    is(substr($f->get('chr1', undef, undef, coord => 'f', base => 1,rc => 1),0, 10), rc('TTTTAGATGT'), "get whole implicit rc");
 
     #######################################################################
     # Subseq
