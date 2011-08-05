@@ -1,6 +1,7 @@
 #!/usr/bin/env perl
 use strict;
 use warnings;
+use autodie;
 use Pod::Usage;
 
 if (@ARGV != 2 || ($ARGV[0] ne 'c2t' && $ARGV[0] ne 'g2a')){
@@ -10,15 +11,25 @@ if (@ARGV != 2 || ($ARGV[0] ne 'c2t' && $ARGV[0] ne 'g2a')){
 my $pattern   = $ARGV[0];
 my $fastafile = $ARGV[1];
 
-open(FAS,"<$fastafile") or die "Can't read input file";
-while(my $line = <FAS>) {
+my $fasta_fh;
+if ($fastafile ne '-'){
+    open $fasta_fh, '<', $fastafile;
+}
+else{
+    $fasta_fh = \*STDIN;
+}
+
+while(my $line = <$fasta_fh>) {
     if($line =~ m/^[ACGTN]+/i) {
         $line =~ tr/Cc/Tt/ if $pattern eq 'c2t';
         $line =~ tr/Gg/Aa/ if $pattern eq 'g2a';
     }
     print $line;
 }
-close(FAS);
+
+if (defined $fasta_fh){
+    close($fasta_fh);
+}
 
 
 =head1 NAME
