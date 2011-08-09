@@ -431,6 +431,7 @@ sub rc_file{
     }
 }
 
+
 no Moose;
 __PACKAGE__->meta->make_immutable;
 
@@ -461,13 +462,10 @@ Lazy Fasta reader.
 
 =head2 FastaReader->new(file => 'filename or handle', slurp => 0 | 1, ht => sub {s/>(\w+)/$1/; return $1; })
 
-=head2 sequence_lengths()
-
-returns hash of sequence names to lengths.
-
 =head2 get_length(SEQNAME)
 
-returns length of specific sequence.
+returns length of specific sequence. Use this over sequence_lengths() hash, since this will
+take care of name normalization.
 
 =head2 sequence_list()
 
