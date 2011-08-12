@@ -79,6 +79,10 @@ Usage examples:
 
  moving_average.pl -k ".1,.2,.4,.2,.1" input.gff > output.gff
 
+NOTE: input.gff currently must have only one sequence (specified by column 1),
+ordered by start coord, and non-overlapping.  Currently this script checks for
+neither of these.
+
 =head1 REQUIRED ARGUMENTS
 
 =over
