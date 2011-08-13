@@ -1,7 +1,8 @@
 #!/usr/bin/env perl
 use strict;
 use warnings;
-use lib "/wip/tools/dzlab-tools/lib";
+use FindBin;
+use lib "$FindBin::Bin/lib";
 use autodie;
 use Config::General qw(ParseConfig);
 use Data::Dumper;
