@@ -122,6 +122,22 @@ sub length{
     return $self->end - $self->start + 1;
 }
 
+sub start_position_equal{
+    my ($gff1, $gff2) = @_;
+    return lc $gff1->sequence eq lc $gff2->sequence && $gff1->start == $gff2->start;
+}
+
+sub start_position_lessthan{
+    my ($gff1, $gff2) = @_;
+    my $res = lc $gff1->sequence cmp lc $gff2->sequence || $gff1->start <=> $gff2->start;
+    return $res == -1;
+}
+sub start_position_greaterthan{
+    my ($gff1, $gff2) = @_;
+    my $res = lc $gff1->sequence cmp lc $gff2->sequence || $gff1->start <=> $gff2->start;
+    return $res == 1;
+}
+
 no Moose;
 __PACKAGE__->meta->make_immutable;
 
