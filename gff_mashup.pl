@@ -63,11 +63,12 @@ for my $pair (@files) {
         my $numcells;
         while (defined(my $line = <$output_read>)){
             chomp $line;
-            my ($seq, $coord, @cells) = split /\t/, $line;
+            # -1 to split b/c when stata mangles output file, dots are turned to blank...
+            my ($seq, $coord, @cells) = split /\t/, $line, -1; 
             $numcells //= @cells;
 
             # header
-            if ($seq eq 'Sequence'){
+            if ($seq =~ /^Sequence/i){
                 say $tempout join "\t", $seq, $coord, @cells, map { $nick . "_" . $_ } @columns;
             }
             else {
