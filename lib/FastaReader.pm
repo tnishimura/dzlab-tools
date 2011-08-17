@@ -230,19 +230,16 @@ sub get_pretty{
 # otherwise return context CG, CHG, CHH
 sub get_context{
     my ($self, $seqid, $position, %opt) = @_;
-    $seqid = uc $seqid;
 
-    #say join ",", $seqid, $position; 
+    my $raw = $self->get_context_raw($seqid, $position, %opt);
 
     # extract options
+    $seqid = uc $seqid;
     my $rc        = $opt{rc} // 0;
     my $base      = $opt{base} // 1;
     $opt{lenient} = 1;
 
-    my ($start, $end) = $rc ? ($position - 2, $position) : ($position, $position + 2);
-
-    #say uc $self->get($seqid, $start, $end, %opt);
-    my @split = split //, uc $self->get($seqid, $start, $end, %opt);
+    my @split = split //, $raw;
 
     if ($split[0] ne 'C' && $split[0] ne 'T'){
         croak "get_context called on non-C/non-T position: " . join("", @split) . " (rc = $rc, base = $base, pos = $position, seq = $seqid)";
@@ -254,9 +251,21 @@ sub get_context{
         when (@split == 3){ return 'CHH'; }
         default { return 'CHH'; }
     }
-
 }
 
+sub get_context_raw{
+    my ($self, $seqid, $position, %opt) = @_;
+
+    # extract options
+    $seqid = uc $seqid;
+    my $rc        = $opt{rc} // 0;
+    my $base      = $opt{base} // 1;
+    $opt{lenient} = 1;
+
+    my ($start, $end) = $rc ? ($position - 2, $position) : ($position, $position + 2);
+    return uc $self->get($seqid, $start, $end, %opt);
+
+}
 #######################################################################
 # get - main sequence retrieval function
 
