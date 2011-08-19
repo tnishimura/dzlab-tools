@@ -108,7 +108,7 @@ sub launch{
         $success = $rv->{exit_code};
     }
     else{
-        $logger->info("can't run forked? then get a real OS. reverting to system()");
+        #$logger->info("reverting to system()");
         $success = system($cmd);
     }
 

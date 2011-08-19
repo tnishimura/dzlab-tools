@@ -168,13 +168,13 @@ for my $dir (@opt_base_dirs) {
 
 
                 $pm->start and next GROUPLOOP;
-                launch("ends_analysis.pl -g $localgff -b $binwidth -d $distance -s $stopflag -k $stopdistance "
+                launch("perl -S ends_analysis.pl -g $localgff -b $binwidth -d $distance -s $stopflag -k $stopdistance "
                     .  " -x $extractid -$end -o $ends_output $consolidated_input ", 
                     expected => $ends_output,
                     dryrun => $opt_dry,
                     force => $opt_force,
                 );
-                launch("average_ends_new.pl -s $scores -w $binwidth -o $avg_output $ends_output", 
+                launch("perl -S average_ends_new.pl -s $scores -w $binwidth -o $avg_output $ends_output", 
                     expected => $avg_output,
                     dryrun => $opt_dry,
                     force => $opt_force,
