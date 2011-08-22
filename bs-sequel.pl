@@ -179,92 +179,82 @@ unless (@contexts) {
     else {@contexts = qw(CG CHG CHH)}
 }
 
-my $fasta_left = "$basename_left.fa";
-my $fasta_right = "$basename_right.fa";
-
-my $fasta_left_converted = "$basename_left.c2t";
-my $fasta_right_converted = "$basename_right.g2a";
-
-my $eland_left  = "${basename_left}_$left_splice[0]-$left_splice[1].eland3";
-my $eland_right = $do_right ? "${basename_right}_$right_splice[0]-$right_splice[1].eland3" : "";
-
-my $eland_left_post = "$eland_left.post";
-my $eland_right_post = $do_right ? "$eland_right.post" : $eland_left_post;
-
-if (! -f $eland_left_post || ($do_right && !-f $eland_right_post)){
+my $eland_left_post  = "${basename_left}_$left_splice[0]-$left_splice[1].eland3.post";
+my $eland_right_post = $do_right ? "${basename_right}_$right_splice[0]-$right_splice[1].eland3.post" : "";
 
 #######################################################################
-# convert reads
+# convert genomes & build bowtie indices
 
-    launch("perl -S fq_all2std.pl fq2fa $opt_left_read > ??",  expected => $fasta_left, dryrun => $dry);
-    launch("perl -S convert.pl c2t $fasta_left > ??", expected =>  $fasta_left_converted, dryrun => $dry);
-    unless ($opt_single_ends) {
-        launch("perl -S fq_all2std.pl fq2fa $opt_right_read > ??", expected =>  $fasta_right, dryrun => $dry);
-        launch("perl -S convert.pl g2a $fasta_right > ??", expected =>  $fasta_right_converted, dryrun => $dry);
-    }
+launch("perl -S rcfas.pl $opt_reference > ??", expected =>  "$opt_reference.rc", dryrun => $dry);
+launch("perl -S convert.pl c2t $opt_reference.rc > ??", expected =>  "$opt_reference.c2t", dryrun => $dry);
+unless ($opt_single_ends) {
+    launch("perl -S convert.pl g2a $opt_reference.rc > ??", expected =>  "$opt_reference.g2a", dryrun => $dry);
+}
 
-#######################################################################
-# convert genomes
-
-    launch("perl -S rcfas.pl $opt_reference > ??", expected =>  "$opt_reference.rc", dryrun => $dry);
-    launch("perl -S convert.pl c2t $opt_reference.rc > ??", expected =>  "$opt_reference.c2t", dryrun => $dry);
-    unless ($opt_single_ends) {
-        launch("perl -S convert.pl g2a $opt_reference.rc > ??", expected =>  "$opt_reference.g2a", dryrun => $dry);
-    }
-
-#######################################################################
-# bowtie-build
-
-    launch("bowtie-build $opt_reference.c2t $opt_reference.c2t", expected =>  "$opt_reference.c2t.1.ebwt", dryrun => $dry);
-    unless ($opt_single_ends) {
-        launch("bowtie-build $opt_reference.g2a $opt_reference.g2a", expected =>  "$opt_reference.g2a.1.ebwt", dryrun => $dry);
-    }
+launch("bowtie-build $opt_reference.c2t $opt_reference.c2t", expected =>  "$opt_reference.c2t.1.ebwt", dryrun => $dry);
+unless ($opt_single_ends) {
+    launch("bowtie-build $opt_reference.g2a $opt_reference.g2a", expected =>  "$opt_reference.g2a.1.ebwt", dryrun => $dry);
+}
 
 #######################################################################
 # bowtie
 
-    my $l3trim = $read_size - $left_splice[1];
-    my $l5trim = $left_splice[0] - 1;
 
-    my $mh_args = $opt_max_hits ? " --strata  -k $opt_max_hits -m $opt_max_hits " : q{ };
+my $mh_args = $opt_max_hits ? " --strata  -k $opt_max_hits -m $opt_max_hits " : q{ };
 
 # align with bowtie
-    if ($pm->start == 0){
-        launch("bowtie $opt_reference.c2t -f -B 1 -v $opt_mismatches -5 $l5trim -3 $l3trim --best $mh_args --norc $fasta_left_converted ??", 
-            expected => $eland_left, dryrun => $dry, id => "left bowtie", accum => 1, also => $bowtie_logname);
-        launch("perl -S parse_bowtie.pl -u $fasta_left -s @left_splice  $eland_left -o ??", 
-            expected => $eland_left_post, dryrun => $dry, id => "left parse_bowtie");
-        $pm->finish;
-    }
+if ($pm->start == 0){
+    my $l3trim = $read_size - $left_splice[1];
+    my $l5trim = $left_splice[0] - 1;
+    launch(join(" | ", 
+            "perl -S fq_all2std.pl fq2fa $opt_left_read", 
+            "perl -S convert.pl c2t -",
+            "bowtie $opt_reference.c2t -f -B 1 -v $opt_mismatches -5 $l5trim -3 $l3trim --best $mh_args --norc - ",
+            "perl -S parse_bowtie.pl -u $opt_left_read -s @left_splice -o ??", 
+        ),
+        expected => $eland_left_post, dryrun => $dry, id => "left parse_bowtie",
+        id => "left bowtie", accum => 1, also => $bowtie_logname);
 
-    if ($pm->start == 0){
-        if ($do_right){
-            my $r3trim = $read_size - $right_splice[1];
-            my $r5trim = $right_splice[0] - 1;
-            if ($opt_single_ends) {
-                launch("bowtie $opt_reference.c2t -f -B 1 -v $opt_mismatches -5 $r5trim -3 $r3trim --best $mh_args --norc $fasta_left_converted ??" , 
-                    expected => $eland_right, dryrun => $dry, id => "right bowtie", accum => 1, also => $bowtie_logname);
-                launch("perl -S parse_bowtie.pl -u $fasta_left -s @right_splice  $eland_right -o ??", 
-                    expected => $eland_right_post, dryrun => $dry, id => "right parse_bowtie");
-            }
-            else {
-                launch("bowtie $opt_reference.g2a -f -B 1 -v $opt_mismatches -5 $r5trim -3 $r3trim --best $mh_args --norc $fasta_right_converted ??" , 
-                    expected => $eland_right, dryrun => $dry, id => "right bowtie", accum => 1, also => $bowtie_logname);
-                launch("perl -S parse_bowtie.pl -u $fasta_right -s @right_splice  $eland_right -o ??", 
-                    expected => $eland_right_post, dryrun => $dry, id => "right parse_bowtie");
-            }
+    # original:
+    #launch("bowtie $opt_reference.c2t -f -B 1 -v $opt_mismatches -5 $l5trim -3 $l3trim --best $mh_args --norc $fasta_left_converted ??", 
+    #    expected => $eland_left, dryrun => $dry, id => "left bowtie", accum => 1, also => $bowtie_logname);
+    #launch("perl -S parse_bowtie.pl -u $fasta_left -s @left_splice  $eland_left -o ??", 
+    #    expected => $eland_left_post, dryrun => $dry, id => "left parse_bowtie");
+    $pm->finish;
+}
+
+if ($pm->start == 0){
+    if ($do_right){
+        my $r3trim = $read_size - $right_splice[1];
+        my $r5trim = $right_splice[0] - 1;
+        if ($opt_single_ends) {
+            launch(join(" | ", 
+                    "perl -S fq_all2std.pl fq2fa $opt_left_read", 
+                    "perl -S convert.pl c2t -",
+                    "bowtie $opt_reference.c2t -f -B 1 -v $opt_mismatches -5 $r5trim -3 $r3trim --best $mh_args --norc - ",
+                    "perl -S parse_bowtie.pl -u $opt_left_read -s @right_splice  -o ??", 
+                ),
+                expected => $eland_right_post, dryrun => $dry, id => "left parse_bowtie",
+                id => "right bowtie", accum => 1, also => $bowtie_logname);
         }
         else {
-            $eland_right_post = $eland_left_post;
+            launch(join(" | ", 
+                    "perl -S fq_all2std.pl fq2fa $opt_right_read", 
+                    "perl -S convert.pl c2t -",
+                    "bowtie $opt_reference.g2a -f -B 1 -v $opt_mismatches -5 $r5trim -3 $r3trim --best $mh_args --norc - ",
+                    "perl -S parse_bowtie.pl -u $opt_right_read -s @right_splice  -o ??", 
+                ),
+                expected => $eland_right_post, dryrun => $dry, id => "left parse_bowtie",
+                id => "right bowtie", accum => 1, also => $bowtie_logname);
         }
-        $pm->finish;
     }
+    else {
+        $eland_right_post = $eland_left_post;
+    }
+    $pm->finish;
+}
 
-    $pm->wait_all_children;
-}
-else{
-    $logger->info(".eland3.post already exists, don't re-create intermediate files up to then");
-}
+$pm->wait_all_children;
 
 #######################################################################
 # Correlate
@@ -282,75 +272,105 @@ else{
 launch("perl -S collect_align_stats.pl $eland_left_post $eland_right_post $base_gff $opt_organism $opt_batch > ??", expected =>  $base_log, dryrun => $dry);
 
 #######################################################################
-# Split correlate
+# discountMethylation.pl
 
-$logger->info("Splitting $base_gff by group");
+if ($opt_new_cm){
+    my $single_c_prefix = catfile($single_c_dir, $opt_base_name);
+    my @single = map { "$single_c_prefix.single-c.$_.gff.merged" } @contexts;
+    my $dinucopt = $opt_di_nuc_freqs ? '-d' : '';
+    launch("perl -S discountMethylation.pl -r $opt_reference $dinucopt -o $single_c_prefix $base_gff",
+        expected => [@single], dryrun => $dry,
+    );
 
-my @base_gff_split=();
-if (!$dry){
-    @base_gff_split = GFF::Split::split_sequence($base_gff,@groups);
-    $logger->info("result of context split of $base_gff: \n" . join "\n", @base_gff_split);
-}
-else {
-    $logger->info("DRY: GFF::Split::split_sequence($base_gff,@groups);");
+    unless ($opt_no_windowing){
+        for my $sc (@single) {
+            my $windows_base = basename($sc);
+            if ($windows_base !~ s/\.single-c/.w$opt_window_size/){
+                $logger->logdie("$sc- naming screwed up?");
+            }
+            my $window = catfile($windows_dir, $windows_base);
+
+            launch("perl -S window_by_fixed.pl -w $opt_window_size --reference $opt_reference --output ?? --no-skip $sc", 
+                expected => $window, dryrun => $dry, id => "window-$sc");
+        }
+    }
+
+    $logger->info("DONE!");
 }
 
 #######################################################################
-# Count methyl
+# OLD countMethylation.pl
 
-my @single_c_split = map {
-    my $single_c_base = basename($_, ".gff");
-    catfile($single_c_dir, $single_c_base) . ".single-c.gff";
-} @base_gff_split;
+else{
 
-mfor \@base_gff_split, \@single_c_split, sub{
-    my ($base, $singlec) = @_;
+    # Split correlate
 
-    if ($pm->start == 0){
-        $logger->info("Processing $base");
+    $logger->info("Splitting $base_gff by group");
 
-        launch("perl -S countMethylation.pl --ref $opt_reference --gff $base --output ?? --freq $singlec.freq --sort -d $opt_di_nuc_freqs", 
-            expected => $singlec, dryrun => $dry, id => "count-$singlec");
-
-        my @split_by_context = (); 
-        if (!$dry){
-            @split_by_context = GFF::Split::split_feature($singlec, @contexts);
-            $logger->info("result of context split of $singlec: \n" . join "\n", @split_by_context);
-        }
-        else {
-            $logger->info("DRY: GFF::Split::split_feature($singlec, @contexts); ");
-        }
-
-        for my $singlec_context (@split_by_context) {
-            my $m = "$singlec_context.merged";
-            #launch("perl -S compile_gff.pl -o ?? $singlec_context", expected => $m, dryrun => $dry, id => "compile-$singlec");
-            launch("perl -S window_by_fixed.pl -o ?? $singlec_context", expected => $m, dryrun => $dry, id => "w1-$singlec");
-
-            unless ($opt_no_windowing){
-                # make window file name
-                my $windows_base = basename($singlec_context);
-                if ($windows_base !~ s/\.single-c-/.w$opt_window_size-/){
-                    $logger->logdie("$singlec_context- naming screwed up?");
-                }
-                my $windows = catfile($windows_dir, $windows_base);
-
-                launch("perl -S window_by_fixed.pl -w $opt_window_size --reference $opt_reference --output ?? --no-skip $m", 
-                    expected => $windows, dryrun => $dry, id => "window-$singlec");
-            }
-        }
-        $pm->finish;
+    my @base_gff_split=();
+    if (!$dry){
+        @base_gff_split = GFF::Split::split_sequence($base_gff,@groups);
+        $logger->info("result of context split of $base_gff: \n" . join "\n", @base_gff_split);
     }
-};
+    else {
+        $logger->info("DRY: GFF::Split::split_sequence($base_gff,@groups);");
+    }
+
+    # Count methyl
+
+    my @single_c_split = map {
+        my $single_c_base = basename($_, ".gff");
+        catfile($single_c_dir, $single_c_base) . ".single-c.gff";
+    } @base_gff_split;
+
+    mfor \@base_gff_split, \@single_c_split, sub{
+        my ($base, $singlec) = @_;
+
+        if ($pm->start == 0){
+            $logger->info("Processing $base");
+
+            launch("perl -S countMethylation.pl --ref $opt_reference --gff $base --output ?? --freq $singlec.freq --sort -d $opt_di_nuc_freqs", 
+                expected => $singlec, dryrun => $dry, id => "count-$singlec");
+
+            my @split_by_context = (); 
+            if (!$dry){
+                @split_by_context = GFF::Split::split_feature($singlec, @contexts);
+                $logger->info("result of context split of $singlec: \n" . join "\n", @split_by_context);
+            }
+            else {
+                $logger->info("DRY: GFF::Split::split_feature($singlec, @contexts); ");
+            }
+
+            for my $singlec_context (@split_by_context) {
+                my $m = "$singlec_context.merged";
+                launch("perl -S window_by_fixed.pl -o ?? $singlec_context", expected => $m, dryrun => $dry, id => "w1-$singlec");
+
+                unless ($opt_no_windowing){
+                    # make window file name
+                    my $windows_base = basename($singlec_context);
+                    if ($windows_base !~ s/\.single-c-/.w$opt_window_size-/){
+                        $logger->logdie("$singlec_context- naming screwed up?");
+                    }
+                    my $windows = catfile($windows_dir, $windows_base);
+
+                    launch("perl -S window_by_fixed.pl -w $opt_window_size --reference $opt_reference --output ?? --no-skip $m", 
+                        expected => $windows, dryrun => $dry, id => "window-$singlec");
+                }
+            }
+            $pm->finish;
+        }
+    };
 
 
-$pm->wait_all_children;
+    $pm->wait_all_children;
 
-launch("perl -S collect-freqs.pl -o $basename.single-c.freq $single_c_dir", dryrun => $dry);
+    launch("perl -S collect-freqs.pl -o $basename.single-c.freq $single_c_dir", dryrun => $dry);
 
-chdir $single_c_dir;
-for my $cont (@contexts) {
-    my @files = glob("*$cont*.merged");
-    launch("single_c_concat.pl " . join(" ", @files), dryrun => $dry);
+    chdir $single_c_dir;
+    for my $cont (@contexts) {
+        my @files = glob("*$cont*.merged");
+        launch("single_c_concat.pl " . join(" ", @files), dryrun => $dry);
+    }
 }
 
 =head1 NAME
@@ -524,17 +544,17 @@ Skip the windowing after single-c file generation.
 
 =item --parallel <threads>
 
-Launch various subprocesses (countMethylation only at the moment in parallel.)  Careful! 
-Default 0 (meaning no subprocesses).
+Number of subprocesses the script is allowed to run.  Default 0 (meaning no
+subprocesses).  Will use up to 3.
 
 =for Euclid
     threads.default:     0
 
+=item --new-cm
+
+Use the new discountMethylation.pl instead of theolder countMethylation.pl. (EXPERIMENTAL)
+
 =item  --dry 
-
-=back
-
-=over
 
 =item -h | --help
 
