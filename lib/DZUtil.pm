@@ -14,7 +14,10 @@ use IO::Uncompress::Gunzip qw(gunzip $GunzipError) ;
 
 require Exporter;
 our @ISA = qw(Exporter);
-our @EXPORT_OK = qw(localize reverse_complement common_suffix common_prefix mfor basename_prefix fastq_read_length timestamp datestamp overlap chext split_names base_match);
+
+our @EXPORT_OK = qw(localize reverse_complement common_suffix common_prefix
+mfor basename_prefix fastq_read_length timestamp datestamp overlap chext
+split_names base_match open_maybe_compressed);
 our @EXPORT = qw();
 
 =head2 chext("/etc/test.txt", "newext")
@@ -105,12 +108,10 @@ sub fastq_read_length{
     my $filename = shift;
     my $fh;
     if ($filename =~ /\.gz$/){
-        say STDERR "compressed";
         $fh = new IO::Uncompress::Gunzip $filename 
             or die "IO::Uncompress::Gunzip failed: $GunzipError\n";
     }
     else{
-        say STDERR "uncompressed";
         open $fh, "<", $filename;
     }
     <$fh>;
@@ -122,6 +123,23 @@ sub fastq_read_length{
         return length $line;
     }
     return;
+}
+
+=head2 open_maybe_compressed
+
+return a file handle for a file which may be compressed
+
+=cut 
+sub open_maybe_compressed{
+    my $filename = shift;
+    if ($filename =~ /\.gz$/){
+        return new IO::Uncompress::Gunzip $filename 
+            or die "IO::Uncompress::Gunzip failed: $GunzipError\n";
+    }
+    else {
+        open my $fh, '<', $filename;
+        return $fh;
+    }
 }
 
 #sub read_conf{
