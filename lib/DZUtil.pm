@@ -10,6 +10,7 @@ use File::Spec::Functions;
 use File::Basename;
 #use Config::General qw(ParseConfig);
 use POSIX qw/strftime/;
+use IO::Uncompress::Gunzip qw(gunzip $GunzipError) ;
 
 require Exporter;
 our @ISA = qw(Exporter);
@@ -102,7 +103,16 @@ sub datestamp{ return strftime("%Y%m%d",localtime); }
 
 sub fastq_read_length{
     my $filename = shift;
-    open my $fh, "<", $filename;
+    my $fh;
+    if ($filename =~ /\.gz$/){
+        say STDERR "compressed";
+        $fh = new IO::Uncompress::Gunzip $filename 
+            or die "IO::Uncompress::Gunzip failed: $GunzipError\n";
+    }
+    else{
+        say STDERR "uncompressed";
+        open $fh, "<", $filename;
+    }
     <$fh>;
     my $line = <$fh>;
     close $fh;
