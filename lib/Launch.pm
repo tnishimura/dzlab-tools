@@ -94,7 +94,6 @@ sub launch{
         }
     }
 
-    _info(join ", ", "running [$cmd]", ($force ? "forced" : ()), ($dryrun ? "dryrun" : ()));
 
     die "unknown parameters passed to launch" . Dumper \%opt if (%opt);
 
@@ -111,7 +110,8 @@ sub launch{
         return;
     }
 
-    _info("Running $cmd");
+    # no need to say _info this b/c verbose => 1 does it for us.
+    #_info(join ", ", "running [$cmd]", ($force ? "forced" : ()), ($dryrun ? "dryrun" : ()));
     my ($success, $errmsg, $fullbuf) = run(command => $cmd, verbose => 1);
 
     if (! $success){

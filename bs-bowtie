@@ -65,7 +65,8 @@ launch(join(" | ",
             "bowtie $opt_reference.c2t -f -B 1 -v $opt_mismatches -5 $trim5 -3 $trim3 --best $mh_args --norc - ",
             "perl -S parse_bowtie.pl -u $opt_reads -s @splice -o $opt_output", 
         ),
-        dryrun => $opt_dry_run, ($opt_log ? (expected => $opt_log) : ()) );
+        dryrun => $opt_dry_run, 
+        ($opt_log ? (expected => $opt_log) : ()) );
 
 =head1 NAME
 
@@ -81,7 +82,7 @@ Usage examples:
 
 =over
 
-=item  -1 <file> | --reads <file>
+=item  -r <file> | --reads <file>
 
 Can be plain text or gz compressed fastq file.
 
@@ -129,7 +130,7 @@ Start and end coordinate for the chunk of the --left-read fastq file to use for 
 If you omit, full length will be used.
 For example, if you are doing single ends with 1-45 and 46-76, use "-ls 1 45".
 
-=item  -n | --dry-run 
+=item  --dry-run 
 
 =item  -l <logfile> | --log <logfile>
 

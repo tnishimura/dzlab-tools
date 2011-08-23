@@ -184,6 +184,7 @@ my $eland_right_post = $do_right ? "${basename_right}_$right_splice[0]-$right_sp
 
 #######################################################################
 # convert genomes & build bowtie indices
+# do this here as well as in bs-bowtie, so there's no race condition
 
 launch("perl -S rcfas.pl $opt_reference > ??", expected =>  "$opt_reference.rc", dryrun => $dry);
 launch("perl -S convert.pl c2t $opt_reference.rc > ??", expected =>  "$opt_reference.c2t", dryrun => $dry);
@@ -199,50 +200,22 @@ unless ($opt_single_ends) {
 #######################################################################
 # bowtie
 
-
-my $mh_args = $opt_max_hits ? " --strata  -k $opt_max_hits -m $opt_max_hits " : q{ };
-
 # align with bowtie
 if ($pm->start == 0){
-    my $l3trim = $read_size - $left_splice[1];
-    my $l5trim = $left_splice[0] - 1;
-    launch(join(" | ", 
-            "perl -S fq_all2std.pl fq2fa $opt_left_read", 
-            "perl -S convert.pl c2t -",
-            "bowtie $opt_reference.c2t -f -B 1 -v $opt_mismatches -5 $l5trim -3 $l3trim --best $mh_args --norc - ",
-            "perl -S parse_bowtie.pl -u $opt_left_read -s @left_splice -o ??", 
-        ),
+    launch("bs-bowtie -r $opt_left_read -f $opt_reference -s @left_splice -n $opt_mismatches -mh $opt_max_hits -o ??",
         expected => $eland_left_post, dryrun => $dry, also => $bowtie_logname);
-
-    # original:
-    #launch("bowtie $opt_reference.c2t -f -B 1 -v $opt_mismatches -5 $l5trim -3 $l3trim --best $mh_args --norc $fasta_left_converted ??", 
-    #    expected => $eland_left, dryrun => $dry, id => "left bowtie", accum => 1, also => $bowtie_logname);
-    #launch("perl -S parse_bowtie.pl -u $fasta_left -s @left_splice  $eland_left -o ??", 
-    #    expected => $eland_left_post, dryrun => $dry, id => "left parse_bowtie");
     $pm->finish;
 }
 
 if ($pm->start == 0){
     if ($do_right){
-        my $r3trim = $read_size - $right_splice[1];
-        my $r5trim = $right_splice[0] - 1;
         if ($opt_single_ends) {
-            launch(join(" | ", 
-                    "perl -S fq_all2std.pl fq2fa $opt_left_read", 
-                    "perl -S convert.pl c2t -",
-                    "bowtie $opt_reference.c2t -f -B 1 -v $opt_mismatches -5 $r5trim -3 $r3trim --best $mh_args --norc - ",
-                    "perl -S parse_bowtie.pl -u $opt_left_read -s @right_splice  -o ??", 
-                ),
+            launch("bs-bowtie -r $opt_left_read -f $opt_reference -s @right_splice -n $opt_mismatches -mh $opt_max_hits -o ??",
                 expected => $eland_right_post, dryrun => $dry, also => $bowtie_logname);
         }
         else {
-            launch(join(" | ", 
-                    "perl -S fq_all2std.pl fq2fa $opt_right_read", 
-                    "perl -S convert.pl c2t -",
-                    "bowtie $opt_reference.g2a -f -B 1 -v $opt_mismatches -5 $r5trim -3 $r3trim --best $mh_args --norc - ",
-                    "perl -S parse_bowtie.pl -u $opt_right_read -s @right_splice  -o ??", 
-                ),
-                expected => $eland_right_post, dryrun => $dry, id => "left parse_bowtie", also => $bowtie_logname);
+            launch("bs-bowtie -1 $opt_right_read -f $opt_reference -s @right_splice -n $opt_mismatches -mh $opt_max_hits -o ??",
+                expected => $eland_right_post, dryrun => $dry, also => $bowtie_logname);
         }
     }
     else {
