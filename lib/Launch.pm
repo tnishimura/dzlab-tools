@@ -9,6 +9,7 @@ use Cwd;
 use Log::Log4perl qw/get_logger/;
 use Parallel::ForkManager;
 use File::Temp qw/mktemp/;
+use autodie;
 use IPC::Cmd qw/run/;
 
 require Exporter;
@@ -25,10 +26,47 @@ our @EXPORT = qw(launch);
 
 =cut
 
+{
+    sub _logdie{
+        if (Log::Log4perl->initialized()){ 
+            my $logger = get_logger();
+            $logger->logdie($_[0]); 
+        }
+        else{ 
+            die $_[0]; 
+        }
+    }
+    sub _logwarn{
+        if (Log::Log4perl->initialized()){ 
+            my $logger = get_logger();
+            $logger->logwarn($_[0]); 
+        }
+        else{ 
+            warn $_[0]; 
+        }
+    }
+    sub _info{
+        if (Log::Log4perl->initialized()){ 
+            my $logger = get_logger();
+            $logger->info($_[0]); 
+        }
+        else{ 
+            say STDERR $_[0]; 
+        }
+    }
+    sub _debug{
+        if (Log::Log4perl->initialized()){ 
+            my $logger = get_logger();
+            $logger->debug($_[0]); 
+        }
+        else{ 
+            say STDERR $_[0]; 
+        }
+    }
+}
+
 sub launch{
     my ($cmd, %opt) = @_;
-
-    my $logger = get_logger();
 
     my $force     = delete $opt{force} // 0;
     my $dryrun    = delete $opt{dryrun} // 0;
@@ -52,11 +90,11 @@ sub launch{
             $cmd =~ s/\?\?/$tempfile/;
         }
         else {
-            $logger->logdie("If placeholder ?? is used, exactly one expected file can be given");
+            _logdie("If placeholder ?? is used, exactly one expected file can be given");
         }
     }
 
-    $logger->info(join ", ", "running [$cmd]", ($force ? "forced" : ()), ($dryrun ? "dryrun" : ()));
+    _info(join ", ", "running [$cmd]", ($force ? "forced" : ()), ($dryrun ? "dryrun" : ()));
 
     die "unknown parameters passed to launch" . Dumper \%opt if (%opt);
 
@@ -64,22 +102,22 @@ sub launch{
         if (! @expected){
             # none expected
         } elsif(@expected && grep {-f} @expected){
-            $logger->info("Already done, skipping: [$cmd] ");
+            _info("Already done, skipping: [$cmd] ");
             return 1;
         }
     }
     if ($dryrun){
-        $logger->info("Dryrun, exiting");
+        _info("Dryrun, exiting");
         return;
     }
 
-    $logger->info("Running $cmd");
+    _info("Running $cmd");
     my ($success, $errmsg, $fullbuf) = run(command => $cmd, verbose => 1);
 
     if (! $success){
-        $logger->logwarn("FAILED: $cmd");
-        $logger->logwarn("$errmsg");
-        $logger->logdie("dying...");
+        _logwarn("FAILED: $cmd");
+        _logwarn("$errmsg");
+        _logdie("dying...");
     }
 
     if (@$fullbuf && $also){
@@ -95,23 +133,24 @@ sub launch{
     if ($success == 1){
         my $exp = join ", ", @expected;
         if (! @expected){
-            $logger->info("Successfully launched and finished [$cmd]");
+            _info("Successfully launched and finished [$cmd]");
         } 
         elsif ($placeholder && -f $tempfile){
             rename $tempfile, $expected[0];
-            $logger->info("Successfully launched and finished. Produced $expected[0] [$cmd]");
+            _info("Successfully launched and finished. Produced $expected[0] [$cmd]");
         } 
         elsif ($placeholder && ! -f $tempfile){
-            $logger->logdie("command seems to have run but expected files $exp not produced [$cmd]");
+            _logdie("command seems to have run but expected files $exp not produced [$cmd]");
         } 
         elsif (grep {-f} @expected){ 
-            $logger->info("Successfully launched and finished. Produced $exp [$cmd]");
+            _info("Successfully launched and finished. Produced $exp [$cmd]");
         } 
         else {
-            $logger->logdie("command seems to have run but expected files $exp not produced [$cmd]");
+            _logdie("command seems to have run but expected files $exp not produced [$cmd]");
         }
     } else {
-        $logger->logdie("failed to run, dying: [$cmd]");
+        _logdie("failed to run, dying: [$cmd]");
     }
+    return 1;
 }
 1;
