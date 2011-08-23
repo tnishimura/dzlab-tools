@@ -44,15 +44,7 @@ say STDERR "splice: $splice[0] $splice[1] (trims $trim5, $trim3)";
 # Convert genome and bowtie build if necessary
 
 my $conversion = $opt_g2a ? 'g2a' : 'c2t';
-
-say STDERR "conversion: $conversion";
-
-launch("perl -S rcfas.pl $opt_reference > ??", 
-    expected =>  "$opt_reference.rc", dryrun => $opt_dry_run);
-launch("perl -S convert.pl $conversion $opt_reference.rc > ??", 
-    expected =>  "$opt_reference.$conversion", dryrun => $opt_dry_run);
-launch("bowtie-build $opt_reference.$conversion $opt_reference.$conversion", 
-    expected =>  "$opt_reference.$conversion.1.ebwt", dryrun => $opt_dry_run);
+launch("perl -S bs-bowtie-build -c2t $opt_reference");
 
 #######################################################################
 # Launch bowtie

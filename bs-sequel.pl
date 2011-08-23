@@ -108,8 +108,12 @@ if (! $do_right && !$opt_single_ends){
     $logger->logdie("You can't specify do paired ends without -rs!");
 }
 
+# copy to array
+
 my @left_splice  = @opt_left_splice{qw/start end/};
 my @right_splice = $do_right ? (@opt_right_splice{qw/start end/}) : ();
+
+# die if out of bounds
 
 if ($left_splice[0] < 1 || $left_splice[1] > $read_size || $left_splice[1] < $left_splice[0]){
     die "left splice out of bounds";
@@ -186,16 +190,11 @@ my $eland_right_post = $do_right ? "${basename_right}_$right_splice[0]-$right_sp
 # convert genomes & build bowtie indices
 # do this here as well as in bs-bowtie, so there's no race condition
 
-launch("perl -S rcfas.pl $opt_reference > ??", expected =>  "$opt_reference.rc", dryrun => $dry);
-launch("perl -S convert.pl c2t $opt_reference.rc > ??", expected =>  "$opt_reference.c2t", dryrun => $dry);
+launch("perl -S bs-bowtie-build -c2t $opt_reference");
 unless ($opt_single_ends) {
-    launch("perl -S convert.pl g2a $opt_reference.rc > ??", expected =>  "$opt_reference.g2a", dryrun => $dry);
+    launch("perl -S bs-bowtie-build -g2a $opt_reference");
 }
 
-launch("bowtie-build $opt_reference.c2t $opt_reference.c2t", expected =>  "$opt_reference.c2t.1.ebwt", dryrun => $dry);
-unless ($opt_single_ends) {
-    launch("bowtie-build $opt_reference.g2a $opt_reference.g2a", expected =>  "$opt_reference.g2a.1.ebwt", dryrun => $dry);
-}
 
 #######################################################################
 # bowtie
@@ -214,7 +213,7 @@ if ($pm->start == 0){
                 expected => $eland_right_post, dryrun => $dry, also => $bowtie_logname);
         }
         else {
-            launch("bs-bowtie -1 $opt_right_read -f $opt_reference -s @right_splice -n $opt_mismatches -mh $opt_max_hits -o ??",
+            launch("bs-bowtie -r $opt_right_read -f $opt_reference -s @right_splice -n $opt_mismatches -mh $opt_max_hits -o ??",
                 expected => $eland_right_post, dryrun => $dry, also => $bowtie_logname);
         }
     }
