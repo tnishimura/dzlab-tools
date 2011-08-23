@@ -86,7 +86,7 @@ sub launch{
         open my $also_fh, '>>', $also;
 
         print $also_fh "===== Output of [$cmd] was:\n";
-        print $also_fh join "", map { "= " . $_ } @$fullbuf;
+        print $also_fh join "", @$fullbuf;
         print $also_fh "=====\n";
 
         close $also_fh if $also;

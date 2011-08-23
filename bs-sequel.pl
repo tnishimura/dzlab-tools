@@ -212,8 +212,7 @@ if ($pm->start == 0){
             "bowtie $opt_reference.c2t -f -B 1 -v $opt_mismatches -5 $l5trim -3 $l3trim --best $mh_args --norc - ",
             "perl -S parse_bowtie.pl -u $opt_left_read -s @left_splice -o ??", 
         ),
-        expected => $eland_left_post, dryrun => $dry, id => "left parse_bowtie",
-        id => "left bowtie", accum => 1, also => $bowtie_logname);
+        expected => $eland_left_post, dryrun => $dry, also => $bowtie_logname);
 
     # original:
     #launch("bowtie $opt_reference.c2t -f -B 1 -v $opt_mismatches -5 $l5trim -3 $l3trim --best $mh_args --norc $fasta_left_converted ??", 
@@ -234,8 +233,7 @@ if ($pm->start == 0){
                     "bowtie $opt_reference.c2t -f -B 1 -v $opt_mismatches -5 $r5trim -3 $r3trim --best $mh_args --norc - ",
                     "perl -S parse_bowtie.pl -u $opt_left_read -s @right_splice  -o ??", 
                 ),
-                expected => $eland_right_post, dryrun => $dry, id => "left parse_bowtie",
-                id => "right bowtie", accum => 1, also => $bowtie_logname);
+                expected => $eland_right_post, dryrun => $dry, also => $bowtie_logname);
         }
         else {
             launch(join(" | ", 
@@ -244,8 +242,7 @@ if ($pm->start == 0){
                     "bowtie $opt_reference.g2a -f -B 1 -v $opt_mismatches -5 $r5trim -3 $r3trim --best $mh_args --norc - ",
                     "perl -S parse_bowtie.pl -u $opt_right_read -s @right_splice  -o ??", 
                 ),
-                expected => $eland_right_post, dryrun => $dry, id => "left parse_bowtie",
-                id => "right bowtie", accum => 1, also => $bowtie_logname);
+                expected => $eland_right_post, dryrun => $dry, id => "left parse_bowtie", also => $bowtie_logname);
         }
     }
     else {
@@ -291,7 +288,7 @@ if ($opt_new_cm){
             my $window = catfile($windows_dir, $windows_base);
 
             launch("perl -S window_by_fixed.pl -w $opt_window_size --reference $opt_reference --output ?? --no-skip $sc", 
-                expected => $window, dryrun => $dry, id => "window-$sc");
+                expected => $window, dryrun => $dry);
         }
     }
 
@@ -330,7 +327,7 @@ else{
             $logger->info("Processing $base");
 
             launch("perl -S countMethylation.pl --ref $opt_reference --gff $base --output ?? --freq $singlec.freq --sort -d $opt_di_nuc_freqs", 
-                expected => $singlec, dryrun => $dry, id => "count-$singlec");
+                expected => $singlec, dryrun => $dry);
 
             my @split_by_context = (); 
             if (!$dry){
@@ -343,7 +340,7 @@ else{
 
             for my $singlec_context (@split_by_context) {
                 my $m = "$singlec_context.merged";
-                launch("perl -S window_by_fixed.pl -o ?? $singlec_context", expected => $m, dryrun => $dry, id => "w1-$singlec");
+                launch("perl -S window_by_fixed.pl -o ?? $singlec_context", expected => $m, dryrun => $dry);
 
                 unless ($opt_no_windowing){
                     # make window file name
@@ -354,7 +351,7 @@ else{
                     my $windows = catfile($windows_dir, $windows_base);
 
                     launch("perl -S window_by_fixed.pl -w $opt_window_size --reference $opt_reference --output ?? --no-skip $m", 
-                        expected => $windows, dryrun => $dry, id => "window-$singlec");
+                        expected => $windows, dryrun => $dry);
                 }
             }
             $pm->finish;
