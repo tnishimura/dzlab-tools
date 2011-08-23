@@ -9,7 +9,7 @@ use Cwd;
 use Log::Log4perl qw/get_logger/;
 use Parallel::ForkManager;
 use File::Temp qw/mktemp/;
-use IPC::Cmd qw/run_forked/;
+use IPC::Cmd qw/run/;
 
 require Exporter;
 our @ISA = qw(Exporter);
@@ -21,23 +21,18 @@ our @EXPORT = qw(launch);
  expected - This is a file (or arrayref of files) which we expect to be produce.
  force    - Run even if file exists.
  dryrun   - Don't actually run.
- id       - Optional identifier to be appended to stdout/stderr collector.
+ also     - Also print output of command to this file.
 
 =cut
 
 sub launch{
     my ($cmd, %opt) = @_;
 
-    my $logger    = get_logger("PipeLine");
+    my $logger = get_logger();
 
     my $force     = delete $opt{force} // 0;
     my $dryrun    = delete $opt{dryrun} // 0;
-    my $id        = delete $opt{id} // "";
-    my $accum     = delete $opt{accum} // 0;
     my $also      = delete $opt{also} // 0;
-    $id = $id ? "($id)" : "";
-
-
 
     my @expected;
     if (exists $opt{expected}){
@@ -78,52 +73,26 @@ sub launch{
         return;
     }
 
-    my $success;
-    my @output_accum;
-    if (IPC::Cmd->can_use_run_forked()){
-        $logger->info("running with run_forked");
-        my $rv = run_forked($cmd, {
-                discard_output => 1,
-                stdout_handler => sub{ 
-                    my $o  ="stdout $id: " . shift;
-                    if ($accum){
-                        push(@output_accum, $o); 
-                        print $o;
-                    }
-                    else{
-                        $logger->debug($o);
-                    }
-                },
-                stderr_handler => sub{ 
-                    my $e  ="stderr $id: " . shift;
-                    if ($accum){
-                        push(@output_accum, $e);
-                        print $e;
-                    }
-                    else{
-                        $logger->debug($e);
-                    }
-                },
-            });
-        $success = $rv->{exit_code};
-    }
-    else{
-        #$logger->info("reverting to system()");
-        $success = system($cmd);
+    $logger->info("Running $cmd");
+    my ($success, $errmsg, $fullbuf) = run(command => $cmd, verbose => 1);
+
+    if (! $success){
+        $logger->logwarn("FAILED: $cmd");
+        $logger->logwarn("$errmsg");
+        $logger->logdie("dying...");
     }
 
-    if ($accum){
-        $logger->info("===== Output of $cmd was:\n");
-        $logger->info(join "", "\n", map { "= " . $_ } @output_accum);
-        $logger->info("=====\n");
-        if ($also){
-            open my $also_fh, '>>', $also;
-            syswrite $also_fh, join("", @output_accum);
-            close $also_fh if $also;
-        }
+    if (@$fullbuf && $also){
+        open my $also_fh, '>>', $also;
+
+        print $also_fh "===== Output of [$cmd] was:\n";
+        print $also_fh join "", map { "= " . $_ } @$fullbuf;
+        print $also_fh "=====\n";
+
+        close $also_fh if $also;
     }
 
-    if ($success == 0){
+    if ($success == 1){
         my $exp = join ", ", @expected;
         if (! @expected){
             $logger->info("Successfully launched and finished [$cmd]");
