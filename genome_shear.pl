@@ -62,10 +62,10 @@ for (1 .. $num_reads){
 
     record_meth($seq, $strand_label, @$meth);
 
-    say "\@$seq:$start:$stop:$strand_label " , join(",",@$meth); 
+    say "\@$seq:$start:$stop:$strand_label:" , join(":",@$meth); 
     say $bsread;
     say "+";
-    say $quality;
+    say $read;
 } 
 
 if ($logfile){
