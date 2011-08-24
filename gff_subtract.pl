@@ -14,7 +14,7 @@ $| = 1;
 
 if (2 != @ARGV){
     say <<"END";
-$0 - subtract X's scores from Y's and output new GFF
+$0 - subtract Y's scores from X's and output new GFF
 usage: $0 X.gff Y.gff > result.gff
 
 NOTE: X.gff and Y.gff are assumed to be sorted with a command like
