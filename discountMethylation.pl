@@ -189,7 +189,6 @@ if !$opt_file || !$opt_output_prefix || !$opt_reference;
             $stats{$seq}{bp} += length($read_seq);
         }
 
-        # reverse?
 
         my $reverse = $strand eq '+' ? 0 : $strand eq '-' ? 1 : die "strand should be + or -";
 
@@ -240,7 +239,7 @@ if !$opt_file || !$opt_output_prefix || !$opt_reference;
                 ++$filtered_count->{$methylation ? 'c' : 't'};
             } else{
                 ++$unfiltered_count->{$context};
-                ++$filtered_count->{$methylation ? 'c' : 't'};
+                ++$unfiltered_count->{$methylation ? 'c' : 't'};
             }
 
             record_methylation($seq,$abs_coord,$context);
