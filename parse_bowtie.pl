@@ -10,7 +10,7 @@ use List::Util qw /sum/;
 use feature 'say';
 use FindBin;
 use lib "$FindBin::Bin/lib";
-use DZUtil qw/open_maybe_compressed/;
+use DZUtil qw/open_maybe_compressed fastq_convert_read_header/;
 
 # Check required command line parameters
 pod2usage( -verbose => 1 )
@@ -167,6 +167,7 @@ catch_up( $previous, $unmatched, @splice )
 
             $header =~ s/^([>@])//;
             if ( q{@} eq $1 ) {
+                $header = fastq_convert_read_header($header);
                 <$file_handle>;
                 <$file_handle>;
             }

@@ -17,7 +17,7 @@ our @ISA = qw(Exporter);
 
 our @EXPORT_OK = qw(localize reverse_complement common_suffix common_prefix
 mfor basename_prefix fastq_read_length timestamp datestamp overlap chext
-split_names base_match open_maybe_compressed);
+split_names base_match open_maybe_compressed fastq_convert_read_header);
 our @EXPORT = qw();
 
 =head2 chext("/etc/test.txt", "newext")
@@ -123,6 +123,25 @@ sub fastq_read_length{
         return length $line;
     }
     return;
+}
+
+sub fastq_convert_read_header{
+    my $line = $_[0];
+    $line =~ s/^@//;
+    my ($first, $second) = split ' ', $line;
+
+    # most common
+    if ($first =~ m{#0/[12]$}){
+        return $first;
+    }
+    # new solexa format, 6/20/2011
+    elsif (defined $second && $second =~ /^([12])/){
+        return "$first#/$1";
+    }
+    # handle older reads with no read id's 
+    else{
+        return "$first#/1";
+    }
 }
 
 =head2 open_maybe_compressed
