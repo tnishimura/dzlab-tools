@@ -29,7 +29,7 @@ our @EXPORT = qw(launch);
 {
     sub _logdie{
         if (Log::Log4perl->initialized()){ 
-            my $logger = get_logger();
+            my $logger = get_logger("PipeLine");
             $logger->logdie($_[0]); 
         }
         else{ 
@@ -38,7 +38,7 @@ our @EXPORT = qw(launch);
     }
     sub _logwarn{
         if (Log::Log4perl->initialized()){ 
-            my $logger = get_logger();
+            my $logger = get_logger("PipeLine");
             $logger->logwarn($_[0]); 
         }
         else{ 
@@ -47,7 +47,7 @@ our @EXPORT = qw(launch);
     }
     sub _info{
         if (Log::Log4perl->initialized()){ 
-            my $logger = get_logger();
+            my $logger = get_logger("PipeLine");
             $logger->info($_[0]); 
         }
         else{ 
@@ -56,7 +56,7 @@ our @EXPORT = qw(launch);
     }
     sub _debug{
         if (Log::Log4perl->initialized()){ 
-            my $logger = get_logger();
+            my $logger = get_logger("PipeLine");
             $logger->debug($_[0]); 
         }
         else{ 
@@ -119,6 +119,8 @@ sub launch{
         _logwarn("$errmsg");
         _logdie("dying...");
     }
+
+    _info(join "", @$fullbuf);
 
     if (@$fullbuf && $also){
         open my $also_fh, '>>', $also;
