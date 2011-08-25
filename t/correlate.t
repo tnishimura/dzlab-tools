@@ -11,12 +11,13 @@ use FindBin;
 use lib "$FindBin::Bin/lib";
 use Launch;
 use FastaReader;
-use DZUtil qw/c2t fastq_convert_read_header/;
+use DZUtil qw/numdiff c2t fastq_convert_read_header/;
+use TestUtils;
 
+our $ref = setup_reference('t_intermediate');
 our $left = 't/data/bs-sequel-test.fastq_1-60.eland3.post';
 our $right = 't/data/bs-sequel-test.fastq_61-100.eland3.post';
 our $reads = 't/data/bs-sequel-test.fastq';
-our $ref = 't_intermediate/TAIR_mini.fas';
 our $singleout = 't_intermediate/correlateSingle.test';
 our $pairedout = 't_intermediate/correlatePaired.test';
 
@@ -110,19 +111,6 @@ sub reads_match_fastq{
     return 1;
 }
 
-sub numdiff{
-    my ($x,$y)=@_;
-    my @x_split = split //, $x;
-    my @y_split = split //, $y;
-    die "len mismatch" unless @x_split == @y_split;
-    my $total = 0;
-    for (0..$#x_split){
-        if ($x_split[$_] ne $y_split[$_]){
-            $total += 1;
-        }
-    }
-    return $total;
-}
 
 sub slurp_reads{
     my ($reads) = @_;

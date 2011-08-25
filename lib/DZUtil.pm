@@ -17,12 +17,27 @@ our @ISA = qw(Exporter);
 
 our @EXPORT_OK = qw(localize reverse_complement common_suffix common_prefix
 mfor basename_prefix fastq_read_length timestamp datestamp overlap chext
-split_names base_match open_maybe_compressed fastq_convert_read_header c2t);
+split_names base_match open_maybe_compressed fastq_convert_read_header c2t
+numdiff);
 our @EXPORT = qw();
 
 sub c2t{
     (my $c2t = $_[0]) =~ s/C/T/gi;
     return $c2t;
+}
+
+sub numdiff{
+    my ($x,$y)=@_;
+    my @x_split = split //, $x;
+    my @y_split = split //, $y;
+    die "len mismatch" unless @x_split == @y_split;
+    my $total = 0;
+    for (0..$#x_split){
+        if ($x_split[$_] ne $y_split[$_]){
+            $total += 1;
+        }
+    }
+    return $total;
 }
 
 
