@@ -16,7 +16,6 @@ use Getopt::Euclid qw( :vars<opt_> );
 use Pod::Usage;
 
 pod2usage(-verbose => 99,-sections => [qw/NAME SYNOPSIS OPTIONS/]) if $opt_help;
-$Launch::VERBOSE = !$opt_quiet;
 
 #######################################################################
 # splice argument sanitizing

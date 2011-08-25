@@ -17,7 +17,7 @@ our @ISA = qw(Exporter);
 our @EXPORT_OK = qw();
 our @EXPORT = qw(launch);
 
-our $VERBOSE = 1;
+our $VERBOSE = exists $ENV{QUIET} ? ! $ENV{QUIET} : 1;
 
 =head2 launch
 
