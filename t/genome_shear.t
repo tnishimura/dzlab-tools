@@ -4,8 +4,6 @@ use warnings;
 use 5.010_000;
 use Data::Dumper;
 use autodie;
-use FindBin;
-use lib "$FindBin::Bin/lib";
 use FastaReader;
 use Carp;
 
@@ -23,9 +21,16 @@ while (! eof $shearfh){
     my @lines = map { scalar <$shearfh> } (1 .. 4);
     chomp @lines;
 
-    # @chrm:35:134:+ 71,78,108
-    if ($lines[0] =~ /@(\w+):(\d+):(\d+):(\+|\-)(?:\s([\w,]+))?/){
+    # @chr3:163702:163801:+:163780
+    # TGTGTGTGTTATTTAAAATTAATTAATATTAATAAATTATAGTATATATAAAAATTTTGATATTTGAAGTTTGGTTGACTAGATAATATTTAATAGGTTT
+    # +
+    # CGTGCGTGTTACTCAAAATTAATTAATACCAATAAATTATAGTATATATAAAAATTTCGACACCTGAAGTTTGGTTGACCAGACAATATTCAATAGGTTT
+
+    if ($lines[0] =~ /@(\w+):(\d+):(\d+):(\+|\-)(?:([\d:]+))?/){
         my ($seqname, $start, $end, $strand, $meth) = ($1, $2, $3, $4, $5);
+
+        # say $lines[0];
+        # say join ",", $seqname, $start, $end, $strand, $meth // 'nometh';
 
         my $read_c2t = c2t($lines[1]);
         my $genome_c2t = c2t($fr->get($seqname, $start, $end, rc => $strand eq '-', base => 1));
@@ -33,7 +38,8 @@ while (! eof $shearfh){
 
         my $numc = $lines[1] =~ tr/C//;
         if ($meth){
-            my @methpos = split /,/, $meth;
+            $meth =~ s/^://; # strip off leading :
+            my @methpos = split /:/, $meth;
             my $nummeth = scalar @methpos;
             is($numc, $nummeth, "read C count check $counter");
             for my $pos (@methpos) {
@@ -42,7 +48,6 @@ while (! eof $shearfh){
         }
         else{
             is($numc, 0, "unmeth read $counter has no C's");
-
         }
     }
     else {
