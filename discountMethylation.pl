@@ -13,7 +13,6 @@ use List::MoreUtils qw/all/;
 use DBI;
 use Getopt::Euclid qw( :vars<opt_> );
 use Pod::Usage;
-use File::CountLines qw/count_lines/;
 use File::Temp qw/mktemp tempfile/;
 
 pod2usage(-verbose => 99,-sections => [qw/NAME SYNOPSIS OPTIONS/]) 
@@ -122,8 +121,30 @@ if !$opt_file || !$opt_output_prefix || !$opt_reference;
 
 #######################################################################
 
+
 {
     my %stats;
+    my $error=0;
+
+    # VERY temporary kludgely hack to avoid errors in correlation.gff...
+    sub only_c2t_changes{
+        my ($read_str, $target_str) = @_;
+        $read_str =~ tr/C/T/;
+        $target_str =~ tr/C/T/;
+        my @read = split //, $read_str;
+        my @target = split //, $target_str;
+
+        my $total = 0;
+        for my $index (0 .. $#read) {
+            my ($r, $t) = ($read[$index], $target[2+$index]);
+            if ($r ne $t){
+                $total++;
+                $error++;
+            }
+        }
+
+        return ($total/length $read_str) < 0.25 ? 1 : 0;
+    }
 
     sub count_methylation{
         my ($gff_line, $fr) = @_;
@@ -187,6 +208,10 @@ if !$opt_file || !$opt_output_prefix || !$opt_reference;
         }
         else{
             $stats{$seq}{bp} += length($read_seq);
+        }
+
+        if (! only_c2t_changes($read_seq, $target_seq)){
+            return;
         }
 
 
@@ -337,13 +362,15 @@ if !$opt_file || !$opt_output_prefix || !$opt_reference;
         #say scalar(@$_) for @output;
         my $numcols = $opt_dinucleotide ? 33 : 27;
 
-        die "uneven number of lines in freq? dying" unless all { $numcols == scalar @$_ } @output;
+        #die "uneven number of lines in freq? dying" unless all { $numcols == scalar @$_ } @output;
 
         for my $i (0..$numcols-1) {
             my $line = join "\t", map { $_->[$i] } @output;
             say STDERR $line;
             say $out $line;
         }
+        say STDERR "error\t$error";
+        say $out "error\t$error";
         close $out;
     }
 
@@ -374,7 +401,7 @@ say STDERR "Done processing! creating single-c and freq file";
 
 record_output($opt_output_prefix);
 print_freq($opt_output_prefix);
-disconnect;
+#disconnect;
 
 #######################################################################
 # DONE
