@@ -13,6 +13,7 @@ END {close STDOUT}
 $| = 1;
 
 if (@ARGV < 2){
+    say "compare genome_shear mock single-c to bs-sequel output";
     say "usage: $0 superset supposed-subset";
     exit 1;
 }
@@ -34,7 +35,6 @@ while (defined(my $gff = $superset_parser->next())){
     $superset_positions{$gff->sequence,$gff->start} = $gff->score;
     $stats{total_real_c}+=$gff->score;
 }
-
 
 for my $singlec (@ARGV) {
     say STDERR "processing $singlec";
