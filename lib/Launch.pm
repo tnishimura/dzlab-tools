@@ -23,6 +23,7 @@ our @EXPORT = qw(launch);
  force    - Run even if file exists.
  dryrun   - Don't actually run.
  also     - Also print output of command to this file.
+ verbose  - Default to 1
 
 =cut
 
@@ -71,6 +72,7 @@ sub launch{
     my $force     = delete $opt{force} // 0;
     my $dryrun    = delete $opt{dryrun} // 0;
     my $also      = delete $opt{also} // 0;
+    my $verbose   = delete $opt{verbose} // 1;
 
     my @expected;
     if (exists $opt{expected}){
@@ -112,7 +114,7 @@ sub launch{
 
     # no need to say _info this b/c verbose => 1 does it for us.
     #_info(join ", ", "running [$cmd]", ($force ? "forced" : ()), ($dryrun ? "dryrun" : ()));
-    my ($success, $errmsg, $fullbuf) = run(command => $cmd, verbose => 1);
+    my ($success, $errmsg, $fullbuf) = run(command => $cmd, verbose => $verbose);
 
     if (! $success){
         _logwarn("FAILED: $cmd");

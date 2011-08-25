@@ -24,10 +24,11 @@ my $result = GetOptions (
     "out-file|o=s"    => \(my $out_file),
     "tag|t=s"         => \(my $tag),
     "no-rc|f"         => \(my $norc),
+    "junk|j=i"        => \(my $junk=0),
 );
 
 unless (defined $out_file && @ARGV == 1 && -f $ARGV[0]){
-    say "usage: $0 [--no-rc] [--bs-rate .1] [-n #numreads] [-l read_length] [-o out.fastq] input";
+    say "usage: $0 [--no-rc] [--bs-rate .1] [-j #junk] [-n #numreads] [-l read_length] [-o out.fastq] input";
     say "  --no-rc means don't shear the rc strand. use for rc genomes";
     exit 1;
 }
@@ -67,6 +68,14 @@ for (1 .. $num_reads){
     say "+";
     say $read;
 } 
+
+for (1 .. $junk){
+    say "\@junk$_";
+    say 'N' x $read_length;
+    say "+";
+    say 'N' x $read_length;
+
+}
 
 if ($logfile){
     dump_meth($logfile);
