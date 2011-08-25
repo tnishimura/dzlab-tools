@@ -44,7 +44,7 @@ say STDERR "splice: $splice[0] $splice[1] (trims $trim5, $trim3)";
 # Convert genome and bowtie build if necessary
 
 my $conversion = $opt_g2a ? 'g2a' : 'c2t';
-launch("perl -S bs-bowtie-build -c2t $opt_reference");
+launch("perl -S bs-bowtie-build -c2t $opt_reference", verbose => !$opt_quiet);
 
 #######################################################################
 # Launch bowtie
@@ -58,7 +58,8 @@ launch(join(" | ",
             "perl -S parse_bowtie.pl -u $opt_reads -s @splice -o $opt_output", 
         ),
         dryrun => $opt_dry_run, 
-        ($opt_log ? (expected => $opt_log) : ()) );
+        ($opt_log ? (expected => $opt_log) : ()), 
+        verbose => !$opt_quiet);
 
 =head1 NAME
 
@@ -127,6 +128,8 @@ For example, if you are doing single ends with 1-45 and 46-76, use "-ls 1 45".
 =item  -l <logfile> | --log <logfile>
 
 =item --help | -h
+
+=item --quiet | -q
 
 =back
 
