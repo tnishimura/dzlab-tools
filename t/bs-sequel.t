@@ -5,76 +5,87 @@ use warnings;
 use 5.010_000;
 use Data::Dumper;
 use autodie;
-use Test::More 'no_plan';
+use Test::More tests => 22;
 use File::Temp qw/tempdir/;
 use File::Basename;
 use File::Spec::Functions;
 use Launch;
 use Carp;
+use TestUtils;
 
-sub setup_files : Test(setup) {
+sub setup_files : Test(setup => 3) {
     my $self = shift;
+
     ++$self->{counter};
-    my $gz = 't/TAIR_mini.fas.gz';
+    my $counter = $self->{counter};
 
     my $test_dir = 't_intermediate';
-    my $ref = catfile($test_dir, basename($gz, '.gz'));
-    my $counter = $self->{counter};
-    if (-e $test_dir && ! -d $test_dir){
-        croak "$test_dir is not a directory? dying";
-    }
-    mkdir $test_dir if ! -d $test_dir;
-    launch("gunzip -c $gz > ??", expected => $ref);
-    is(8527645, [stat($ref)]->[7], "unzipped reference the correct size");
+    my $ref = setup_reference($test_dir);
 
-    my $numreads = 10000;
+    # just testing that it runs, so few reads
+    my $numreads = 1000;
+    my $junk = 100;
     my $reads = catfile($test_dir, 'bs-sequel-test.fastq');
-    launch("perl ./genome_shear.pl -n $numreads -l 100 -o $reads $ref");
 
+    ok( launch("./genome_shear.pl -j $junk -n $numreads -l 100 -o $reads $ref"),
+            "genome_shear.pl ran" );
     ok(-f $reads, "reads exist");
    
-    $self->{numreads} = $numreads;
+    $self->{numreads} = $numreads + $junk;
     $self->{reads} = $reads;
     $self->{outdir} = tempdir(catfile($test_dir,"bs-sequel-$counter-XXXXX"),CLEANUP => 0);
     $self->{testdir} = $test_dir;
     $self->{ref} = $ref;
 }
 
-sub single_ends_runs : Tests(5){
+sub single_ends_runs : Tests(7){
     my $self = shift;
     my ($numreads, $reads, $outdir, $testdir, $reference) = @{$self}{qw/numreads reads outdir testdir ref/};
+    my $bowtie = catfile($outdir, "bs-sequel-test.fastq_1-100.eland3.post");
+    my $correlate = catfile($outdir, "test.gff");
 
-    launch("./bs-sequel.pl -l $reads -f $reference -b test -d $outdir --no-windowing 2>&1 > /dev/null", verbose => 0);
+    # run bs-sequel
+    ok(launch("./bs-sequel.pl -l $reads -f $reference -b test -d $outdir --no-windowing 2>&1 > /dev/null", verbose => 0),
+        "bs-sequel.pl survived");
+
+    # basics
     ok(-d catfile($outdir, 'single-c'), 'single-c dir exists');
     ok(-d catfile($outdir, 'windows'), 'windows dir exists');
     ok(exists_and_nonempty(catfile($outdir, 'test.gff')), 'test.gff exists');
 
-    my $bowtie = catfile($outdir, "bs-sequel-test.fastq_1-100.eland3.post");
+    # bowtie file
     ok(exists_and_nonempty($bowtie), 'bowtie output exists');
     like(`wc -l $bowtie`, qr/\b$numreads\b/, 'bowtie output has correct number of reads');
+
+    # correlated single ends output
+    ok(launch("./correlate_check.pl -r $reference $correlate"), "correlate_check.pl passed");
 }
 
-sub paired_ends_runs : Tests(7){
+sub paired_ends_runs : Tests(9){
     my $self = shift;
     my ($numreads, $reads, $outdir, $testdir, $reference) = @{$self}{qw/numreads reads outdir testdir ref/};
+    my $bowtie_left = catfile($outdir, "bs-sequel-test.fastq_1-60.eland3.post");
+    my $bowtie_right = catfile($outdir, "bs-sequel-test.fastq_61-100.eland3.post");
+    my $correlate = catfile($outdir, "test.gff");
 
+    # run bs-sequel
+    ok(launch("./bs-sequel.pl -ls 1 60 -rs 61 100 -l $reads -f $reference -b test -d $outdir --no-windowing 2>&1 > /dev/null", verbose => 0),
+        "bs-sequel.pl survived");
 
-    launch("./bs-sequel.pl -ls 1 50 -rs 51 100 -l $reads -f $reference -b test -d $outdir --no-windowing 2>&1 > /dev/null", verbose => 0);
+    # basics
     ok(-d catfile($outdir, 'single-c'), 'single-c dir exists');
     ok(-d catfile($outdir, 'windows'), 'windows dir exists');
     ok(exists_and_nonempty(catfile($outdir, 'test.gff')), 'test.gff exists');
 
-    my $bowtie_left = catfile($outdir, "bs-sequel-test.fastq_1-50.eland3.post");
-    my $bowtie_right = catfile($outdir, "bs-sequel-test.fastq_51-100.eland3.post");
+    # bowtie
     ok(exists_and_nonempty($bowtie_left), 'bowtie_left output exists');
     ok(exists_and_nonempty($bowtie_right), 'bowtie_right output exists');
     like(`wc -l $bowtie_left`, qr/\b$numreads\b/, 'bowtie_left output has correct number of reads');
     like(`wc -l $bowtie_right`, qr/\b$numreads\b/, 'bowtie_right output has correct number of reads');
+
+    # correlated single ends output
+    ok(launch("./correlate_check.pl -r $reference $correlate"), "correlate_check.pl passed");
 }
 
 bssequel::Test->runtests;
 
-sub exists_and_nonempty{
-    my $file = shift;
-    return defined $file &&  -f $file && [stat($file)]->[7];
-}

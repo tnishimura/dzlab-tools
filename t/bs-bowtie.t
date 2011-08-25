@@ -8,14 +8,11 @@ use Launch;
 use File::Basename;
 use File::Spec::Functions;
 use Test::More qw(no_plan);
+use TestUtils;
 
 # setup. probably belongs in a function
 my $test_dir = 't_intermediate';
-my $gz = 't/TAIR_mini.fas.gz';
-my $ref = catfile($test_dir, basename($gz, '.gz'));
-mkdir $test_dir if ! -d $test_dir;
-launch("gunzip -c $gz > ??", expected => $ref);
-
+my $ref = setup_reference($test_dir);
 
 my $num_reads = 10000;
 my $num_junk = 1000;
