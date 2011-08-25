@@ -103,17 +103,16 @@ sub launch{
         if (! @expected){
             # none expected
         } elsif(@expected && grep {-f} @expected){
-            _info("Already done, skipping: [$cmd] ");
+            _info("Already done, skipping: [$cmd] ") if $verbose;
             return 1;
         }
     }
     if ($dryrun){
-        _info("Dryrun, exiting");
+        _info("Dryrun, exiting") if $verbose;
         return;
     }
 
     # no need to say _info this b/c verbose => 1 does it for us.
-    #_info(join ", ", "running [$cmd]", ($force ? "forced" : ()), ($dryrun ? "dryrun" : ()));
     my ($success, $errmsg, $fullbuf) = run(command => $cmd, verbose => $verbose);
 
     if (! $success){
@@ -122,7 +121,7 @@ sub launch{
         _logdie("dying...");
     }
 
-    _info(join "", @$fullbuf);
+    _info(join "", @$fullbuf) if $verbose;
 
     if (@$fullbuf && $also){
         open my $also_fh, '>>', $also;
@@ -137,17 +136,17 @@ sub launch{
     if ($success == 1){
         my $exp = join ", ", @expected;
         if (! @expected){
-            _info("Successfully launched and finished [$cmd]");
+            _info("Successfully launched and finished [$cmd]") if $verbose;
         } 
         elsif ($placeholder && -f $tempfile){
             rename $tempfile, $expected[0];
-            _info("Successfully launched and finished. Produced $expected[0] [$cmd]");
+            _info("Successfully launched and finished. Produced $expected[0] [$cmd]") if $verbose;
         } 
         elsif ($placeholder && ! -f $tempfile){
             _logdie("command seems to have run but expected files $exp not produced [$cmd]");
         } 
         elsif (grep {-f} @expected){ 
-            _info("Successfully launched and finished. Produced $exp [$cmd]");
+            _info("Successfully launched and finished. Produced $exp [$cmd]") if $verbose;
         } 
         else {
             _logdie("command seems to have run but expected files $exp not produced [$cmd]");
