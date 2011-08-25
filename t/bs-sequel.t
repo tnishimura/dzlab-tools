@@ -16,8 +16,6 @@ use TestUtils;
 use YAML qw/LoadFile/;
 use List::MoreUtils qw/all/;
 
-$Launch::VERBOSE = $ENV{HARNESS_VERBOSE};
-
 sub setup_files : Test(setup => 3) {
     my $self = shift;
 
