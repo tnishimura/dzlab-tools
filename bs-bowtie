@@ -16,6 +16,7 @@ use Getopt::Euclid qw( :vars<opt_> );
 use Pod::Usage;
 
 pod2usage(-verbose => 99,-sections => [qw/NAME SYNOPSIS OPTIONS/]) if $opt_help;
+$Launch::VERBOSE = !$opt_quiet;
 
 #######################################################################
 # splice argument sanitizing
@@ -44,7 +45,7 @@ say STDERR "splice: $splice[0] $splice[1] (trims $trim5, $trim3)";
 # Convert genome and bowtie build if necessary
 
 my $conversion = $opt_g2a ? 'g2a' : 'c2t';
-launch("perl -S bs-bowtie-build -c2t $opt_reference", verbose => !$opt_quiet);
+launch("perl -S bs-bowtie-build -c2t $opt_reference");
 
 #######################################################################
 # Launch bowtie
@@ -59,7 +60,7 @@ launch(join(" | ",
         ),
         dryrun => $opt_dry_run, 
         ($opt_log ? (expected => $opt_log) : ()), 
-        verbose => !$opt_quiet);
+        );
 
 =head1 NAME
 

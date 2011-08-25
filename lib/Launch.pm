@@ -17,13 +17,14 @@ our @ISA = qw(Exporter);
 our @EXPORT_OK = qw();
 our @EXPORT = qw(launch);
 
+our $VERBOSE = 1;
+
 =head2 launch
 
  expected - This is a file (or arrayref of files) which we expect to be produce.
  force    - Run even if file exists.
  dryrun   - Don't actually run.
  also     - Also print output of command to this file.
- verbose  - Default to 1
 
 =cut
 
@@ -37,30 +38,12 @@ our @EXPORT = qw(launch);
             die $_[0]; 
         }
     }
-    sub _logwarn{
-        if (Log::Log4perl->initialized()){ 
-            my $logger = get_logger("PipeLine");
-            $logger->logwarn($_[0]); 
-        }
-        else{ 
-            warn $_[0]; 
-        }
-    }
     sub _info{
         if (Log::Log4perl->initialized()){ 
             my $logger = get_logger("PipeLine");
             $logger->info($_[0]); 
         }
-        else{ 
-            say STDERR $_[0]; 
-        }
-    }
-    sub _debug{
-        if (Log::Log4perl->initialized()){ 
-            my $logger = get_logger("PipeLine");
-            $logger->debug($_[0]); 
-        }
-        else{ 
+        elsif ($VERBOSE){
             say STDERR $_[0]; 
         }
     }
@@ -72,7 +55,6 @@ sub launch{
     my $force     = delete $opt{force} // 0;
     my $dryrun    = delete $opt{dryrun} // 0;
     my $also      = delete $opt{also} // 0;
-    my $verbose   = delete $opt{verbose} // 1;
 
     my @expected;
     if (exists $opt{expected}){
@@ -103,25 +85,23 @@ sub launch{
         if (! @expected){
             # none expected
         } elsif(@expected && grep {-f} @expected){
-            _info("Already done, skipping: [$cmd] ") if $verbose;
+            _info("Already done, skipping: [$cmd] ");
             return 1;
         }
     }
     if ($dryrun){
-        _info("Dryrun, exiting") if $verbose;
+        _info("Dryrun, exiting");
         return;
     }
 
     # no need to say _info this b/c verbose => 1 does it for us.
-    my ($success, $errmsg, $fullbuf) = run(command => $cmd, verbose => $verbose);
+    my ($success, $errmsg, $fullbuf) = run(command => $cmd, verbose => $VERBOSE);
 
     if (! $success){
-        _logwarn("FAILED: $cmd");
-        _logwarn("$errmsg");
-        _logdie("dying...");
+        _logdie("FAILED: $cmd\n$errmsg\ndying...");
     }
 
-    _info(join "", @$fullbuf) if $verbose;
+    _info(join "", @$fullbuf);
 
     if (@$fullbuf && $also){
         open my $also_fh, '>>', $also;
@@ -136,17 +116,17 @@ sub launch{
     if ($success == 1){
         my $exp = join ", ", @expected;
         if (! @expected){
-            _info("Successfully launched and finished [$cmd]") if $verbose;
+            _info("Successfully launched and finished [$cmd]");
         } 
         elsif ($placeholder && -f $tempfile){
             rename $tempfile, $expected[0];
-            _info("Successfully launched and finished. Produced $expected[0] [$cmd]") if $verbose;
+            _info("Successfully launched and finished. Produced $expected[0] [$cmd]");
         } 
         elsif ($placeholder && ! -f $tempfile){
             _logdie("command seems to have run but expected files $exp not produced [$cmd]");
         } 
         elsif (grep {-f} @expected){ 
-            _info("Successfully launched and finished. Produced $exp [$cmd]") if $verbose;
+            _info("Successfully launched and finished. Produced $exp [$cmd]");
         } 
         else {
             _logdie("command seems to have run but expected files $exp not produced [$cmd]");

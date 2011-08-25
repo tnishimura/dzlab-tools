@@ -24,9 +24,9 @@ sub setup_reference{
         croak "$test_dir is not a directory? dying";
     }
     mkdir $test_dir if ! -d $test_dir;
-    launch("gunzip -c $gz > ??", expected => $ref, verbose => 0);
-    launch("./bs-bowtie-build -c2t $ref", verbose => 0);
-    launch("./bs-bowtie-build -g2a $ref", verbose => 0);
+    launch("gunzip -c $gz > ??", expected => $ref);
+    launch("./bs-bowtie-build -c2t $ref");
+    launch("./bs-bowtie-build -g2a $ref");
     is(8527645, [stat($ref)]->[7], "unzipped reference the correct size");
     return $ref;
 }

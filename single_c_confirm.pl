@@ -4,17 +4,15 @@ use warnings FATAL => "all";
 use 5.010_000;
 use Data::Dumper;
 use autodie;
-
-END {close STDOUT}
-$| = 1;
-
 use FindBin;
 use lib "$FindBin::Bin/lib";
 use FastaReader;
 use GFF::Parser;
-
 use Pod::Usage;
 use Getopt::Long;
+
+END {close STDOUT}
+$| = 1;
 
 my $result = GetOptions (
     "reference|r=s" => \(my $reference),
@@ -39,14 +37,14 @@ for my $file (@ARGV) {
         if (defined $c && $c > 0){
             my $base = $fr->get($seq, $pos, $pos);
             if ($base ne 'C' && $base ne 'G'){
-                croak("error at $seq $pos: not C/G");
+                die("error at $seq $pos: not C/G");
             }
             if (defined $strand){
                 if ($strand eq '+' && $base ne 'C'){
-                    croak("error at $seq $pos + ");
+                    die("error at $seq $pos + ");
                 }
                 elsif ($strand eq '-' && $base ne 'G'){
-                    croak("error at $seq $pos -");
+                    die("error at $seq $pos -");
                 }
             }
         }
