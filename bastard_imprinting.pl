@@ -143,24 +143,24 @@ my $max_hits_arg = $opt_max_hits ? " --strata -k 1 -m $opt_max_hits " : "";
 
 if ($pm->start == 0){
     launch("bowtie $bsrc_reference_a $max_hits_arg -f -B 1 -v $opt_bowtie_mismatches --norc --best -5 $left_trim5 -3 $left_trim3 $rawc2t $left_bowtie_a",
-        also => $bowtie_logname, expected => $left_bowtie_a, force => $opt_force, id => 'left-a', accum => 1);
+        also => $bowtie_logname, expected => $left_bowtie_a, force => $opt_force);
     $pm->finish;
 }
 if ($pm->start == 0){
     launch("bowtie $bsrc_reference_b $max_hits_arg -f -B 1 -v $opt_bowtie_mismatches --norc --best -5 $left_trim5 -3 $left_trim3 $rawc2t $left_bowtie_b",
-        also => $bowtie_logname, expected => $left_bowtie_b, force => $opt_force, id => 'left-b', accum => 1);
+        also => $bowtie_logname, expected => $left_bowtie_b, force => $opt_force);
     $pm->finish;
 }
 
 if (!$single_sided){
     if ($pm->start == 0){
         launch("bowtie $bsrc_reference_a $max_hits_arg -f -B 1 -v $opt_bowtie_mismatches --norc --best -5 $right_trim5 -3 $right_trim3 $rawc2t $right_bowtie_a",
-            also => $bowtie_logname, expected => $right_bowtie_a, force => $opt_force, ,id => 'right-a', accum => 1);
+            also => $bowtie_logname, expected => $right_bowtie_a, force => $opt_force, );
         $pm->finish;
     }
     if ($pm->start == 0){
         launch("bowtie $bsrc_reference_b $max_hits_arg -f -B 1 -v $opt_bowtie_mismatches --norc --best -5 $right_trim5 -3 $right_trim3 $rawc2t $right_bowtie_b",
-            also => $bowtie_logname, expected => $right_bowtie_b, force => $opt_force, ,id => 'right-b', accum => 1);
+            also => $bowtie_logname, expected => $right_bowtie_b, force => $opt_force, );
         $pm->finish;
     }
 }

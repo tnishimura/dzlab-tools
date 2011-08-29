@@ -9,35 +9,52 @@ use Cwd;
 use Log::Log4perl qw/get_logger/;
 use Parallel::ForkManager;
 use File::Temp qw/mktemp/;
-use IPC::Cmd qw/run_forked/;
+use autodie;
+use IPC::Cmd qw/run/;
 
 require Exporter;
 our @ISA = qw(Exporter);
 our @EXPORT_OK = qw();
 our @EXPORT = qw(launch);
 
+our $VERBOSE = exists $ENV{QUIET} ? ! $ENV{QUIET} : 1;
+
 =head2 launch
 
  expected - This is a file (or arrayref of files) which we expect to be produce.
  force    - Run even if file exists.
  dryrun   - Don't actually run.
- id       - Optional identifier to be appended to stdout/stderr collector.
+ also     - Also print output of command to this file.
 
 =cut
+
+{
+    sub _logdie{
+        if (Log::Log4perl->initialized()){ 
+            my $logger = get_logger("PipeLine");
+            $logger->logdie($_[0]); 
+        }
+        else{ 
+            die $_[0]; 
+        }
+    }
+    sub _info{
+        if (Log::Log4perl->initialized()){ 
+            my $logger = get_logger("PipeLine");
+            $logger->info($_[0]); 
+        }
+        elsif ($VERBOSE){
+            say STDERR $_[0]; 
+        }
+    }
+}
 
 sub launch{
     my ($cmd, %opt) = @_;
 
-    my $logger    = get_logger("PipeLine");
-
     my $force     = delete $opt{force} // 0;
     my $dryrun    = delete $opt{dryrun} // 0;
-    my $id        = delete $opt{id} // "";
-    my $accum     = delete $opt{accum} // 0;
     my $also      = delete $opt{also} // 0;
-    $id = $id ? "($id)" : "";
-
-
 
     my @expected;
     if (exists $opt{expected}){
@@ -57,11 +74,10 @@ sub launch{
             $cmd =~ s/\?\?/$tempfile/;
         }
         else {
-            $logger->logdie("If placeholder ?? is used, exactly one expected file can be given");
+            _logdie("If placeholder ?? is used, exactly one expected file can be given");
         }
     }
 
-    $logger->info(join ", ", "running [$cmd]", ($force ? "forced" : ()), ($dryrun ? "dryrun" : ()));
 
     die "unknown parameters passed to launch" . Dumper \%opt if (%opt);
 
@@ -69,80 +85,55 @@ sub launch{
         if (! @expected){
             # none expected
         } elsif(@expected && grep {-f} @expected){
-            $logger->info("Already done, skipping: [$cmd] ");
+            _info("Already done, skipping: [$cmd] ");
             return 1;
         }
     }
     if ($dryrun){
-        $logger->info("Dryrun, exiting");
+        _info("Dryrun, exiting");
         return;
     }
 
-    my $success;
-    my @output_accum;
-    if (IPC::Cmd->can_use_run_forked()){
-        $logger->info("running with run_forked");
-        my $rv = run_forked($cmd, {
-                discard_output => 1,
-                stdout_handler => sub{ 
-                    my $o  ="stdout $id: " . shift;
-                    if ($accum){
-                        push(@output_accum, $o); 
-                        print $o;
-                    }
-                    else{
-                        $logger->debug($o);
-                    }
-                },
-                stderr_handler => sub{ 
-                    my $e  ="stderr $id: " . shift;
-                    if ($accum){
-                        push(@output_accum, $e);
-                        print $e;
-                    }
-                    else{
-                        $logger->debug($e);
-                    }
-                },
-            });
-        $success = $rv->{exit_code};
-    }
-    else{
-        #$logger->info("reverting to system()");
-        $success = system($cmd);
+    # no need to say _info this b/c verbose => 1 does it for us.
+    my ($success, $errmsg, $fullbuf) = run(command => $cmd, verbose => $VERBOSE);
+
+    if (! $success){
+        _logdie("FAILED: $cmd\n$errmsg\ndying...");
     }
 
-    if ($accum){
-        $logger->info("===== Output of $cmd was:\n");
-        $logger->info(join "", "\n", map { "= " . $_ } @output_accum);
-        $logger->info("=====\n");
-        if ($also){
-            open my $also_fh, '>>', $also;
-            syswrite $also_fh, join("", @output_accum);
-            close $also_fh if $also;
-        }
+    _info(join "", @$fullbuf);
+
+    if (@$fullbuf && $also){
+        open my $also_fh, '>>', $also;
+
+        print $also_fh "===== Output of [$cmd] was:\n";
+        print $also_fh join "", @$fullbuf;
+        print $also_fh "=====\n";
+
+        close $also_fh if $also;
     }
 
-    if ($success == 0){
+    if ($success == 1){
         my $exp = join ", ", @expected;
         if (! @expected){
-            $logger->info("Successfully launched and finished [$cmd]");
+            _info("Successfully launched and finished [$cmd]");
         } 
         elsif ($placeholder && -f $tempfile){
             rename $tempfile, $expected[0];
-            $logger->info("Successfully launched and finished. Produced $expected[0] [$cmd]");
+            _info("Successfully launched and finished. Produced $expected[0] [$cmd]");
         } 
         elsif ($placeholder && ! -f $tempfile){
-            $logger->logdie("command seems to have run but expected files $exp not produced [$cmd]");
+            _logdie("command seems to have run but expected files $exp not produced [$cmd]");
         } 
         elsif (grep {-f} @expected){ 
-            $logger->info("Successfully launched and finished. Produced $exp [$cmd]");
+            _info("Successfully launched and finished. Produced $exp [$cmd]");
         } 
         else {
-            $logger->logdie("command seems to have run but expected files $exp not produced [$cmd]");
+            _logdie("command seems to have run but expected files $exp not produced [$cmd]");
         }
     } else {
-        $logger->logdie("failed to run, dying: [$cmd]");
+        _logdie("failed to run, dying: [$cmd]");
     }
+    return 1;
 }
 1;

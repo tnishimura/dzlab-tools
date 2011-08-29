@@ -24,7 +24,7 @@ if ($opt_debug && $opt_memory){
     die "--debug and --memory incompatible";
 }
 
-my $counter = Counter->new(verbose => 1);
+my $counter = Counter->new(verbose => $opt_verbose);
 my $feature;
 
 #######################################################################
