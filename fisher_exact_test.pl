@@ -138,7 +138,13 @@ By default, fisher_exact_test.pl uses logarithms to avoid dealing with very larg
 from factorials. You can turn this off by passing the -x flag.  Note that this will be very slow if 
 any of the values (a,b,c,d) are greater than a few thousand.  
 
-fisher_exact_test.pl -a 2 -b 4 -c 6 -d 8 -i input.txt -o output.txt
+Example:
+
+ fisher_exact_test.pl -a 2 -b 4 -c 6 -d 8 -i input.txt -o output.txt
+
+The above command assumes input.txt is of the form:
+
+ wildtype-not-treated  52  mutant-no-treated  5  wiltype-treated  5  mutant-treated  59 
 
 =head1 DESCRIPTION
 
