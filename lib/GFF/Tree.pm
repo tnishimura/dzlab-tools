@@ -36,6 +36,11 @@ has normalize => (
     default => 1,
 );
 
+has lenient => (
+    is => 'ro',
+    default => 0,
+);
+
 
 sub BUILD{
     my ($self) = @_;
@@ -56,10 +61,29 @@ sub BUILD{
 sub search_overlap{
     my ($self, $seq, $start, $end) = @_;
     if (! $self->has_tree($seq)){
-        croak "no such sequence $seq in GFF::Tree";
+        if (! $self->lenient){
+            croak "no such sequence $seq in GFF::Tree";
+        }
+        else {
+            return;
+        }
     }
 
     return $self->get_tree($seq)->search_overlap($start,$end);
+}
+
+sub search{
+    my ($self, $seq, $start, $end) = @_;
+    if (! $self->has_tree($seq)){
+        if (! $self->lenient){
+            croak "no such sequence $seq in GFF::Tree";
+        }
+        else {
+            return;
+        }
+    }
+
+    return $self->get_tree($seq)->search($start,$end);
 }
 
 no Moose;
