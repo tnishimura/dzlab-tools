@@ -5,7 +5,8 @@ use warnings;
 use 5.010_000;
 use Data::Dumper;
 use autodie;
-use Test::More tests => 315;
+#use Test::More tests => 315;
+use Test::More 'no_plan';
 
 sub setup_files : Test(setup) {
     my $self = shift;
@@ -87,11 +88,20 @@ sub binary_rand : Tests {
     }
 }
 
+sub sorted_count_test : Tests {
+    my @simple = (1,2,3,4,7,8,8,9,11,12,13,13,13);
+
+    is(sorted_count(\@simple, 1), 1);
+    is(sorted_count(\@simple, 2), 1);
+    is(sorted_count(\@simple, 8), 2);
+    is(sorted_count(\@simple, 11), 1);
+    is(sorted_count(\@simple, 13), 3);
+}
 
 BEGIN { 
     use_ok( 
         'BinarySearch', 
-        qw/greatest_lower least_upper/
+        qw/sorted_count greatest_lower least_upper/
     ); 
 }
 require_ok( 'BinarySearch' );

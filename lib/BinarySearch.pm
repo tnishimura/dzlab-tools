@@ -10,7 +10,7 @@ use Scalar::Util qw/looks_like_number/;
 
 require Exporter;
 our @ISA = qw(Exporter);
-our @EXPORT_OK = qw(greatest_lower least_upper);
+our @EXPORT_OK = qw(greatest_lower least_upper sorted_count);
 our @EXPORT = qw();
 
 sub _extended_cmp{
@@ -141,7 +141,63 @@ sub _lu_helper{
     else {
         die "shouldn't be here";
     }
+}
 
+sub sorted_count{
+    my ($array, $target) = @_;
+    my $max = $#{$array};
+    #say "XXX $max";
+    my $index = _sc_helper($array, $target, 0, $max);
+    
+    if (defined $index){
+        my $count = 1;
+        my $higher = $index +1;
+        my $lower = $index -1;
+        HIGHER:
+        while ($higher <= $max){
+            if ($array->[$higher] == $target){
+                $count++;
+                $higher++;
+            }
+            else {
+                last HIGHER;
+            }
+        }
+        LOWER:
+        while (0 <= $lower){
+            if ($array->[$lower] == $target){
+                $count++;
+                $lower--;
+            }
+            else {
+                last LOWER;
+            }
+        }
+        return $count;
+    }
+    else{
+        return 0;
+    }
+}
+sub _sc_helper{
+    my ($array, $target, $low, $high) = @_;
+    #say "(@$array), $target, $low, $high";
+    return if $low > $high;
+
+    my $mid = $low + int(($high - $low)/2);
+    my $mid_val = $array->[$mid];
+    if ($mid_val == $target){
+        return $mid;
+    }
+    elsif ($mid_val < $target){
+        return _sc_helper($array, $target, $mid + 1, $high);
+    }
+    elsif ($mid_val > $target){
+        return _sc_helper($array, $target, $low, $mid -1);
+    }
+    else {
+        croak "shouldn't be here";
+    }
 }
 1;
 
