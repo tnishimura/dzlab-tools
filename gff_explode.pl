@@ -64,9 +64,6 @@ Usage examples:
 
 =item  -o <file> | --output <file>
 
-=for Euclid
-    file.type:        readable
-
 =back
 
 =head1 OPTIONS
