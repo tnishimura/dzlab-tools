@@ -79,20 +79,20 @@ $dbh->do(q{
     });
 
 $dbh->do("create index idx1 on gff (position,sequence)");
-my $insert_sth = $dbh->prepare("insert into gff (sequence, position, c, t, n) values (?,?,?,?,1)");
+my $insert_sth = $dbh->prepare("insert into gff (sequence, position, c, t, n) values (?,?,?,?,?)");
 my $update_sth = $dbh->prepare("update gff set c=?, t=?, n=? where position=? and sequence=? ");
 my $checker_sth = $dbh->prepare("select count(*), c, t, n from gff where position=? and sequence=?");
 sub record{
-    my ($sequence, $position, $new_c, $new_t) = @_;
+    my ($sequence, $position, $new_c, $new_t, $new_n) = @_;
     my $key = $sequence . "~" . $position;
 
     $checker_sth->execute($position,$sequence); 
     my ($exists, $c, $t, $n) = $checker_sth->fetchrow_array;
     if ($exists){
-        $update_sth->execute($c+$new_c, $t+$new_t, $n+1, $position, $sequence);
+        $update_sth->execute($c+$new_c, $t+$new_t, $n + $new_n, $position, $sequence);
     }
     else{
-        $insert_sth->execute($sequence, $position, $new_c, $new_t);
+        $insert_sth->execute($sequence, $position, $new_c, $new_t, $new_n);
     }
 }
 
@@ -123,16 +123,17 @@ for my $file (@opt_files) {
         $feature //= $gff->feature;
 
         my ($start, $end) = ($gff->start, $gff->end);
-        #if ($start != $end){
-        #    die "$0 is only for single-c file";
-        #}
+
         # round up to the nearest window (101-150 to 150, 151-200 to 200, etc for w50)
         my $windowed_position = ($start - 1) + ($opt_window_size - ($start - 1) % $opt_window_size);
+
+        my $new_n = $opt_count_in_scores ? $gff->score//1 : $gff->get_column('n')//1;
+
         if ($opt_report_count){
-            record($gff->sequence, $windowed_position, 0, 0);
+            record($gff->sequence, $windowed_position, 0, 0, $new_n);
         }
         else{
-            record($gff->sequence, $windowed_position, ($gff->get_column('c')//0), ($gff->get_column('t')//0));
+            record($gff->sequence, $windowed_position, ($gff->get_column('c')//0), ($gff->get_column('t')//0), $new_n);
         }
         #$insert_sth->execute($gff->sequence, $windowed_position, ($gff->get_column('c')//0), ($gff->get_column('t')//0));
     }
@@ -273,8 +274,11 @@ Don't omit windows without any scores.  Currently only works for files with sing
 
 Report 'n' in the scores column instead of c/(c+t).
 
-=item  --debug <sqlite>
+=item --count-in-scores
 
+Use the column 6 value instead of "n=#" for count score
+
+=item  --debug <sqlite>
 
 =for Euclid
     sqlite.type:        readable
