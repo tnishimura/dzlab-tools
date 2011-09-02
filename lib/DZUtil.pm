@@ -10,11 +10,36 @@ use File::Spec::Functions;
 use File::Basename;
 #use Config::General qw(ParseConfig);
 use POSIX qw/strftime/;
+use IO::Uncompress::Gunzip qw(gunzip $GunzipError) ;
 
 require Exporter;
 our @ISA = qw(Exporter);
-our @EXPORT_OK = qw(localize reverse_complement common_suffix common_prefix mfor basename_prefix fastq_read_length timestamp datestamp overlap chext split_names base_match);
+
+our @EXPORT_OK = qw(localize reverse_complement common_suffix common_prefix
+mfor basename_prefix fastq_read_length timestamp datestamp overlap chext
+split_names base_match open_maybe_compressed fastq_convert_read_header c2t
+numdiff);
 our @EXPORT = qw();
+
+sub c2t{
+    (my $c2t = $_[0]) =~ s/C/T/gi;
+    return $c2t;
+}
+
+sub numdiff{
+    my ($x,$y)=@_;
+    my @x_split = split //, $x;
+    my @y_split = split //, $y;
+    die "len mismatch" unless @x_split == @y_split;
+    my $total = 0;
+    for (0..$#x_split){
+        if ($x_split[$_] ne $y_split[$_]){
+            $total += 1;
+        }
+    }
+    return $total;
+}
+
 
 =head2 chext("/etc/test.txt", "newext")
 
@@ -102,7 +127,14 @@ sub datestamp{ return strftime("%Y%m%d",localtime); }
 
 sub fastq_read_length{
     my $filename = shift;
-    open my $fh, "<", $filename;
+    my $fh;
+    if ($filename =~ /\.gz$/){
+        $fh = new IO::Uncompress::Gunzip $filename 
+            or die "IO::Uncompress::Gunzip failed: $GunzipError\n";
+    }
+    else{
+        open $fh, "<", $filename;
+    }
     <$fh>;
     my $line = <$fh>;
     close $fh;
@@ -112,6 +144,42 @@ sub fastq_read_length{
         return length $line;
     }
     return;
+}
+
+sub fastq_convert_read_header{
+    my $line = $_[0];
+    $line =~ s/^@//;
+    my ($first, $second) = split ' ', $line;
+
+    # most common
+    if ($first =~ m{#0/[12]$}){
+        return $first;
+    }
+    # new solexa format, 6/20/2011
+    elsif (defined $second && $second =~ /^([12])/){
+        return "$first#/$1";
+    }
+    # handle older reads with no read id's 
+    else{
+        return "$first#/1";
+    }
+}
+
+=head2 open_maybe_compressed
+
+return a file handle for a file which may be compressed
+
+=cut 
+sub open_maybe_compressed{
+    my $filename = shift;
+    if ($filename =~ /\.gz$/){
+        return new IO::Uncompress::Gunzip $filename 
+            or die "IO::Uncompress::Gunzip failed: $GunzipError\n";
+    }
+    else {
+        open my $fh, '<', $filename;
+        return $fh;
+    }
 }
 
 #sub read_conf{

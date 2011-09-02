@@ -8,6 +8,9 @@ use Getopt::Long;
 use Pod::Usage;
 use List::Util qw /sum/;
 use feature 'say';
+use FindBin;
+use lib "$FindBin::Bin/lib";
+use DZUtil qw/open_maybe_compressed fastq_convert_read_header/;
 
 # Check required command line parameters
 pod2usage( -verbose => 1 )
@@ -144,13 +147,15 @@ catch_up( $previous, $unmatched, @splice )
     sub catch_up {
         my ( $current, $unmatched, @splice ) = @_;
 
-        $file_handle = $file_handles{$unmatched};
 
-        unless ( defined $file_handle ) {
-            open $file_handle, '<', $unmatched
-                or croak "Can't open $unmatched: $!";
-            $file_handles{$unmatched} = $file_handle;
+        if (! exists $file_handles{$unmatched}){
+            $file_handles{$unmatched} = open_maybe_compressed($unmatched);
+            #open $file_handle, '<', $unmatched
+            #or croak "Can't open $unmatched: $!";
+            #$file_handles{$unmatched} = $file_handle;
         }
+
+        $file_handle = $file_handles{$unmatched};
 
     FASTA_HEADER:
         while ( defined( my $header = <$file_handle> )
@@ -162,6 +167,7 @@ catch_up( $previous, $unmatched, @splice )
 
             $header =~ s/^([>@])//;
             if ( q{@} eq $1 ) {
+                $header = fastq_convert_read_header($header);
                 <$file_handle>;
                 <$file_handle>;
             }

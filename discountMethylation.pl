@@ -8,37 +8,15 @@ use FindBin;
 use lib "$FindBin::Bin/lib";
 use FastaReader;
 use DBI;
-use Log::Log4perl qw/:easy/;
 use List::Util qw/max/;
 use List::MoreUtils qw/all/;
 use DBI;
 use Getopt::Euclid qw( :vars<opt_> );
 use Pod::Usage;
-use Module::Load::Conditional qw/can_load/;
-use File::CountLines qw/count_lines/;
 use File::Temp qw/mktemp tempfile/;
 
 pod2usage(-verbose => 99,-sections => [qw/NAME SYNOPSIS OPTIONS/]) 
 if !$opt_file || !$opt_output_prefix || !$opt_reference;
-Log::Log4perl->easy_init({ level => $DEBUG, layout => '%d{HH:mm:ss} %.1p > %m%n' });
-my $logger = get_logger();
-
-#######################################################################
-# progress bar!
-
-my $has_progressbar = $opt_progress_bar && can_load(modules => { 'File::CountLines' => undef, 'Term::ProgressBar' => undef });
-my $linecount;
-my $pb_increment = 3000; # heuristically determined
-my $pb;
-my $last_pb_update=0;
-
-if ($has_progressbar){
-    $logger->info("Has Term::ProgressBar, using it");
-    $linecount = count_lines($opt_file);
-    $logger->info("$linecount lines total to process");
-    $pb = Term::ProgressBar->new({count => $linecount,ETA => 'linear'});
-    $pb->minor(1);
-}
 
 #######################################################################
 # Database 
@@ -143,11 +121,34 @@ if ($has_progressbar){
 
 #######################################################################
 
+
 {
     my %stats;
+    my $error=0;
+
+    # VERY temporary kludgely hack to avoid errors in correlation.gff...
+    sub only_c2t_changes{
+        my ($read_str, $target_str) = @_;
+        $read_str =~ tr/C/T/;
+        $target_str =~ tr/C/T/;
+        my @read = split //, $read_str;
+        my @target = split //, $target_str;
+
+        my $total = 0;
+        for my $index (0 .. $#read) {
+            my ($r, $t) = ($read[$index], $target[2+$index]);
+            if ($r ne $t){
+                $total++;
+                $error++;
+            }
+        }
+
+        return ($total/length $read_str) < 0.25 ? 1 : 0;
+    }
 
     sub count_methylation{
-        my ($gff_line, $sequence_lengths) = @_;
+        my ($gff_line, $fr) = @_;
+        #die "$gff_line\n" . Dumper $sequence_lengths;
 
         my $filtered = $gff_line =~ s/\*$//;
 
@@ -192,7 +193,7 @@ if ($has_progressbar){
             $target_seq = $1;
         }
         if (!  defined $read_seq || ! defined $target_seq){
-            $logger->debug("couldn't parse $gff_line ?");
+            warn("couldn't parse $gff_line ?");
             return;
         }
         die "can't find read or target seq"  unless (defined $read_seq && defined $target_seq);
@@ -209,18 +210,17 @@ if ($has_progressbar){
             $stats{$seq}{bp} += length($read_seq);
         }
 
-        # reverse?
+        if (! only_c2t_changes($read_seq, $target_seq)){
+            return;
+        }
+
 
         my $reverse = $strand eq '+' ? 0 : $strand eq '-' ? 1 : die "strand should be + or -";
-
-        #say STDERR $start . ($reverse ? ' <- ' : ' -> ') . $end;
-        #say STDERR join q{}, @target_bases;
-        #say STDERR join q{}, @read_bases;
 
         READ:
         for (my $strand_coord = $start; $strand_coord <= $end; ++$strand_coord){
             my $i = $strand_coord - $start + 2;
-            my $abs_coord = $reverse ? $sequence_lengths->{$split[0]} - $strand_coord + 1 : $strand_coord;
+            my $abs_coord = $reverse ? $fr->get_length($split[0]) - $strand_coord + 1 : $strand_coord;
             my $context;
 
             # first position
@@ -264,7 +264,7 @@ if ($has_progressbar){
                 ++$filtered_count->{$methylation ? 'c' : 't'};
             } else{
                 ++$unfiltered_count->{$context};
-                ++$filtered_count->{$methylation ? 'c' : 't'};
+                ++$unfiltered_count->{$methylation ? 'c' : 't'};
             }
 
             record_methylation($seq,$abs_coord,$context);
@@ -362,13 +362,15 @@ if ($has_progressbar){
         #say scalar(@$_) for @output;
         my $numcols = $opt_dinucleotide ? 33 : 27;
 
-        die "uneven number of lines in freq? dying" unless all { $numcols == scalar @$_ } @output;
+        #die "uneven number of lines in freq? dying" unless all { $numcols == scalar @$_ } @output;
 
         for my $i (0..$numcols-1) {
             my $line = join "\t", map { $_->[$i] } @output;
-            $logger->debug($line);
+            say STDERR $line;
             say $out $line;
         }
+        say STDERR "error\t$error";
+        say $out "error\t$error";
         close $out;
     }
 
@@ -379,36 +381,27 @@ if ($has_progressbar){
 
 my $fr = FastaReader->new(file => $opt_reference, normalize => 0);
 
-#my $seqlengths = $fr->length;
-my $seqlengths = {$fr->sequence_lengths};
-
-#$logger->info(Dumper $seqlengths);
-
 open my $in, '<', $opt_file;
+
+my $counter_increment = 10000; 
 
 while (defined(my $line = <$in>)){
     #chomp $line;
     $line =~ tr/\n\r//d;
-    count_methylation($line, $seqlengths);
+    count_methylation($line, $fr);
 
-    if ($. % $pb_increment == 0){
-        if ($has_progressbar){
-            $pb->update($.);
-        }
-        else{
-            $logger->debug($.);
-        }
+    if ($opt_verbose && $. % $counter_increment == 0){
+        say STDERR $.;
     }
 }
 close $in;
 
 
-$pb->update($linecount) if $has_progressbar;
-$logger->info("Done processing! creating single-c and freq file");
+say STDERR "Done processing! creating single-c and freq file";
 
 record_output($opt_output_prefix);
 print_freq($opt_output_prefix);
-disconnect;
+#disconnect;
 
 #######################################################################
 # DONE
@@ -442,11 +435,11 @@ Usage examples:
 =for Euclid
     fasta.type:        readable
 
-=item  -pb | --progress-bar 
-
 =item  -d | --dinucleotide 
 
 =item --help | -h
+
+=item --verbose | -v
 
 =item  -m | --memory 
 

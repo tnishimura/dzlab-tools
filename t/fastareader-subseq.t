@@ -111,11 +111,17 @@ for my $slurp (0, 1) {
         is($f->get_context('chr2', 474+$base, base => $base, rc => 0), 'CG', "context 3 base $base");
         is($f->get_context('chr1', 160+$base, base => $base, rc => 0), 'CG', "context 4 base $base");
 
+        is($f->get_context_raw('chr1', 2+$base, base => $base, rc => 0), 'CTA', "context_raw 1 base $base");
+        is($f->get_context_raw('chr1', 7+$base, base => $base, rc => 0), 'CCC', "context_raw 2 base $base");
+        is($f->get_context_raw('chr1', 160+$base, base => $base, rc => 0), 'CGT', "context_raw 4 base $base");
+
         # out of bounds should return CHH
         is($f->get_context('chr4', 1, rc => 1),'CHH', "context edge case 1");
         is($f->get_context('chr4', 2, rc => 1),'CHH', "context edge case 2");
         is($f->get_context('chr1', $chr1len, rc => 0),'CHH', "context edge case 3");
         is($f->get_context('chr4', $chr4len, rc => 0),'CHH', "context edge case 4");
+
+        is($f->get_context_raw('chr4', 1, rc => 1),'C', "context_raw edge case 1");
     }
     
 }

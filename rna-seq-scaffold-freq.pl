@@ -50,7 +50,6 @@ my $threadarg = $opt_threads ? "-p $opt_threads" : "";
 if (defined $opt_right_reads){
     launch("bowtie $opt_scaffold $splicearg $threadarg -1 $opt_left_reads -2 $opt_right_reads ?? -v 2 -B 1 --best",
         expected => $bowtie,
-        id => 'bowtie',
         also => $log,
         accum => 1,
         dryrun => $opt_dry,
@@ -59,7 +58,6 @@ if (defined $opt_right_reads){
 else {
     launch("bowtie $opt_scaffold $splicearg $threadarg $opt_left_reads ?? -v 2 -B 1 --best",
         expected => $bowtie,
-        id => 'bowtie',
         also => $log,
         accum => 1,
         dryrun => $opt_dry,

@@ -1,0 +1,136 @@
+#!/usr/bin/env perl
+use strict;
+use warnings FATAL => "all";
+use 5.010_000;
+use Data::Dumper;
+use autodie;
+use FindBin;
+use lib "$FindBin::Bin/lib";
+use DZUtil qw/fastq_read_length/;
+use Launch;
+
+END {close STDOUT}
+$| = 1;
+
+use Getopt::Euclid qw( :vars<opt_> );
+use Pod::Usage;
+
+pod2usage(-verbose => 99,-sections => [qw/NAME SYNOPSIS OPTIONS/]) if $opt_help;
+
+#######################################################################
+# splice argument sanitizing
+
+my $read_size = fastq_read_length($opt_reads);
+
+if (! %opt_splice){
+    warn("Left splice -ls was not defined, using full length.");
+    $opt_splice{start} = 1;
+    $opt_splice{end} = $read_size;
+}
+
+my @splice  = @opt_splice{qw/start end/};
+
+if ($splice[0] < 1 || $splice[1] > $read_size || $splice[1] < $splice[0]){
+    die "left splice out of bounds";
+}
+
+my $trim5 = $splice[0] - 1;
+my $trim3 = $read_size - $splice[1];
+
+say STDERR "read_size: $read_size";
+say STDERR "splice: $splice[0] $splice[1] (trims $trim5, $trim3)";
+
+#######################################################################
+# Convert genome and bowtie build if necessary
+
+my $conversion = $opt_g2a ? 'g2a' : 'c2t';
+launch("perl -S bs-bowtie-build -c2t $opt_reference");
+
+#######################################################################
+# Launch bowtie
+
+my $mh_args = $opt_max_hits ? " --strata  -k $opt_max_hits -m $opt_max_hits " : q{ };
+
+launch(join(" | ", 
+            "perl -S fq2fa.pl $opt_reads", 
+            "perl -S convert.pl c2t -",
+            "bowtie $opt_reference.c2t -f -B 1 -v $opt_mismatches -5 $trim5 -3 $trim3 --best $mh_args --norc - ",
+            "perl -S parse_bowtie.pl -u $opt_reads -s @splice -o $opt_output", 
+        ),
+        dryrun => $opt_dry_run, 
+        ($opt_log ? (expected => $opt_log) : ()), 
+        );
+
+=head1 NAME
+
+bs-bowtie - bs-version of bowtie
+
+=head1 SYNOPSIS
+
+Usage examples:
+
+ bs-bowtie.pl [options]...
+
+=head1 REQUIRED ARGUMENTS
+
+=over
+
+=item  -r <file> | --reads <file>
+
+Can be plain text or gz compressed fastq file.
+
+=for Euclid
+    file.type:        readable
+
+=item  -f <genome> | --reference <genome>
+
+Original, unconverted genome.
+
+=for Euclid
+    genome.type:        readable
+
+=item  -o <outfile_file> | --output <outfile_file>
+
+=back
+
+=head1 OPTIONS
+
+=over
+
+=item  -g2a
+
+If true, perform g2a conversion on genome, not c2t.
+
+=item -mh <hits> | --max-hits <hits>
+
+Discards reads that map to the genome more the this many times, passed to bowtie.  In repetitive sections of the genome,
+reads can potentially map hundreds of times, so this helps us filter repetitive chunks out..  Defaults to 0  for no filtering.  
+Daniel says 10 is a good number to use.  Use 0 to disable. Default 10.
+
+=for Euclid
+    hits.default:     10
+
+=item -n <num> | --mismatches <num>
+
+For bowtie.  For each read alignment, allow this many mismatches.  Default 2.
+
+=for Euclid
+    num.default:     2
+
+=item -s <start> <end> | --splice <start> <end>
+
+Start and end coordinate for the chunk of the --left-read fastq file to use for the left alignment.  
+If you omit, full length will be used.
+For example, if you are doing single ends with 1-45 and 46-76, use "-ls 1 45".
+
+=item  --dry-run 
+
+=item  -l <logfile> | --log <logfile>
+
+=item --help | -h
+
+=item --quiet | -q
+
+=back
+
+=cut

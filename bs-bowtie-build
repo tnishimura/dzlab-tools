@@ -1,0 +1,70 @@
+#!/usr/bin/env perl
+use strict;
+use warnings FATAL => "all";
+use 5.010_000;
+use Data::Dumper;
+use autodie;
+use FindBin;
+use lib "$FindBin::Bin/lib";
+use Launch;
+
+END {close STDOUT}
+$| = 1;
+
+use Getopt::Euclid qw( :vars<opt_> );
+use Pod::Usage;
+
+pod2usage(-verbose => 99,-sections => [qw/NAME SYNOPSIS OPTIONS/]) if $opt_help;
+
+unless ($opt_c2t xor $opt_g2a){
+    say STDERR "Either -c2t and -g2a are required (but not both!)";
+    exit 255;
+}
+
+my $conversion = $opt_c2t ? 'c2t' : 'g2a';
+my @indices = map { "$opt_reference.$conversion.$_.ebwt" } qw/1 2 3 4 rev.1 rev.2/;
+
+launch("perl -S rcfas.pl $opt_reference > ??", 
+    expected =>  "$opt_reference.rc");
+
+launch("perl -S convert.pl $conversion $opt_reference.rc > ??", 
+    expected =>  "$opt_reference.$conversion");
+
+launch("bowtie-build $opt_reference.$conversion $opt_reference.$conversion", 
+    expected =>  \@indices);
+
+
+=head1 NAME
+
+bs-bowtie-build.pl - Convert genomes to c2t and bowtie-build
+
+=head1 SYNOPSIS
+
+Usage examples:
+
+ bs-bowtie-build.pl [options]...
+
+=head1 REQUIRED ARGUMENTS
+
+=over
+
+=item  <reference>
+
+=for Euclid
+    reference.type:        readable
+
+=back
+
+=head1 OPTIONS
+
+=over
+
+=item  -c2t
+
+=item  -g2a
+
+=item --help | -h
+
+=back
+
+=cut

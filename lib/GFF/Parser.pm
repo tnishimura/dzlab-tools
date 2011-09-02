@@ -20,10 +20,25 @@ has skip => (
     is => 'ro',
     default => 1
 );
+has done => (
+    is => 'rw',
+    default => 0
+);
 
 has normalize => (
     is => 'ro',
     default => 1,
+);
+has putback => (
+    traits  => ['Array'],
+    is      => 'ro',
+    isa     => 'ArrayRef[GFF]',
+    default => sub { [] },
+    handles => {
+        push_putback => 'push',
+        shift_putback  => 'shift',
+        has_putback  => 'count',
+    },
 );
 
 # privates
@@ -68,13 +83,22 @@ then return unparseable/comment lines as undef and pragmas as strings.
 
 sub next{
     my ($self) = @_;
+    if ($self->has_putback){
+        return $self->shift_putback;
+    }
     while (defined (my $line = scalar readline $self->filehandle)){
         my $gff = parse_gff($line, $self->normalize);
         if (!$self->skip || is_gff($gff)){
             return $gff;
         }
     }
+    $self->done(1);
     return;
+}
+
+sub rewind{
+    my ($self,$gff) = @_;
+    $self->push_putback($gff);
 }
 
 

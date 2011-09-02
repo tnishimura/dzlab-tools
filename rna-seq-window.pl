@@ -31,7 +31,6 @@ my $log = $bowtie . ".w50.gff.log";
 if (defined $opt_right_reads){
     launch("bowtie $opt_reference -1 $opt_left_reads -2 $opt_right_reads ?? -v 2 -B 1 --best",
         expected => $bowtie,
-        id => 'bowtie',
         also => $log,
         dryrun => $opt_dry,
     );
@@ -39,7 +38,6 @@ if (defined $opt_right_reads){
 else {
     launch("bowtie $opt_reference $opt_left_reads ?? -v 2 -B 1 --best",
         expected => $bowtie,
-        id => 'bowtie',
         also => $log,
         dryrun => $opt_dry,
     );
