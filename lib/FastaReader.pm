@@ -201,11 +201,12 @@ sub make_iterators{
 # get_pretty
 
 sub get_pretty{
-    my ($self, $seqid, $start, $end, %opts) = @_;
+    my ($self, $name, $seqid, $start, $end, %opts) = @_;
 
     my $sequence = $self->get($seqid, $start, $end, %opts);
 
     my @accum = 
+    defined $name ? ">$name" :
     defined $start && defined $end ? (">${seqid}_${start}_${end}") :
     defined $start ?  (">${seqid}_${start}_end") :
     defined $end ?  (">${seqid}_start_${end}") :
@@ -219,7 +220,7 @@ sub get_pretty{
         push @accum, substr $sequence, $pos, 80; 
         $pos+=80;
     }
-    return join "\n", @accum;
+    return join "\n", @accum, "\n";
 }
 
 #######################################################################
