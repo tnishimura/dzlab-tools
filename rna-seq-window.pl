@@ -25,7 +25,7 @@ $prefix = basename($prefix);
 (my $bowtie = $opt_left_reads) =~ s/\.\w+$/.vs-genome_$prefix.bowtie/;
 my $gff = $bowtie . ".gff";
 my $w50 = $bowtie . ".w50.gff";
-my $log = $bowtie . ".w50.gff";
+my $log = $bowtie . ".w50.gff.log";
 
 
 if (defined $opt_right_reads){
