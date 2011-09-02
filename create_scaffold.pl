@@ -8,7 +8,7 @@ use FindBin;
 use lib "$FindBin::Bin/lib";
 use GFF;
 use GFF::Parser;
-use Fasta;
+use FastaReader;
 
 use Getopt::Euclid qw( :vars<opt_> );
 use Pod::Usage;
@@ -21,15 +21,23 @@ if ($opt_output ne '-'){
     select $fh; 
 }
 
-my $fasta = slurp_fasta($opt_input);
+my $fr  = FastaReader->new(file => $opt_input, slurp => 1);
 my $parser = GFF::Parser->new(skip => 1,file => $opt_gff);
 
 while (my $gff = $parser->next()){
-    print format_fasta(
-        #sprintf("%s | %s, %s, %s", $gff->get_column($opt_locus_id),$gff->start, $gff->end, $gff->strand),
+    print $fr->get_pretty(
         $gff->get_column($opt_locus_id),
-        fasta_subseq($fasta,$gff->sequence,$gff->start, $gff->end, coord => 'f', rc => $gff->strand eq '-' ? 1 : 0)
+        $gff->sequence,
+        $gff->start, 
+        $gff->end, 
+        coord => 'f', 
+        rc => $gff->strand eq '-' ? 1 : 0
     );
+        #print format_fasta(
+        #    #sprintf("%s | %s, %s, %s", $gff->get_column($opt_locus_id),$gff->start, $gff->end, $gff->strand),
+        #    $gff->get_column($opt_locus_id),
+        #    fasta_subseq($fasta,$gff->sequence,$gff->start, $gff->end, coord => 'f', rc => $gff->strand eq '-' ? 1 : 0)
+        #);
 }
 if ($opt_output ne '-'){
     close \*STDOUT;
