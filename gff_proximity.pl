@@ -20,9 +20,13 @@ my $opt_window_size = 50;
 my $opt_no_skip = 1;
 my $opt_num_headers = 5;
 my $opt_feature_name = 'part';
+my $opt_gen_id;
+my $id = "AAA111";
+my %idmemo;
 
 my $result = GetOptions (
     "feature|f=s" => \$opt_feature_name,
+    "genid|g" => \$opt_gen_id,
 );
 my ($annotation, $reference) = @ARGV;
 
@@ -62,9 +66,23 @@ for my $seq (sort $fr->sequence_list){
         my $end = $start + $opt_window_size - 1;
         my @overlaps = $tree->search(uc $seq, $start, $end - 1);
         my $score = scalar @overlaps ?  window_score(\@overlaps, $start, $end) : '.';
-        my $attr = scalar @overlaps ?  
-        ('ID=' . join ",", map { $_->get_column('ID') } @overlaps)
-        : '.';
+        my $attr; 
+        if (@overlaps){
+            if ($opt_gen_id){
+                my $key = join ";", map {$_->attribute_string} @overlaps;
+                if (! exists $idmemo{$key}){
+                    $idmemo{$key} = $id++;
+                }
+                $attr = $idmemo{$key};
+            }
+            else{
+                $attr = 'ID=' . join ",", map { $_->get_column('ID') } @overlaps;
+            }
+        }
+        else {
+            $attr = '.';
+        }
+
         if ($score ne '.' || $opt_no_skip){
             say join "\t", $seq, q{.}, $opt_feature_name, $start, $end, $score, qw{. .}, $attr;
         }
