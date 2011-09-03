@@ -9,8 +9,6 @@ use Test::More qw(no_plan);
 use Ends::NeighborMap;
 use List::Util qw/min max/;
 
-my $distance = 5000;
-
 sub confirm{
     my ($nm, $id, $strand, $focus,$minus, $plus) = @_;
     is_deeply([$nm->neighborhood($id)],  [$focus, $strand, $minus, $plus]); 
@@ -18,7 +16,6 @@ sub confirm{
 
 #######################################################################
 # Flag 0
-
 
 sub flag_0_prime_5 : Tests {
     my $nm = Ends::NeighborMap->new(flag => 0, prime => 5);
