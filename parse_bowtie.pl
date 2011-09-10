@@ -25,7 +25,6 @@ my $reference;
 my $output;
 my $unmatched;
 my @splice;
-my $no_normalize;
 my $whole;
 
 # Grabs and parses command line options
@@ -39,7 +38,6 @@ my $result = GetOptions(
     'gff|g'         => \$gff,
     'id-regex|i=s'  => \$id_regex,
     'reference|r=s' => \$reference,
-    'no-normalize|n'=> \$no_normalize,
     'whole|w'       => \$whole,
     'verbose|v'     => sub { use diagnostics; },
     'quiet|q'       => sub { no warnings; },
@@ -323,7 +321,7 @@ sub read_bowtie {
 }
 
 sub count_reads {
-    my ( $reference, $counts_ref, $id_regex, $no_normalize ) = @_;
+    my ( $reference, $counts_ref, $id_regex) = @_;
 
     return unless $reference;
 
@@ -347,15 +345,8 @@ sub count_reads {
             "\t",
 
             $id,
-            sprintf(
-                "%g",
-                $no_normalize
-                ? $counts_ref->{$target}{frequencies}
-                : (
-                    $counts_ref->{$target}{frequencies} /
-                    length $reference{$target}
-                ) * 1000
-            ),
+            sprintf( "%g", $counts_ref->{$target}{frequencies}),
+            sprintf( "%g", ($counts_ref->{$target}{frequencies} / length $reference{$target}) * 1000),
             sprintf(
                 "%g",
                 (     $counts_ref->{$target}{frequencies}
@@ -433,7 +424,6 @@ __END__
  -u, --recover      given original alignment fasta file, recovers unmatched reads (which bowtie does not output)
  -g, --gff          convert bowtie alignment format to gff
  -p, --paired       convert bowtie's paired ends output to gff with concatenated library ends per region
- -n, --no-normalize do not normalize frequencies
  -o, --output       filename to write results to (defaults to STDOUT)
  -v, --verbose      output perl's diagnostic and warning messages
  -q, --quiet        supress perl's diagnostic and warning messages
