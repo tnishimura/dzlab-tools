@@ -136,7 +136,7 @@ sub blit{
     if ($opt_just_scores){
         my $score = $end - $start + 1;
 
-        say join "\t", $gff->sequence, $gff->source, $gff->feature,
+        say join "\t", $gff->sequence // '.', $gff->source // '.', $gff->feature // '.',
         $start, $end, $score, $gff->strand // '.', '.', '.';
     } else {
         my $score = $c + $t > 0 ? $c / ($c + $t) : 0;
