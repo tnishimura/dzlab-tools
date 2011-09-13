@@ -18,7 +18,9 @@ my $logger = get_logger();
 END {close STDOUT}
 
 pod2usage(-verbose => 99,-sections => [qw/NAME SYNOPSIS OPTIONS/]) 
-if !$opt_scaffold || !$opt_left_reads || ! $opt_output;
+if !$opt_scaffold || !$opt_left_reads;
+
+$opt_output //= $opt_left_reads;
 
 # get scaffold's basename
 (my $scaffold_prefix = $opt_scaffold) =~ s/\.\w+$//;
@@ -51,7 +53,6 @@ if (defined $opt_right_reads){
     launch("bowtie $opt_scaffold $splicearg $threadarg -1 $opt_left_reads -2 $opt_right_reads ?? -v 2 -B 1 --best",
         expected => $bowtie,
         also => $log,
-        accum => 1,
         dryrun => $opt_dry,
     );
 }
@@ -59,7 +60,6 @@ else {
     launch("bowtie $opt_scaffold $splicearg $threadarg $opt_left_reads ?? -v 2 -B 1 --best",
         expected => $bowtie,
         also => $log,
-        accum => 1,
         dryrun => $opt_dry,
     );
 }
