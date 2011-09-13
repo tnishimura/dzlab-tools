@@ -15,7 +15,7 @@ pod2usage(-verbose => 99,-sections => [qw/NAME SYNOPSIS OPTIONS/]) if $opt_help 
 END {close STDOUT}
 $| = 1;
 
-my $fr = FastaReader->new(file => $opt_reference, ht => sub { s/^>(\S+)\s.*$/$1/}, slurp => 1);
+my $fr = FastaReader->new(file => $opt_reference, ht => sub { s/^>(\S+)\s?.*$/$1/}, slurp => 1);
 my %counts = map { $_ => 0 } $fr->sequence_list();
 my %bases = %counts;
 
@@ -56,7 +56,7 @@ bowtie-count.pl - count the number of reads aligning to scaffold entries.
 
 =head1 SYNOPSIS
 
- bowtie-freq.pl -f scaffold.fa reads_aligned_against_that_scaffold.bowtie
+ bowtie-freq.pl -r scaffold.fa reads_aligned_against_that_scaffold.bowtie
 
 =head2 inputs
 
@@ -85,7 +85,7 @@ no normalization is done-- that's up to you.
 
 =over
 
-=item  -f <fasta> | --reference <fasta>
+=item  -r <fasta> | --reference <fasta>
 
 =for Euclid
     fasta.type:        readable

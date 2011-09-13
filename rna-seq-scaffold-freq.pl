@@ -50,21 +50,21 @@ my $threadarg = $opt_threads ? "-p $opt_threads" : "";
 
 
 if (defined $opt_right_reads){
-    launch("bowtie $opt_scaffold $splicearg $threadarg -1 $opt_left_reads -2 $opt_right_reads ?? -v 2 -B 1 --best",
+    launch("bowtie $opt_scaffold $splicearg $threadarg -1 $opt_left_reads -2 $opt_right_reads ?? -v $opt_mismatches -B 1 --best",
         expected => $bowtie,
         also => $log,
         dryrun => $opt_dry,
     );
 }
 else {
-    launch("bowtie $opt_scaffold $splicearg $threadarg $opt_left_reads ?? -v 2 -B 1 --best",
+    launch("bowtie $opt_scaffold $splicearg $threadarg $opt_left_reads ?? -v $opt_mismatches -B 1 --best",
         expected => $bowtie,
         also => $log,
         dryrun => $opt_dry,
     );
 }
 
-launch(qq{perl -S parse_bowtie.pl -i "$opt_regex"  -r $opt_scaffold -o ?? -f $bowtie},
+launch(qq{perl -S bowtie_count.pl -r $opt_scaffold -o ?? $bowtie},
     expected => $output,
     dryrun => $opt_dry,
 );
@@ -102,6 +102,13 @@ launch(qq{perl -S parse_bowtie.pl -i "$opt_regex"  -r $opt_scaffold -o ?? -f $bo
 =item  --splice <start> <end> 
 
 =item -l <len> | --length <len>
+
+=item  -m <mm> | --mismatches <mm>
+
+-v to bowtie
+
+=for Euclid
+    mm.default:     2
 
 =back
 
