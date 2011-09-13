@@ -33,7 +33,7 @@ sub parse_gff{
         return defined $1 ? $' : 0; # $' = regex postmatch
     }
 
-    my @split = split /\t/, $line;
+    my @split = split /\t/, $line, 9;
     (carp "unparseable GFF line: $line" && return 0) unless @split == 9;
 
     my %accum;
