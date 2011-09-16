@@ -217,9 +217,6 @@ if ($pm->start == 0){
                 expected => $eland_right_post, dryrun => $dry, also => $bowtie_logname);
         }
     }
-    else {
-        $eland_right_post = $eland_left_post;
-    }
     $pm->finish;
 }
 
