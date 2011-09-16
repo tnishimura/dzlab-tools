@@ -95,7 +95,7 @@ sub launch{
     }
 
     # no need to say _info this b/c verbose => 1 does it for us.
-    my ($success, $errmsg, $fullbuf) = run(command => $cmd, verbose => $VERBOSE);
+    my ($success, $errmsg, $fullbuf) = run(command => $cmd, verbose => $VERBOSE && IPC::Cmd->can_use_ipc_run());
 
     if (! $success){
         _logdie("FAILED: $cmd\n$errmsg\ndying...");
