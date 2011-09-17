@@ -8,6 +8,7 @@ use Carp;
 use autodie;
 use File::Spec::Functions;
 use File::Basename;
+use List::MoreUtils qw/all/;
 #use Config::General qw(ParseConfig);
 use POSIX qw/strftime/;
 use IO::Uncompress::Gunzip qw(gunzip $GunzipError) ;
@@ -126,6 +127,29 @@ sub timestamp{ return strftime("%Y%m%d-%H%M",localtime); }
 sub datestamp{ return strftime("%Y%m%d",localtime); }
 
 sub fastq_read_length{
+    my $prefix = shift;
+    if (-f $prefix){
+        return _fastq_read_length_single($prefix);
+    }
+    # assume a prefix
+    else{
+        my @sizes = map { _fastq_read_length_single($_) } glob("$prefix*");
+        if (@sizes == 0){
+            die "no files in $prefix";
+        }
+        else{
+            my $first = shift @sizes;
+            if (all { $first == $_ } @sizes){
+                return $first;
+            }
+            else{
+                die "uneven read lengths in $prefix";
+            }
+        }
+    }
+}
+
+sub _fastq_read_length_single{
     my $filename = shift;
     my $fh;
     if ($filename =~ /\.gz$/){
