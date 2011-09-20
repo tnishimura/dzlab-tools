@@ -73,6 +73,8 @@ sub neighborhood{
 
     #say "$strand, $start ,$end, $distance, $prime, $flag_distance";
 
+    #######################################################################
+    # Upstream end
     if ($strand eq '+' && $prime == 5 || $strand eq '-' && $prime == 3){
         my $max_minus = $start - $distance;
         my $max_plus = $start + $distance;
@@ -99,6 +101,8 @@ sub neighborhood{
             }
         }
     }
+    #######################################################################
+    # Downstream end
     else {
         my $max_minus = $end - $distance;
         my $max_plus = $end + $distance;
@@ -211,3 +215,13 @@ sub make_trees{
 }
 
 1;
+
+=head1 SYNOPSIS
+
+=head2 $map->add($id, $strand, $start, $end)
+
+=head2 $map->finalize()
+
+=head2 $map->neighborhood($id)
+
+=cut

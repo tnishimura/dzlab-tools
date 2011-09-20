@@ -45,9 +45,8 @@ SKIP: {
     $ap->finalize();
 
     #is($ap->nearest_upstream_end(6000), 3000, 'upstream end');
-    
-    is_deeply([$ap->neighborhood('B')], [6000,'+', 1000, 11000, 1000, 11000]);
-    #is_deeply([$ap->neighbors(6000, 1)], [6000,0, 8000, 3000]);
-    #is_deeply([$ap->neighbors(10000, 1)], [6000,0, 3000, 8000]);
+    is_deeply([$ap->neighborhood('B')], [6000,'+', 1000, 11000]);
+    #is_deeply([$ap->neighborhood(6000, 1)], [6000,0, 8000, 3000]);
+    #is_deeply([$ap->neighborhood(10000, 1)], [6000,0, 3000, 8000]);
 }
 

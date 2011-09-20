@@ -218,10 +218,12 @@ sub _sc_helper{
 =head2 greatest_lower($array, $target)
 
 In a sorted $array, find greatest value strictly less than $target.
+Returns undef if $target is less than all elements.
 
 =head2 least_upper($array, $target)
 
 In a sorted $array, find greatest value strictly greater than $target.
+Returns undef if $target is greater than all elements.
 
 =head2 sorted_count($array, $target)
 
