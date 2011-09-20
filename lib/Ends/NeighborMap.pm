@@ -35,6 +35,11 @@ has interval => (
     },
 );
 
+has search_tree => (
+    is => 'ro', 
+    default => sub { Tree::Range->new() },
+);
+
 sub add{
     my ($self, $id, $strand, $start, $end) = @_;
     $self->set_interval($id, [$strand, $start, $end]);
@@ -42,8 +47,22 @@ sub add{
 
 sub finalize{
     my ($self) = @_;
-    $self->starts([sort { $a <=> $b } map { $_->[1] } values %{$self->interval}]);
-    $self->ends([sort { $a <=> $b } map { $_->[2] } values %{$self->interval}]);
+    my @ints = values %{$self->interval};
+    $self->starts([sort { $a <=> $b } map { $_->[1] } @ints]);
+    $self->ends([sort { $a <=> $b } map { $_->[2] } @ints]);
+
+    # using Tree::Range to look up if a particular end is overlapped by another
+    # gene.  This is hackish b/c either this entire class should be part of
+    # Tree::Range, use T::R as a primary data structure, or something similar,
+    # instead of creating two data structures?  Would like to store all info in
+    # T::R as the primary data structure, but T::R doesn't yet support unique
+    # label for each item, so checking if position is start/end becomes hard... 
+    # -TN, 2011-09-20
+    my $tr = $self->search_tree();
+    for my $int (@ints) {
+        $tr->add($int->[1], $int->[2], 0);
+    }
+    $tr->finalize();
 }
 
 sub nearest_upstream_end{
@@ -56,11 +75,16 @@ sub nearest_downstream_start{
     return least_upper($self->starts, $position);
 }
 
-=head2 position_info
+sub overlapped{
+    my ($self, $position) = @_;
+    return scalar($self->search_tree()->search($position)) > 1 ? 1 : 0;
+}
+
+=head2 neighborhood
 
 Coordinates always w.r.t. 5' end of chromosome.
 
- my ($position, $strand, $flag_upstream, $flag_downstream)
+ my ($position, $strand, $overlapped, $flag_upstream, $flag_downstream)
  = $nm->neighborhood($id);
 
 =cut
@@ -76,25 +100,26 @@ sub neighborhood{
     #######################################################################
     # Upstream end
     if ($strand eq '+' && $prime == 5 || $strand eq '-' && $prime == 3){
+        my $overlapped = $self->overlapped($start);
         my $max_minus = $start - $distance;
         my $max_plus = $start + $distance;
-        my $minus = greatest_lower($self->ends, $start) // $max_minus;
-        my $plus  = least_upper($self->starts, $start) // $max_plus;
-        #say "$max_minus $minus $plus $max_plus ($start, $end)";
+        my $minus = $self->nearest_upstream_end($start) // $max_minus;
+        my $plus  = $self->nearest_downstream_start($start) // $max_plus;
 
+        #say "$max_minus $minus $plus $max_plus ($start, $end)";
 
         given ($self->flag){
             when (0){
-                return ($start, $strand, $max_minus, $max_plus);
+                return ($start, $strand, $overlapped, $max_minus, $max_plus);
             }
             when (2){
-                return ($start, $strand, 
+                return ($start, $strand, $overlapped,
                     max($minus, $max_minus),
                     min($end, $plus, $max_plus),
                 );
             }
             when (6){
-                return ($start, $strand, 
+                return ($start, $strand, $overlapped,
                     max($minus, $max_minus),
                     min($end - $flag_distance, $plus, $max_plus),
                 );
@@ -104,23 +129,24 @@ sub neighborhood{
     #######################################################################
     # Downstream end
     else {
+        my $overlapped = $self->overlapped($end);
         my $max_minus = $end - $distance;
         my $max_plus = $end + $distance;
-        my $minus = greatest_lower($self->ends, $end) // $max_minus;
-        my $plus  = least_upper($self->starts, $end) // $max_plus;
+        my $minus = $self->nearest_upstream_end($end) // $max_minus;
+        my $plus  = $self->nearest_downstream_start($end) // $max_plus;
 
         given ($self->flag){
             when (0){
-                return ($end, $strand, $max_minus, $max_plus);
+                return ($end, $strand, $overlapped, $max_minus, $max_plus);
             }
             when (2){
-                return ($end, $strand, 
+                return ($end, $strand, $overlapped,
                     max($start, $minus, $max_minus),
                     min($plus, $max_plus),
                 );
             }
             when (6){
-                return ($end, $strand, 
+                return ($end, $strand, $overlapped,
                     max($start + $flag_distance, $minus, $max_minus),
                     min($plus, $max_plus),
                 );

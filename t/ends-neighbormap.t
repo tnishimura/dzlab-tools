@@ -35,18 +35,18 @@ SKIP: {
 }
 
 SKIP: {
-    my $ap = Ends::NeighborMap->new();
+    my $ap = Ends::NeighborMap->new(flag => 0);
 
-    $ap->add('A','+',1000,3000);
+    $ap->add('A','-',1000,3000);
     $ap->add('B','+',6000,7000);
-    $ap->add('C','+',8000,10000);
+    $ap->add('C','-',8000,10000);
     $ap->add('D','+',9000,11000);
 
     $ap->finalize();
 
     #is($ap->nearest_upstream_end(6000), 3000, 'upstream end');
-    is_deeply([$ap->neighborhood('B')], [6000,'+', 1000, 11000]);
-    #is_deeply([$ap->neighborhood(6000, 1)], [6000,0, 8000, 3000]);
+    is_deeply([$ap->neighborhood('B')], [6000,'+', 0, 1000, 11000]);
+    is_deeply([$ap->neighborhood('C')], [10000,'-',1, 5000, 15000]);
     #is_deeply([$ap->neighborhood(10000, 1)], [6000,0, 3000, 8000]);
 }
 
