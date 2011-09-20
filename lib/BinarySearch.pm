@@ -13,6 +13,7 @@ our @ISA = qw(Exporter);
 our @EXPORT_OK = qw(greatest_lower least_upper sorted_count);
 our @EXPORT = qw();
 
+# version of <=> with inf and -inf support
 sub _extended_cmp{
     my ($x, $y) = @_;
     my ($lcx, $lcy) = (lc $x, lc $y);
@@ -39,6 +40,7 @@ sub _extended_cmp{
     }
 }
 
+# and associated comparisons based on _extended_cmp
 sub _extended_lt{ return _extended_cmp($_[0], $_[1]) == -1; }
 sub _extended_gt{ return _extended_cmp($_[0], $_[1]) == 1; }
 sub _extended_le{
@@ -49,6 +51,9 @@ sub _extended_ge{
     my $res = _extended_cmp($_[0], $_[1]);
     return $res == 1 || $res == 0;
 }
+
+#######################################################################
+# linear versions of greatest lower and least upper
 
 sub _greatest_lower_linear{
     my ($array, $target) = @_;
@@ -65,6 +70,7 @@ sub _greatest_lower_linear{
         }
     }
 }
+
 sub _least_upper_linear{
     my ($array, $target) = @_;
     my @list = ('-inf', @$array, 'inf');
@@ -80,6 +86,9 @@ sub _least_upper_linear{
         }
     }
 }
+
+#######################################################################
+# greatest_lower
 
 sub greatest_lower{
     my ($array, $target) = @_;
@@ -112,6 +121,9 @@ sub _gl_helper{
     }
 }
 
+#######################################################################
+# least_upper
+
 sub least_upper{
     my ($array, $target) = @_;
     my @list = ('-inf', @$array, 'inf');
@@ -143,10 +155,12 @@ sub _lu_helper{
     }
 }
 
+#######################################################################
+# sorted_count
+
 sub sorted_count{
     my ($array, $target) = @_;
     my $max = $#{$array};
-    #say "XXX $max";
     my $index = _sc_helper($array, $target, 0, $max);
     
     if (defined $index){
@@ -201,3 +215,16 @@ sub _sc_helper{
 }
 1;
 
+=head2 greatest_lower($array, $target)
+
+In a sorted $array, find greatest value strictly less than $target.
+
+=head2 least_upper($array, $target)
+
+In a sorted $array, find greatest value strictly greater than $target.
+
+=head2 sorted_count($array, $target)
+
+In a sorted $array, count the number of times value $target occurs.
+
+=cut
