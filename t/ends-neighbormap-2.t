@@ -10,8 +10,8 @@ use Ends::NeighborMap;
 use List::Util qw/min max/;
 
 sub confirm{
-    my ($nm, $id, $strand, $focus,$minus, $plus) = @_;
-    is_deeply([$nm->neighborhood($id)],  [$focus, $strand, $minus, $plus]); 
+    my ($nm, $id, $strand, $overlapped, $focus,$minus, $plus) = @_;
+    is_deeply([$nm->neighborhood($id)],  [$focus, $strand, $overlapped, $minus, $plus], $id); 
 }
 
 #######################################################################
@@ -23,8 +23,8 @@ sub flag_0_prime_5 : Tests {
     $nm->add('b','+', 10000,20000);
     $nm->add('c','-', 11000,21000);
     $nm->finalize();
-    confirm($nm, 'b', '+', 10000, 5000,  15000);
-    confirm($nm, 'a', '-', 19000, 14000, 24000);
+    confirm($nm, 'b', '+', 1, 10000, 5000,  15000);
+    confirm($nm, 'a', '-', 1, 19000, 14000, 24000);
 }
 
 sub flag_0_prime_3 : Tests {
@@ -33,8 +33,8 @@ sub flag_0_prime_3 : Tests {
     $nm->add('b','+', 10000,20000);
     $nm->add('c','-', 11000,21000);
     $nm->finalize();
-    confirm($nm, 'b', '+', 20000, 15000,  25000);
-    confirm($nm, 'a', '-', 9000, 4000, 14000);
+    confirm($nm, 'b', '+', 1, 20000, 15000,  25000);
+    confirm($nm, 'a', '-', 0, 9000, 4000, 14000);
 }
 
 #######################################################################
@@ -51,10 +51,10 @@ sub flag_2_prime_5 : Tests {
     $nm->add('lonely','-', 100000, 110000);
     $nm->finalize();
 
-    confirm($nm, 'target1', '+', 10000, 8765, 12345);
-    confirm($nm, 'target2', '-', 21000, 19999, 26000);
-    confirm($nm, 'target3', '+', 1000, 888, 1050);
-    confirm($nm, 'lonely', '-', 110000, 105000, 115000);
+    confirm($nm, 'target1', '+', 0, 10000, 8765, 12345);
+    confirm($nm, 'target2', '-', 0, 21000, 19999, 26000);
+    confirm($nm, 'target3', '+', 0, 1000, 888, 1050);
+    confirm($nm, 'lonely', '-', 0, 110000, 105000, 115000);
 }
 
 sub flag_2_prime_3 : Tests {
@@ -68,10 +68,10 @@ sub flag_2_prime_3 : Tests {
     $nm->add('lonely','-', 100000, 110000);
     $nm->finalize();
 
-    confirm($nm, 'target1', '+', 14001, 10000, 19000);
-    confirm($nm, 'target2', '-', 19000, 14001, 21000);
-    confirm($nm, 'target3', '+', 1050, 1000, 3000);
-    confirm($nm, 'lonely', '-', 100000, 95000, 105000);
+    confirm($nm, 'target1', '+', 1, 14001, 10000, 19000);
+    confirm($nm, 'target2', '-', 1, 19000, 14001, 21000);
+    confirm($nm, 'target3', '+', 0, 1050, 1000, 3000);
+    confirm($nm, 'lonely', '-', 0, 100000, 95000, 105000);
 }
 
 #######################################################################
@@ -87,10 +87,10 @@ sub flag_6_prime_5 : Tests {
 
     $nm->finalize();
 
-    confirm($nm, 'target1', '+', 10000, 5000, 10350);
-    confirm($nm, 'target2', '+', 9000, 4000, 9999);
-    confirm($nm, 'target3', '-', 22000, 20002, 27000);
-    confirm($nm, 'lonely', '-', 110000, 105000, 115000);
+    confirm($nm, 'target1', '+', 1, 10000, 5000, 10350);
+    confirm($nm, 'target2', '+', 0, 9000, 4000, 9999);
+    confirm($nm, 'target3', '-', 0, 22000, 20002, 27000);
+    confirm($nm, 'lonely', '-', 0, 110000, 105000, 115000);
 }
 
 sub flag_6_prime_3 : Tests {
@@ -102,9 +102,9 @@ sub flag_6_prime_3 : Tests {
 
     $nm->finalize();
 
-    confirm($nm, 'target1', '-', 10000, 5000, 10350);
-    confirm($nm, 'target2', '-', 9000, 4000, 9999);
-    confirm($nm, 'lonely', '-', 100000, 95000, 105000);
+    confirm($nm, 'target1', '-', 1, 10000, 5000, 10350);
+    confirm($nm, 'target2', '-', 0, 9000, 4000, 9999);
+    confirm($nm, 'lonely', '-', 0, 100000, 95000, 105000);
 }
 
 ends::neighborhood::Test->runtests;

@@ -77,6 +77,8 @@ sub nearest_downstream_start{
 
 sub overlapped{
     my ($self, $position) = @_;
+    # yes, this is on purpose, so I can compare with test deeply. 
+    # don't know how to do that with general boolean values
     return scalar($self->search_tree()->search($position)) > 1 ? 1 : 0;
 }
 
@@ -175,6 +177,8 @@ __PACKAGE__->meta->make_immutable;
         binwidth => 100,
     );
 
+Where $id_list_href is { seq => [locus list] }, $trees_href is {seq => searchtree([id, bin#])}.
+
 =cut
 sub make_trees{
     croak "uneven \%opt" if @_ % 2;
@@ -216,9 +220,12 @@ sub make_trees{
         my $tr = Tree::Range->new();
         $nm->finalize();
 
+        IDLOOP:
         for my $id (@{$id_list{$seq}}) {
-            my ($position, $strand, $flag_upstream, $flag_downstream)
+            my ($position, $strand, $overlapped, $flag_upstream, $flag_downstream)
             = $nm->neighborhood($id);
+
+            next IDLOOP if $overlapped;
             
             my $binnum = $strand eq '+' ? 0 : $numbins - 1; # 0->99 or 99->0
             my $start = $position - $distance + 1;
