@@ -6,6 +6,9 @@ use Data::Dumper;
 use Moose;
 use Carp;
 use autodie;    
+use Ends::NeighborMap;
+use GFF::Parser;
+use Tree::Range;
 
 has file            => ( is => 'ro', required => 1,);
 has tag             => ( is => 'ro', required => 1, );
@@ -17,9 +20,14 @@ has binwidth        => (is  => 'ro', required => 1, );
 has numbins         => (is  => 'rw', );
 
 has id_list => (
-    is        => 'rw',
-    isa       => 'HashRef[Str]',
-    default   => sub { {} },
+    traits  => ['Array'],
+    isa     => 'ArrayRef[Str]',
+    default => sub { [] },
+    handles => {
+        all_id       => 'elements',
+        add_id       => 'push',
+        sort_id_list => 'sort_in_place',
+    },
 );
 
 has lookup_tree => (
@@ -27,11 +35,16 @@ has lookup_tree => (
     is        => 'ro',
     default   => sub { {} },
     handles   => {
-        set_lookup_tree     => 'set',
-        get_lookup_tree     => 'get',
-        has_lookup_tree     => 'exists',
+        set_lookup_tree => 'set',
+        get_lookup_tree => 'get',
+        has_lookup_tree => 'exists',
     },
 );
+sub lookup{
+    my ($self, $seq, $start, $end) = @_;
+    my $tree = $self->get_lookup_tree(uc $seq);
+    return $tree->search($start,$end);
+}
 
 #sub add_score{
 #    my ($hash, $id, $bin, $item) = @_;
@@ -46,19 +59,20 @@ sub BUILD{
     my $flag = $self->flag;
     my $flag_6_distance = $self->flag_6_distance;
     my $prime = $self->prime;
-    my $numbins = $self->numbins = int(($self->distance * 2) / $binwidth);
+    $self->numbins(my $numbins = int(($self->distance * 2) / $binwidth));
 
     my %neighbormaps;
     my %lookup_trees;
     my %id_list;
 
-
     my $parser = GFF::Parser->new(file => $self->file);
 
+    # load gff file into neighbormaps
     while (defined(my $gff = $parser->next())){
-        my ($seq, $start, $end, $strand, $id) = ($gff->sequence, $gff->start, $gff->end, $gff->strand, $gff->get_column($self->locus_tag));
-        #say $gff->to_string;
+        my ($seq, $start, $end, $strand, $id) = 
+        ($gff->sequence, $gff->start, $gff->end, $gff->strand, $gff->get_column($self->tag));
         next if ! defined $seq; 
+        $seq = uc $seq;
         push @{$id_list{$seq}}, $id;
         if (! exists $neighbormaps{$seq}){
             $neighbormaps{$seq} = 
@@ -71,6 +85,8 @@ sub BUILD{
         }
         $neighbormaps{$seq}->add($id, $strand, $start, $end);
     }
+
+    # finalize neighbor maps, load into trees
     for my $seq (keys %id_list) {
         my $nm = $neighbormaps{$seq};
         my $tr = Tree::Range->new();
@@ -100,8 +116,7 @@ sub BUILD{
         $tr->finalize();
         $self->set_lookup_tree($seq,$tr);
     }
-    $self->id_list(\%id_list);
-
+    $self->add_id(map { @$_ } values %id_list);
 }
 
 
