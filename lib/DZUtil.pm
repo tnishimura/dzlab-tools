@@ -19,7 +19,7 @@ our @ISA = qw(Exporter);
 our @EXPORT_OK = qw(localize reverse_complement common_suffix common_prefix
 mfor basename_prefix fastq_read_length timestamp datestamp overlap chext
 split_names base_match open_maybe_compressed fastq_convert_read_header c2t
-numdiff);
+numdiff safediv);
 our @EXPORT = qw();
 
 sub c2t{
@@ -302,6 +302,14 @@ sub localize{
     else {
         return $file_or_url;
     }
+}
+
+sub safediv{
+    my ($num, $den) = @_;
+    if (defined $den && $den > 0){
+        return $num/$den;
+    }
+    return 0;
 }
 
 1;

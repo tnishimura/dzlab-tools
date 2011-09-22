@@ -9,6 +9,10 @@ END {close STDOUT}
 $| = 1;
 use Pod::Usage;
 use Getopt::Long;
+use FindBin;
+use lib "$FindBin::Bin/lib";
+use DZUtil qw/safediv/;
+
 
 my $result = GetOptions (
     "eland1|1=s" => \my $eland1,
@@ -153,10 +157,3 @@ if ($correl) {
     print "================================================================================\n";
 }
 
-sub safediv{
-    my ($num, $den) = @_;
-    if (defined $den && $den > 0){
-        return $den;
-    }
-    return 0;
-}

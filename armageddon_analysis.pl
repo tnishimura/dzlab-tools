@@ -9,8 +9,12 @@ use FindBin;
 use lib "$FindBin::Bin/lib";
 use Ends::NeighborMapCollection;
 use Scalar::Util qw/looks_like_number/;
+use List::MoreUtils qw/all/;
 use Pod::Usage;
 use Getopt::Long;
+use GFF::Parser;
+use DZUtil qw/safediv/;
+use Counter;
 
 END {close STDOUT}
 $| = 1;
@@ -33,9 +37,10 @@ my $result = GetOptions(
     #'help|h'             => sub { pod2usage( -verbose => 1 ); },
     #'manual|m'           => sub { pod2usage( -verbose => 2 ); }
 );
-$gff_annotation = "t/test1.gff";
-$five_prime = 1;
+#$gff_annotation = "/wip/tools/annotations/AT/gmod/TAIR8_genes.gff";
+#$five_prime = 1;
 if (! $result 
+    || ! $gff_annotation
     || ! -f $gff_annotation 
     || ! ($five_prime xor $three_prime) 
     ){
@@ -65,18 +70,43 @@ my $nmc = Ends::NeighborMapCollection->new(
     flag_6_distance => $stop_distance,
     binwidth        => $bin_width,
 );
-#build_table($nmc);
-#add_to_table('AT1G01910', 10, 100,100);
-#add_to_table('AT1G01910', 10, 110,200);
-#dump_table();
+build_table($nmc);
+say STDERR "Table built";
+my $counter = Counter->new(verbose => 1);
+
+for my $file (@ARGV) {
+    my $parser = GFF::Parser->new(file => $file);
+    while (defined(my $gff = $parser->next())){
+        $counter->increment();
+        my ($seq, $start, $end, $c, $t) = 
+        ($gff->sequence(), $gff->start(), $gff->end(), $gff->get_column('c'), $gff->get_column('t'));
+        next unless all { defined($_) } ($seq, $start, $end, $c, $t);
+        my $len = $end-$start+1;
+
+        for my $result ($nmc->lookup($seq, $start, $end)) {
+            my ($id, $bin, $overlap) = ($result->{item}[0], $result->{item}[1], $result->{overlap});
+            add_to_table($id, $bin, $c * $overlap / $len, $t * $overlap / $len);
+        }
+    }
+}
+
+dump_table($output);
+dump_average($output eq '-' ? '-' : $output . ".avg");
 
 #######################################################################
 {
     my %table; # { id => [[0,0], [1,2], ... ] }
+    my $numbins;
+    my $distance;
+    my $binwidth;
     sub build_table{
         my ($nmc) = @_;
+        $numbins = $nmc->numbins();
+        $distance = $nmc->distance();
+        $binwidth = $nmc->binwidth();
+
         %table = map { 
-            $_ => [map {[0,0]} (1 .. $nmc->numbins )] 
+            $_ => [map {[0,0]} (1 .. $numbins )] 
         }
         $nmc->all_id;
     }
@@ -86,13 +116,41 @@ my $nmc = Ends::NeighborMapCollection->new(
         $table{$id}[$bin][1]+=$t;
     }
     sub dump_table{
+        my $file = shift;
+        my $fh;
+        if ($file eq '-'){
+            $fh = \*STDOUT;
+        }
+        else {
+            open $fh, '>', $file;
+        }
+
         for my $id (sort keys %table) {
-            say join "\t", 
+            say $fh join "\t", 
             $id, 
             map { 
                 my ($c, $t) = @$_;
                 $c + $t == 0 ? 'na' : $c/($c+$t);
             } @{$table{$id}};
+        }
+    }
+    sub dump_average{
+        my $file = shift;
+        my $fh;
+        if ($file eq '-'){
+            $fh = \*STDOUT;
+        }
+        else {
+            open $fh, '>', $file;
+        }
+
+        my @id_list = keys %table;
+        for my $bin (0 .. $numbins - 1) {
+            my @bin_ct = map { $table{$_}[$bin] } @id_list;
+            my $total_c = sum map { $_->[0] } @bin_ct;
+            my $total_t = sum map { $_->[1] } @bin_ct;
+
+            say $fh (-$distance + $bin * $binwidth), "\t", safediv($total_c, ($total_c + $total_t));
         }
     }
 }

@@ -43,7 +43,7 @@ has lookup_tree => (
 sub lookup{
     my ($self, $seq, $start, $end) = @_;
     my $tree = $self->get_lookup_tree(uc $seq);
-    return $tree->search($start,$end);
+    return $tree->search_overlap($start,$end);
 }
 
 #sub add_score{
