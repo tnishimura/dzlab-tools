@@ -106,12 +106,15 @@ dump_average($output eq '-' ? '-' : $output . ".avg");
         $binwidth = $nmc->binwidth();
 
         %table = map { 
-            $_ => [map {[0,0]} (1 .. $numbins )] 
+            $_ => [map {undef} (1 .. $numbins )] 
         }
         $nmc->all_id;
     }
     sub add_to_table{
         my ($id, $bin, $c, $t) = @_;
+        if (! defined $table{$id}[$bin]){
+            $table{$id}[$bin] = [0,0];
+        }
         $table{$id}[$bin][0]+=$c;
         $table{$id}[$bin][1]+=$t;
     }
@@ -129,8 +132,13 @@ dump_average($output eq '-' ? '-' : $output . ".avg");
             say $fh join "\t", 
             $id, 
             map { 
-                my ($c, $t) = @$_;
-                $c + $t == 0 ? 'na' : $c/($c+$t);
+                if (defined){
+                    my ($c, $t) = @$_;
+                    $c + $t == 0 ? 'na' : $c/($c+$t);
+                }
+                else{
+                    'na';
+                }
             } @{$table{$id}};
         }
     }
@@ -146,11 +154,9 @@ dump_average($output eq '-' ? '-' : $output . ".avg");
 
         my @id_list = keys %table;
         for my $bin (0 .. $numbins - 1) {
-            my @bin_ct = map { $table{$_}[$bin] } @id_list;
-            my $total_c = sum map { $_->[0] } @bin_ct;
-            my $total_t = sum map { $_->[1] } @bin_ct;
+            my @scores = map {safediv($_->[0], $_->[0] + $_->[1])} grep {defined} map { $table{$_}[$bin] } @id_list;
 
-            say $fh (-$distance + $bin * $binwidth), "\t", safediv($total_c, ($total_c + $total_t));
+            say $fh (-$distance + $bin * $binwidth), "\t", safediv(sum(@scores), scalar(@scores));
         }
     }
 }
