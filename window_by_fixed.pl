@@ -12,6 +12,7 @@ use lib "$FindBin::Bin/lib";
 use GFF::Parser;
 use DZUtil qw/timestamp/;
 use File::Temp qw/mktemp/;
+use Scalar::Util qw/looks_like_number/;
 use FastaReader;
 use Counter;
 
@@ -107,22 +108,30 @@ if ($opt_verbose){
 }
 
 
+my $warncount = 0;
 #my $counter = 0;
 #my $commit_size = 20000;
 for my $file (@opt_files) {
     my $p = GFF::Parser->new(file => $file, normalize => 0);
+    PLOOP:
     while (defined(my $gff = $p->next())){
         if (my $count = $counter->increment()){
             $dbh->commit;
         }
 
         if (defined $feature && defined $gff->feature && $feature ne $gff->feature){
-            die "merging more than one feature at once? not supported yet";
+            $warncount++;
+            warn "merging more than one feature at once? not supported yet" if $warncount < 3;
+            next PLOOP;
         }
 
         $feature //= $gff->feature;
 
         my ($start, $end) = ($gff->start, $gff->end);
+
+        if (!looks_like_number($start) || !looks_like_number($end)){
+            next PLOOP;
+        }
 
         # round up to the nearest window (101-150 to 150, 151-200 to 200, etc for w50)
         my $windowed_position = ($start - 1) + ($opt_window_size - ($start - 1) % $opt_window_size);
