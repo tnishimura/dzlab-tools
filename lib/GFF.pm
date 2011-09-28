@@ -7,6 +7,7 @@ use Moose;
 use Carp;
 use autodie;    
 use URI::Escape;
+use overload '""' => \&stringify;
 
 has asterisk         => ( is => 'rw', isa => 'Bool', default => 0 );
 # type constraints very slow? removed.
@@ -136,6 +137,20 @@ sub start_position_greaterthan{
     my ($gff1, $gff2) = @_;
     my $res = lc $gff1->sequence cmp lc $gff2->sequence || $gff1->start <=> $gff2->start;
     return $res == 1;
+}
+
+sub stringify{
+    my $self = shift;
+    return join "\t", 
+    $self->sequence // '.',
+    $self->source // '.',
+    $self->feature // '.',
+    $self->start // '.',
+    $self->end // '.',
+    $self->score // '.',
+    $self->strand // '.',
+    $self->frame // '.',
+    $self->attribute_string // '.',
 }
 
 no Moose;
