@@ -81,7 +81,7 @@ $total_size /= 1024*1024;
 say STDERR "Total size: $total_size MB";
 
 if (defined $copy && -d $copy){
-    open my $rsync, '|-', "rsync -avWP --files-from=- . $copy";
+    open my $rsync, '|-', "rsync -avWP --files-from=- . \"$copy\"";
     for my $file (@files, sort keys %accum) {
         say $rsync $file;
     }
