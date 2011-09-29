@@ -32,6 +32,7 @@ my $result = GetOptions(
     'output|o=s'         => \(my $output = '-'),
     'zero'               => \(my $zero_flag_region = 0),
     'debug'              => \(my $debug = 0),
+    'singleton|1'        => \(my $singleton = 0),
     #'no-skip'            => \(my $noskip),
     #'verbose|v'          => sub { use diagnostics; },
     #'quiet|q'            => sub { no warnings; },
@@ -61,6 +62,7 @@ print STDERR <<"LOGMSG";
     \$output           = $output
     \$debug            = $debug
     \$zero_flag_region = $zero_flag_region
+    \$singleton        = $singleton
 LOGMSG
 
 my $nmc;
@@ -97,11 +99,11 @@ for my $file (@ARGV) {
         next unless all { defined($_) } ($seq, $start, $end, $c, $t);
         my $len = $end-$start+1;
 
-        #RESLOOP:
+        RESLOOP:
         for my $result ($nmc->lookup($seq, $start, $end)) {
             my ($id, $bin, $overlap) = ($result->{item}[0], $result->{item}[1], $result->{overlap});
             add_to_table($id, $bin, $c, $t, $overlap, $len);
-            #last RESLOOP;
+            last RESLOOP if $singleton;
         }
     }
 }
@@ -123,10 +125,9 @@ dump_average($output eq '-' ? '-' : $output . ".avg");
         $binwidth = $nmc->binwidth();
         @all_id = $nmc->all_id();
 
-        %table = map { 
-            $_ => [map {$zero_flag_region ? [0,0] : undef} (0 .. $numbins - 1)] 
+        for my $id ($nmc->all_id) {
+            $table{$id} = [map {$zero_flag_region && $nmc->bin_valid($id, $_) ? [0,0] : undef} (0 .. $numbins - 1)];
         }
-        $nmc->all_id;
     }
     sub add_to_table{
         my ($id, $bin, $c, $t, $overlap, $len) = @_;
