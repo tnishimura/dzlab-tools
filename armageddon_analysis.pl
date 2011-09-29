@@ -15,6 +15,7 @@ use Getopt::Long;
 use GFF::Parser;
 use DZUtil qw/safediv/;
 use Counter;
+use Storable;
 
 END {close STDOUT}
 $| = 1;
@@ -29,8 +30,8 @@ my $result = GetOptions(
     'five-prime|5'       => \(my $five_prime = 0),
     'extract-id|x=s'     => \(my $attribute_id = 'ID'),
     'output|o=s'         => \(my $output = '-'),
+    'zero'               => \(my $zero_flag_region = 0),
     'debug'              => \(my $debug = 0),
-    #'zero'               => \$zero_flag_region,
     #'no-skip'            => \(my $noskip),
     #'verbose|v'          => sub { use diagnostics; },
     #'quiet|q'            => sub { no warnings; },
@@ -49,27 +50,40 @@ if (! $result
 }
 
 print STDERR <<"LOGMSG";
-    \$gff_annotation  = $gff_annotation  
-    \$bin_width       = $bin_width
-    \$distance        = $distance
-    \$stop_flag       = $stop_flag
-    \$stop_distance   = $stop_distance
-    \$three_prime     = $three_prime
-    \$five_prime      = $five_prime
-    \$attribute_id    = $attribute_id
-    \$output          = $output
-    \$debug           = $debug
+    \$gff_annotation   = $gff_annotation  
+    \$bin_width        = $bin_width
+    \$distance         = $distance
+    \$stop_flag        = $stop_flag
+    \$stop_distance    = $stop_distance
+    \$three_prime      = $three_prime
+    \$five_prime       = $five_prime
+    \$attribute_id     = $attribute_id
+    \$output           = $output
+    \$debug            = $debug
+    \$zero_flag_region = $zero_flag_region
 LOGMSG
 
-my $nmc = Ends::NeighborMapCollection->new(
-    file            => $gff_annotation,
-    tag             => $attribute_id,
-    flag            => $stop_flag,
-    distance        => $distance,
-    prime           => $three_prime ? 3 : 5,
-    flag_6_distance => $stop_distance,
-    binwidth        => $bin_width,
-);
+my $nmc;
+my $storable = 'tmpxxxxx';
+#if (-f $storable){
+#    say "found storable";
+#    $nmc = retrieve($storable);
+#}
+#else{
+    $nmc = Ends::NeighborMapCollection->new(
+        file            => $gff_annotation,
+        tag             => $attribute_id,
+        flag            => $stop_flag,
+        distance        => $distance,
+        prime           => $three_prime ? 3 : 5,
+        flag_6_distance => $stop_distance,
+        binwidth        => $bin_width,
+    );
+#    store $nmc, $storable;
+#}
+#say STDERR $nmc;
+#exit 1;
+
 build_table($nmc);
 say STDERR "Table built";
 my $counter = Counter->new(verbose => 1);
@@ -83,9 +97,11 @@ for my $file (@ARGV) {
         next unless all { defined($_) } ($seq, $start, $end, $c, $t);
         my $len = $end-$start+1;
 
+        #RESLOOP:
         for my $result ($nmc->lookup($seq, $start, $end)) {
             my ($id, $bin, $overlap) = ($result->{item}[0], $result->{item}[1], $result->{overlap});
-            add_to_table($id, $bin, $c * $overlap / $len, $t * $overlap / $len);
+            add_to_table($id, $bin, $c, $t, $overlap, $len);
+            #last RESLOOP;
         }
     }
 }
@@ -95,28 +111,33 @@ dump_average($output eq '-' ? '-' : $output . ".avg");
 
 #######################################################################
 {
-    my %table; # { id => [[0,0], [1,2], ... ] }
+    my %table; # { id => [[current avg,num], [1,2], ... ] }
     my $numbins;
     my $distance;
     my $binwidth;
+    my @all_id;
     sub build_table{
         my ($nmc) = @_;
         $numbins = $nmc->numbins();
         $distance = $nmc->distance();
         $binwidth = $nmc->binwidth();
+        @all_id = $nmc->all_id();
 
         %table = map { 
-            $_ => [map {undef} (1 .. $numbins )] 
+            $_ => [map {$zero_flag_region ? [0,0] : undef} (0 .. $numbins - 1)] 
         }
         $nmc->all_id;
     }
     sub add_to_table{
-        my ($id, $bin, $c, $t) = @_;
+        my ($id, $bin, $c, $t, $overlap, $len) = @_;
+        #die " $id, $bin, $c, $t, $overlap, $len";
+        my $score = safediv($c, $c+$t) * $overlap / $len;
         if (! defined $table{$id}[$bin]){
-            $table{$id}[$bin] = [0,0];
+            $table{$id}[$bin] = [$score,1];
         }
-        $table{$id}[$bin][0]+=$c;
-        $table{$id}[$bin][1]+=$t;
+        my ($current, $num) = @{$table{$id}[$bin]};
+        $table{$id}[$bin][0] = ($current * $num + $score) / ($num + 1);
+        $table{$id}[$bin][1] = $num + 1;
     }
     sub dump_table{
         my $file = shift;
@@ -128,17 +149,11 @@ dump_average($output eq '-' ? '-' : $output . ".avg");
             open $fh, '>', $file;
         }
 
-        for my $id (sort keys %table) {
+        for my $id (sort @all_id) {
             say $fh join "\t", 
             $id, 
             map { 
-                if (defined){
-                    my ($c, $t) = @$_;
-                    $c + $t == 0 ? 'na' : $c/($c+$t);
-                }
-                else{
-                    'na';
-                }
+                defined $_ ? $_->[0] : 'na'
             } @{$table{$id}};
         }
     }
@@ -154,7 +169,11 @@ dump_average($output eq '-' ? '-' : $output . ".avg");
 
         my @id_list = keys %table;
         for my $bin (0 .. $numbins - 1) {
-            my @scores = map {safediv($_->[0], $_->[0] + $_->[1])} grep {defined} map { $table{$_}[$bin] } @id_list;
+            my @scores = 
+            map {$_->[0]} 
+            grep {defined} 
+            map { $table{$_}[$bin] } 
+            @id_list;
 
             say $fh (-$distance + $bin * $binwidth), "\t", safediv(sum(@scores), scalar(@scores));
         }

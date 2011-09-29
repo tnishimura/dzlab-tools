@@ -10,7 +10,7 @@ use Tree::Range;
 use GFF::Parser;
 use BinarySearch qw/greatest_lower least_upper/;
 use List::Util qw/min max/;
-
+use overload '""' => \&stringify;
 #######################################################################
 # Upstream/Downstream finder
 
@@ -32,6 +32,7 @@ has interval => (
         set_interval  => 'set',
         get_interval  => 'get',
         num_intervals => 'count',
+        all_id        => 'keys'
     },
 );
 
@@ -39,6 +40,17 @@ has search_tree => (
     is => 'ro', 
     default => sub { Tree::Range->new() },
 );
+
+sub stringify{
+    my $self = shift;
+    my @accum;
+    for my $id (sort $self->all_id) {
+        my ($position, $strand, $overlapped, $flag_upstream, $flag_downstream)
+        = $self->neighborhood($id);
+        push @accum, join "\t", $id, $strand, $flag_upstream, $flag_downstream ;
+    }
+    return join "\n", @accum;
+}
 
 sub add{
     my ($self, $id, $strand, $start, $end) = @_;
@@ -82,14 +94,9 @@ sub overlapped{
     return scalar($self->search_tree()->search($position)) > 1 ? 1 : 0;
 }
 
-=head2 neighborhood
-
-Coordinates always w.r.t. 5' end of chromosome.
-
- my ($position, $strand, $overlapped, $flag_upstream, $flag_downstream)
- = $nm->neighborhood($id);
-
-=cut
+# Coordinates always w.r.t. 5' end of chromosome.
+# my ($position, $strand, $overlapped, $flag_upstream, $flag_downstream)
+# = $nm->neighborhood($id);
 sub neighborhood{
     my ($self, $id) = @_;
     my ($strand, $start, $end) = @{$self->get_interval($id)};
@@ -165,10 +172,20 @@ __PACKAGE__->meta->make_immutable;
 
 =head1 SYNOPSIS
 
+ Ends::NeighborMap->new(
+     flag            => 0 | 2 | 6,
+     distance        => 5000,
+     prime           => 5 | 3,
+     flag_6_distance => 150
+ );
+
 =head2 $map->add($id, $strand, $start, $end)
 
 =head2 $map->finalize()
 
 =head2 $map->neighborhood($id)
+
+ my ($position, $strand, $overlapped, $flag_upstream, $flag_downstream)
+ = $nm->neighborhood($id);
 
 =cut

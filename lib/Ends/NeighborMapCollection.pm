@@ -9,6 +9,7 @@ use autodie;
 use Ends::NeighborMap;
 use GFF::Parser;
 use Tree::Range;
+use overload '""' => \&stringify;
 
 has file            => ( is => 'ro', required => 1,);
 has tag             => ( is => 'ro', required => 1, );
@@ -19,17 +20,22 @@ has flag_6_distance => (is  => 'ro', required => 1, );
 has binwidth        => (is  => 'ro', required => 1, );
 has numbins         => (is  => 'rw', );
 
-has id_list => (
-    traits  => ['Array'],
-    isa     => 'ArrayRef[Str]',
-    default => sub { [] },
-    handles => {
-        all_id       => 'elements',
-        add_id       => 'push',
-        sort_id_list => 'sort_in_place',
+# id => [start_bin, end_bin]
+# keep track of which bins are possible.
+# also, all_id grabs id list.
+has valid_bin_range => (
+    traits    => ['Hash'],
+    is        => 'ro',
+    isa       => 'HashRef[Any]',
+    default   => sub { {} },
+    handles   => {
+        set_valid_bin_range     => 'set',
+        get_valid_bin_range     => 'get',
+        all_id   => 'keys'
     },
 );
 
+# hash of sequence => Tree::Range of [id, bin#]
 has lookup_tree => (
     traits    => ['Hash'],
     is        => 'ro',
@@ -38,6 +44,18 @@ has lookup_tree => (
         set_lookup_tree => 'set',
         get_lookup_tree => 'get',
         has_lookup_tree => 'exists',
+        all_seq   => 'keys'
+    },
+);
+has nm => (
+    traits    => ['Hash'],
+    is        => 'ro',
+    isa       => 'HashRef[Any]',
+    default   => sub { {} },
+    handles   => {
+        set_nm     => 'set',
+        get_nm     => 'get',
+        list_nm   => 'keys'
     },
 );
 sub lookup{
@@ -45,11 +63,18 @@ sub lookup{
     my $tree = $self->get_lookup_tree(uc $seq);
     return $tree->search_overlap($start,$end);
 }
+sub bin_valid{
+    my ($self, $id, $bin) = @_;
+    my ($start, $end) = @{$self->get_valid_bin_range($id)};
+    return ($start <= $bin && $bin <= $end);
+}
 
-#sub add_score{
-#    my ($hash, $id, $bin, $item) = @_;
-#    push @{$hash{$id}{$bin}}, $item;
-#}
+sub stringify{
+    my $self = shift;
+    for my $kv (sort $self->list_nm) {
+        say $self->get_nm($kv);
+    }
+}
 
 sub BUILD{
     my ($self) = @_;
@@ -100,6 +125,8 @@ sub BUILD{
             next IDLOOP if $overlapped;
             
             my $binnum = $strand eq '+' ? 0 : $numbins - 1; # 0->99 or 99->0
+            my $first_valid_bin = $numbins;
+            my $last_valid_bin = 0;
             my $start = $position - $distance + 1;
             my $end = $start + $binwidth - 1;
             # -299->-200, -199->-100, -99->0, 1->100, 101->200, 201->300
@@ -107,18 +134,25 @@ sub BUILD{
             while ($start <= $distance + $position){
                 if (Tree::Range::_overlap($start, $end, $flag_upstream, $flag_downstream)){
                     $tr->add($start, $end, [$id, $binnum]); 
+                    $first_valid_bin = $binnum < $first_valid_bin ? $binnum : $first_valid_bin;
+                    $last_valid_bin = $last_valid_bin < $binnum ? $binnum : $last_valid_bin;
                 }
                 $binnum += $strand eq '+' ? 1 : -1;
                 $start += $binwidth;
                 $end += $binwidth;
             }
+            if ($first_valid_bin < $last_valid_bin){
+                $self->set_valid_bin_range($id, [$first_valid_bin, $last_valid_bin]);
+            }
+            else {
+                $self->set_valid_bin_range($id, [-1, -1]);
+            }
         }
         $tr->finalize();
         $self->set_lookup_tree($seq,$tr);
+        $self->set_nm($seq,$nm);
     }
-    $self->add_id(map { @$_ } values %id_list);
 }
-
 
 no Moose;
 __PACKAGE__->meta->make_immutable;
