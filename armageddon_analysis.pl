@@ -39,8 +39,6 @@ my $result = GetOptions(
     #'help|h'             => sub { pod2usage( -verbose => 1 ); },
     #'manual|m'           => sub { pod2usage( -verbose => 2 ); }
 );
-#$gff_annotation = "/wip/tools/annotations/AT/gmod/TAIR8_genes.gff";
-#$five_prime = 1;
 if (! $result 
     || ! $gff_annotation
     || ! -f $gff_annotation 
@@ -65,26 +63,15 @@ print STDERR <<"LOGMSG";
     \$singleton        = $singleton
 LOGMSG
 
-my $nmc;
-my $storable = 'tmpxxxxx';
-#if (-f $storable){
-#    say "found storable";
-#    $nmc = retrieve($storable);
-#}
-#else{
-    $nmc = Ends::NeighborMapCollection->new(
-        file            => $gff_annotation,
-        tag             => $attribute_id,
-        flag            => $stop_flag,
-        distance        => $distance,
-        prime           => $three_prime ? 3 : 5,
-        flag_6_distance => $stop_distance,
-        binwidth        => $bin_width,
-    );
-#    store $nmc, $storable;
-#}
-#say STDERR $nmc;
-#exit 1;
+my $nmc = Ends::NeighborMapCollection::new_cached(
+    file            => $gff_annotation,
+    tag             => $attribute_id,
+    flag            => $stop_flag,
+    distance        => $distance,
+    prime           => $three_prime ? 3 : 5,
+    flag_6_distance => $stop_distance,
+    binwidth        => $bin_width,
+);
 
 build_table($nmc);
 say STDERR "Table built";

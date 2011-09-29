@@ -11,14 +11,15 @@ use GFF::Parser;
 use Tree::Range;
 use overload '""' => \&stringify;
 
-has file            => ( is => 'ro', required => 1,);
-has tag             => ( is => 'ro', required => 1, );
+has file            => (is => 'ro', required => 1,);
+has tag             => (is => 'ro', required => 1, );
 has flag            => (is  => 'ro', required => 1, );
 has distance        => (is  => 'ro', required => 1, );
 has prime           => (is  => 'ro', required => 1, );
 has flag_6_distance => (is  => 'ro', required => 1, );
 has binwidth        => (is  => 'ro', required => 1, );
 has numbins         => (is  => 'rw', );
+
 
 # id => [start_bin, end_bin]
 # keep track of which bins are possible.
@@ -47,6 +48,7 @@ has lookup_tree => (
         all_seq   => 'keys'
     },
 );
+
 has nm => (
     traits    => ['Hash'],
     is        => 'ro',
@@ -152,6 +154,41 @@ sub BUILD{
         $self->set_lookup_tree($seq,$tr);
         $self->set_nm($seq,$nm);
     }
+}
+
+use Storable;
+sub cache_name{
+    my %args = @_;
+    sprintf "%s.armacache-%s.%s.%s.%s.%s.%s",
+    $args{file},           
+    $args{tag},            
+    $args{flag},           
+    $args{distance},       
+    $args{prime},          
+    $args{flag_6_distance},
+    $args{binwidth},       
+}
+
+sub new_cached{
+    my %args = @_;
+    my $cache = cache_name(%args);
+    if (-f $cache){
+        say STDERR "armageddon cache found at $cache, using that instead of rebuilding";
+        my $ret = retrieve($cache);
+        if (defined $ret){
+            return $ret;
+        }
+        else{
+            say STDERR "cache seems broken, will delete and rebuild";
+            if (! unlink $cache){
+                die "couldn't even delete... something wrong";
+            }
+        }
+    }
+    say STDERR "armageddon will cache at $cache, for later";
+    my $nmc = Ends::NeighborMapCollection->new(%args);
+    store $nmc, $cache;
+    return $nmc;
 }
 
 no Moose;
