@@ -32,7 +32,7 @@ has valid_bin_range => (
     handles   => {
         set_valid_bin_range     => 'set',
         get_valid_bin_range     => 'get',
-        all_id   => 'keys'
+        all_id   => 'keys',  # BUG: only keeps track of id's with bins.  overlapped genes won't appear, need to handle separately
     },
 );
 
