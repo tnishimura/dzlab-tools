@@ -7,6 +7,7 @@ use autodie;
 use List::Util qw/sum/;
 use FindBin;
 use lib "$FindBin::Bin/lib";
+use lib "$FindBin::Bin/Tree-Range/lib";
 use Ends::NeighborMapCollection;
 use Scalar::Util qw/looks_like_number/;
 use List::MoreUtils qw/all/;
