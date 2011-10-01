@@ -23,6 +23,7 @@ my $pval = .000_1;
 my $log_threshold = -200;
 my $decimal;
 my $scinot;
+my $skip_header;
 my $result = GetOptions (
     "input|i=s"     => \$input,
     "output|o=s"    => \$output,
@@ -34,9 +35,10 @@ my $result = GetOptions (
     "threshold|t=i" => \$log_threshold,
     "sep|s=s"       => \$sep,
     "super-exact|x" => \$exact,
+    "skip-header|h" => \$skip_header,
     "help"          => \$help,
-    "decimal"          => \$decimal,
-    "sci-not"          => \$scinot,
+    "decimal"       => \$decimal,
+    "sci-not"       => \$scinot,
 );
 pod2usage(-verbose => 99) 
 if (!($cola && $colb && $colc && $cold && $input) || $log_threshold > 0 || $help || !$result);
@@ -107,6 +109,8 @@ else {
 
 open my $fh, '<', $input;
 
+scalar(<$fh>) if $skip_header;
+
 my $counter = 1;
 while (defined (my $line = <$fh>)){
     $line =~ tr/\n\r//d;
@@ -118,7 +122,6 @@ while (defined (my $line = <$fh>)){
                  $decimal ? sprintf("%.12f", $result) :
                  $scinot  ? sprintf("%e", $result) : 
                  sprintf("%g", $result);
-
 
     say $outfh join $sep, @parts, $output;
 }
@@ -138,13 +141,10 @@ By default, fisher_exact_test.pl uses logarithms to avoid dealing with very larg
 from factorials. You can turn this off by passing the -x flag.  Note that this will be very slow if 
 any of the values (a,b,c,d) are greater than a few thousand.  
 
-Example:
+Example, if you had an 8 column file with column 2, 4, 6, and 8 containing a, b, c, and d, respectively,
+you would launch:
 
  fisher_exact_test.pl -a 2 -b 4 -c 6 -d 8 -i input.txt -o output.txt
-
-The above command assumes input.txt is of the form:
-
- wildtype-not-treated  52  mutant-no-treated  5  wiltype-treated  5  mutant-treated  59 
 
 =head1 DESCRIPTION
 
@@ -180,6 +180,7 @@ The above command assumes input.txt is of the form:
  --threshold     -t  Report 0 for p-value if it is less than 10^threshold.
                      (default -200).
  --super-exact   -x  Don't use logarithms for calculating factorials. 
+ --skip-header   -h  Skip first line
 
 Output format (default is to use shortest): 
 
