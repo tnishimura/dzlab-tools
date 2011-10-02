@@ -34,7 +34,8 @@ my $result = GetOptions(
     'zero'               => \(my $zero_flag_region = 0),
     'debug'              => \(my $debug = 0),
     'singleton|1'        => \(my $singleton = 0),
-    'verbose|v'          => \(my $verbose),
+    'verbose|v'          => \(my $verbose = 0),
+    'trust-column-6|6'   => \(my $trust_column_6 = 0),
     #'no-skip'            => \(my $noskip),
     #'quiet|q'            => sub { no warnings; },
     #'help|h'             => sub { pod2usage( -verbose => 1 ); },
@@ -62,6 +63,7 @@ print STDERR <<"LOGMSG" if $verbose;
     \$output           = $output
     \$zero_flag_region = $zero_flag_region
     \$singleton        = $singleton
+    \$trust-column-6   = $trust_column_6
 LOGMSG
 
 my $nmc = Ends::NeighborMapCollection::new_cached(
@@ -82,15 +84,17 @@ for my $file (@ARGV) {
     my $parser = GFF::Parser->new(file => $file);
     while (defined(my $gff = $parser->next())){
         $counter->increment();
-        my ($seq, $start, $end, $c, $t) = 
-        ($gff->sequence(), $gff->start(), $gff->end(), $gff->get_column('c'), $gff->get_column('t'));
-        next unless all { defined($_) } ($seq, $start, $end, $c, $t);
+        my ($seq, $start, $end, $c, $t, $column_6) = 
+        ($gff->sequence(), $gff->start(), $gff->end(), $gff->get_column('c'), $gff->get_column('t'), $gff->score());
+        next unless all { defined($_) } ($seq, $start, $end, ($trust_column_6 ? $column_6 : ($c, $t)));
         my $len = $end-$start+1;
+
+        my $score = $trust_column_6 ? $column_6 : safediv($c, $c+$t);
 
         RESLOOP:
         for my $result ($nmc->lookup($seq, $start, $end)) {
             my ($id, $bin, $overlap) = ($result->{item}[0], $result->{item}[1], $result->{overlap});
-            add_to_table($id, $bin, $c, $t, $overlap, $len);
+            add_to_table($id, $bin, $score, $overlap, $len);
             last RESLOOP if $singleton;
         }
     }
@@ -118,14 +122,14 @@ dump_average($output eq '-' ? '-' : $output . ".avg");
         }
     }
     sub add_to_table{
-        my ($id, $bin, $c, $t, $overlap, $len) = @_;
+        my ($id, $bin, $score, $overlap, $len) = @_;
         #die " $id, $bin, $c, $t, $overlap, $len";
-        my $score = safediv($c, $c+$t) * $overlap / $len;
+        my $weighted_score = $score * $overlap / $len;
         if (! defined $table{$id}[$bin]){
-            $table{$id}[$bin] = [$score,1];
+            $table{$id}[$bin] = [$weighted_score,1];
         }
         my ($current, $num) = @{$table{$id}[$bin]};
-        $table{$id}[$bin][0] = ($current * $num + $score) / ($num + 1);
+        $table{$id}[$bin][0] = ($current * $num + $weighted_score) / ($num + 1);
         $table{$id}[$bin][1] = $num + 1;
     }
     sub dump_table{
@@ -201,10 +205,17 @@ Emulate (technically incorrect) ends_analysis.pl behavior with --singleton (see 
 
  arma.pl --singleton -g anno.gff -5 -s 2 -o output.ends input.gff
 
-Zero all valid regions (--zero) without any mapping elements:
+Zero all valid regions (--zero) without any mapping elements (this is very specialized and should usually
+be use):
 
  arma.pl --zero -g anno.gff -5 -s 0 -o output.ends input.gff
  arma.pl --zero -g anno.gff -5 -s 2 -o output.ends input.gff
+
+By default, this script calculates scores from the 'c' and 't' values from column 9.  With the --trust-column-6 
+option (aka -6), you can use the column 6 score directly instead.  This is useful if you are running the script on 
+non-methylation data, like RNA-seq. 
+
+ arma.pl -6 -g anno.gff -5 -s 2 -o output.ends input.gff
 
 =head1 OPTIONS
 
