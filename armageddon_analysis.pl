@@ -34,8 +34,8 @@ my $result = GetOptions(
     'zero'               => \(my $zero_flag_region = 0),
     'debug'              => \(my $debug = 0),
     'singleton|1'        => \(my $singleton = 0),
+    'verbose|v'          => \(my $verbose),
     #'no-skip'            => \(my $noskip),
-    #'verbose|v'          => sub { use diagnostics; },
     #'quiet|q'            => sub { no warnings; },
     #'help|h'             => sub { pod2usage( -verbose => 1 ); },
     #'manual|m'           => sub { pod2usage( -verbose => 2 ); }
@@ -47,9 +47,10 @@ if (! $result
     ){
     pod2usage(-verbose => 99);
 }
+$verbose ||= $debug;
 
 
-print STDERR <<"LOGMSG";
+print STDERR <<"LOGMSG" if $verbose;
     \$gff_annotation   = $gff_annotation  
     \$bin_width        = $bin_width
     \$distance         = $distance
@@ -59,7 +60,6 @@ print STDERR <<"LOGMSG";
     \$five_prime       = $five_prime
     \$attribute_id     = $attribute_id
     \$output           = $output
-    \$debug            = $debug
     \$zero_flag_region = $zero_flag_region
     \$singleton        = $singleton
 LOGMSG
@@ -75,8 +75,8 @@ my $nmc = Ends::NeighborMapCollection::new_cached(
 );
 
 build_table($nmc);
-say STDERR "Table built";
-my $counter = Counter->new(verbose => 1);
+say STDERR "Table built" if $verbose;
+my $counter = Counter->new(verbose => $debug);
 
 for my $file (@ARGV) {
     my $parser = GFF::Parser->new(file => $file);
