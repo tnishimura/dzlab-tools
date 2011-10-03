@@ -164,7 +164,8 @@ sub _fastq_read_length_single{
     close $fh;
 
     if (defined $line){
-        chomp $line;
+        #chomp $line;
+        $line =~ tr/\n\r//d;
         return length $line;
     }
     return;
