@@ -103,8 +103,8 @@ while (my $gff = $p->next()){
             $n += $current_n;
         }
     }
-    # case 4: on island, unknown
-    elsif ($start && unknown($gff)){
+    # case 4: on island, unknown.  if bermuda, treat seas as unknown
+    elsif ($start && (unknown($gff) || ($opt_bermuda && sea($gff)))){
         if ($gap >= $opt_max_gap){
             blit($gff,$start,$end,$c,$t);
             ($c, $t, $n, $gap) = (0,0,0,0);
@@ -170,8 +170,8 @@ gff_island.pl - find islands of
 
 =item  -g <gap> | --max-gap <gap>
 
-Maximum number of GFF lines (does NOT take into account window width) that a single island is allowed to extend to.
-Default 100.
+Maximum number of GFF lines (does NOT take into account window width) that a
+single island is allowed to extend to.  Default 100.
 
 =for Euclid
     gap.default:     100
@@ -179,7 +179,8 @@ Default 100.
 
 =item  -t <threshold> | --threshold <threshold>
 
-GFF lines with scores less than this are considered empty (part of a gap). default .01.
+GFF lines with scores less than this are considered empty (part of a gap).
+default .01.
 
 =for Euclid
     threshold.default:     0.01
@@ -187,6 +188,11 @@ GFF lines with scores less than this are considered empty (part of a gap). defau
 =item -s | --just-scores
 
 Do not collect c, t, n counts from column 9 -- just go by score.
+
+=item  -b | --bermuda 
+
+Treat 'unknown' GFF entries (those without a column 6) the same as 'sea'
+entries (those with a score under the threshold.  Added by request of Yvonne.
 
 =item -h | --help
 
