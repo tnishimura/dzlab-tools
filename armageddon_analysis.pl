@@ -31,6 +31,7 @@ my $result = GetOptions(
     'five-prime|5'       => \(my $five_prime = 0),
     'extract-id|x=s'     => \(my $attribute_id = 'ID'),
     'output|o=s'         => \(my $output = '-'),
+    'avg|a=s'            => \(my $output_avg = '-'),
     'zero'               => \(my $zero_flag_region = 0),
     'debug'              => \(my $debug = 0),
     'singleton|1'        => \(my $singleton = 0),
@@ -101,7 +102,10 @@ for my $file (@ARGV) {
 }
 
 dump_table($output);
-dump_average($output eq '-' ? '-' : $output . ".avg");
+dump_average(
+    $output eq '-' ? '-' : 
+    $output_avg ? $output_avg : 
+    $output . ".avg");
 
 #######################################################################
 {
@@ -228,6 +232,7 @@ Most of the options are the same as for ends_analysis.pl.
 =item -o <file> | --output <file>
 
 Output file name.  Average ends file will be the same name suffixed with ".avg".  (something like "outputfile.ends.avg").
+
 
 =item -5 | --five-prime
 

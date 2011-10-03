@@ -63,6 +63,9 @@ has nm => (
 sub lookup{
     my ($self, $seq, $start, $end) = @_;
     my $tree = $self->get_lookup_tree(uc $seq);
+    if (! defined $tree){ # some annotations will not have all seqs
+        return ();
+    }
     return $tree->search_overlap($start,$end);
 }
 sub bin_valid{
