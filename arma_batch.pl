@@ -7,41 +7,41 @@ use autodie;
 use Config::General qw(ParseConfig);
 use Data::Dumper;
 use feature 'say';
-use File::Basename;
-use File::Find;
-use File::Spec::Functions;
 use Getopt::Euclid qw( :vars<opt_> );
 use Launch;
-use List::Util qw/first/;
-use Log::Log4perl qw/:easy/;
 use Pod::Usage;
 use DZUtil qw/localize common_prefix common_suffix timestamp/;
 use Parallel::ForkManager;
 use File::Temp qw/tempdir/;
-
-my $pm = Parallel::ForkManager->new($opt_parallel);
-
-pod2usage(-verbose => 99,-sections => [qw/NAME SYNOPSIS OPTIONS/]) if !$opt_conf;
-
-#IBM_HO_2_BS/single-c/*CG.gff.merged
-#IBM_HO_2_BS/single-c/IBM_HO_2_BS-chr1.single-c-CG.gff.merged  IBM_HO_2_BS/single-c/IBM_HO_2_BS-chr5.single-c-CG.gff.merged
-#IBM_HO_2_BS/single-c/IBM_HO_2_BS-chr2.single-c-CG.gff.merged  IBM_HO_2_BS/single-c/IBM_HO_2_BS-chrc.single-c-CG.gff.merged
-#IBM_HO_2_BS/single-c/IBM_HO_2_BS-chr3.single-c-CG.gff.merged  IBM_HO_2_BS/single-c/IBM_HO_2_BS-chrm.single-c-CG.gff.merged
-#IBM_HO_2_BS/single-c/IBM_HO_2_BS-chr4.single-c-CG.gff.merged
-
-my %config = ParseConfig($opt_conf);
-
-my $tempdir = tempdir(CLEANUP => 1);
-
 use Cwd qw/getcwd/;
 use File::Find;
 use File::Basename qw/basename dirname/;
 use File::Path qw/make_path remove_tree/;
 use File::Spec::Functions qw/canonpath catdir catfile updir/;
 
-my $gene = "/wip/tools/annotations/AT/gmod/TAIR8_genes.gff";
-my $transposon = "/wip/tools/annotations/AT/gmod/TAIR8_TE_mCG_min30bp_MERGED.gff";
+pod2usage(-verbose => 99,-sections => [qw/NAME SYNOPSIS OPTIONS/]) if !$opt_conf;
 
+my $pm = Parallel::ForkManager->new($opt_parallel);
+
+my %config = ParseConfig($opt_conf);
+
+#my $gene = "/wip/tools/annotations/AT/gmod/TAIR8_genes.gff";
+#my $transposon = "/wip/tools/annotations/AT/gmod/TAIR8_TE_mCG_min30bp_MERGED.gff";
+
+say STDERR "building arma caches...";
+while (my ($conf_name,$conf_hash) = each %config) {
+    my ($binwidth,  $distance,  $stopflag,  $stopdistance,  $end,  $extractid,  $gffannotation)
+    = @{$conf_hash}{'bin-width', 'distance', 'stop-flag', 'stop-distance', 'end', 'extract-id', 'gff-annotation'};
+
+    if (! -f $gffannotation){
+        die "can't find $gffannotation?"
+    }
+
+    launch("arma_build.pl -b $binwidth -d $distance -s $stopflag -k $stopdistance -g $gffannotation -x $extractid "  .
+        ($end == 3 ? "-3" : $end == 5 ? "-5" : die "\$end not 3 or 5?"));
+}
+
+say STDERR "starting...";
 find( 
     { 
         wanted => sub {
@@ -62,8 +62,6 @@ find(
 
                     my ($binwidth,  $distance,  $stopflag,  $stopdistance,  $end,  $extractid,  $gffannotation,  $consolidate,  $extension)
                     = @{$conf_hash}{'bin-width', 'distance', 'stop-flag', 'stop-distance', 'end', 'extract-id', 'gff-annotation', 'consolidate', 'extension' };
-
-                    my $anno = $conf_name =~ /transposon/ ? $transposon : $conf_name =~ /gene/ ? $gene : die "can't find anno for $conf_name";
 
                     my $cg_name = catfile($armadir, $_) . "-cg.$conf_name.gff";
                     my $chg_name = catfile($armadir, $_) . "-chg.$conf_name.gff";
@@ -87,7 +85,7 @@ find(
                             $pm->start and next;
                             launch(
                                 "arma.pl -b $binwidth -d $distance -s $stopflag -k $stopdistance " . 
-                                "-g $anno -x $extractid -o ?? -a $output.avg " .
+                                "-g $gffannotation -x $extractid -o ?? -a $output.avg " .
                                 ($end == 3 ? "-3" : $end == 5 ? "-5" : die "\$end not 3 or 5?") .
                                 " " . 
                                 join(" ", @$files),
