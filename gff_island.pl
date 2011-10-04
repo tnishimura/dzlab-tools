@@ -48,18 +48,24 @@ sub sea{
 }
 
 my $previous;
-my ($c, $t, $n, $start, $end, $gap) = (0,0,0,undef,0,0);
+my ($c, $t, $n, $just_score, $start, $end, $gap) = (0,0,0,0,undef,0,0);
 while (my $gff = $p->next()){
     my $current_c;
     my $current_t;
     my $current_n;
-    unless ($opt_just_scores){
+    my $current_start = $gff->start();
+    my $current_end = $gff->end();
+    my $current_just_score;
+
+    if ($opt_just_scores){
+        $current_n = ($current_end - $current_start + 1); # with just_scores, $n is base counter
+        $current_just_score = $gff->score * $current_n;
+    }
+    else{
         $current_c = $gff->get_attribute('c');
         $current_t = $gff->get_attribute('t');
         $current_n = $gff->get_attribute('n');
     }
-    my $current_start = $gff->start();
-    my $current_end = $gff->end();
 
     if (!$current_end || !$current_start){
         die sprintf "%s has no start or end", $gff->to_string;
@@ -68,8 +74,9 @@ while (my $gff = $p->next()){
         if ($previous->sequence ne $gff->sequence){
             # okay, sequence changed.
             if ($start){
-                blit($gff,$start,$end,$c,$t);
-                ($c, $t, $n, $gap) = (0,0,0,0);
+                blit($gff,$start,$end,$c,$t,$n, $just_score);
+                #($c, $t, $n, $gap) = (0,0,0,0);
+                ($c, $t, $n, $just_score, $gap) = (0,0,0,0,0);
                 undef $start;
                 undef $end;
             }
@@ -82,7 +89,11 @@ while (my $gff = $p->next()){
     if (!$start && land($gff)){
         $start = $current_start;
         $end   = $current_end;
-        unless ($opt_just_scores){
+        if ($opt_just_scores){
+            $just_score += $current_just_score;
+            $n += $current_n;
+        }
+        else{
             $c += $current_c;
             $t += $current_t;
             $n += $current_n;
@@ -97,7 +108,11 @@ while (my $gff = $p->next()){
         # extend island
         $gap = 0;
         $end = $current_end;
-        unless ($opt_just_scores){
+        if ($opt_just_scores){
+            $just_score += $current_just_score;
+            $n += $current_n;
+        }
+        else{
             $c += $current_c;
             $t += $current_t;
             $n += $current_n;
@@ -106,7 +121,7 @@ while (my $gff = $p->next()){
     # case 4: on island, unknown.  if bermuda, treat seas as unknown
     elsif ($start && (unknown($gff) || ($opt_bermuda && sea($gff)))){
         if ($gap >= $opt_max_gap){
-            blit($gff,$start,$end,$c,$t);
+            blit($gff,$start,$end,$c,$t, $n, $just_score);
             ($c, $t, $n, $gap) = (0,0,0,0);
             undef $start;
             undef $end;
@@ -115,8 +130,8 @@ while (my $gff = $p->next()){
         }
     }
     elsif ($start && sea($gff)){
-        blit($gff,$start,$end,$c,$t);
-        ($c, $t, $n, $gap) = (0,0,0,0);
+        blit($gff,$start,$end,$c,$t, $n, $just_score);
+        ($c, $t, $n, $just_score, $gap) = (0,0,0,0,0);
         undef $start;
         undef $end;
     }
@@ -124,20 +139,22 @@ while (my $gff = $p->next()){
 }
 
 if ($start){
-    blit($previous,$start,$end,$c,$t);
-    ($c, $t, $n, $gap) = (0,0,0,0);
+    blit($previous,$start,$end,$c,$t,$n, $just_score);
+    #($c, $t, $n, $gap) = (0,0,0,0);
+    ($c, $t, $n, $just_score, $gap) = (0,0,0,0,0);
     undef $start;
     undef $end;
 }
 
+use Carp;
 sub blit{
-    my ($gff,$start,$end,$c,$t) = @_;
+    my ($gff,$start,$end,$c,$t, $n, $just_score) = @_;
 
     if ($opt_just_scores){
-        my $score = $end - $start + 1;
+        my $score = $just_score/$n;
 
         say join "\t", $gff->sequence // '.', $gff->source // '.', $gff->feature // '.',
-        $start, $end, $score, $gff->strand // '.', '.', '.';
+        $start, $end, $score, $gff->strand // '.', '.', "n=$n";
     } else {
         my $score = $c + $t > 0 ? $c / ($c + $t) : 0;
 
@@ -187,12 +204,14 @@ default .01.
 
 =item -s | --just-scores
 
-Do not collect c, t, n counts from column 9 -- just go by score.
+Ignore c, t, and n count in column 9.  Output score column (column 6) is the
+per-base average score of the island.  Column 9 will contain 'n' for the number
+of bases accounted for in island.  Added by request from Assaf.
 
 =item  -b | --bermuda 
 
 Treat 'unknown' GFF entries (those without a column 6) the same as 'sea'
-entries (those with a score under the threshold.  Added by request of Yvonne.
+entries (those with a score under the threshold.  Added by request from Yvonne.
 
 =item -h | --help
 
