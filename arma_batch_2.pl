@@ -37,10 +37,13 @@ while (my ($conf_name,$conf_hash) = each %config) {
         die "can't find $gffannotation?"
     }
 
+    $pm->start and next;
     launch("arma_build.pl -b $binwidth -d $distance -s $stopflag -k $stopdistance -g $gffannotation -x $extractid "  .
         ($end == 3 ? "-3" : $end == 5 ? "-5" : die "\$end not 3 or 5?"));
+    $pm->finish; 
 }
 
+$pm->wait_all_children;
 
 say STDERR "starting...";
 make_path($opt_output_directory);
@@ -52,18 +55,18 @@ for my $single_c_dir (@opt_single_c_dirs) {
     my @chh;
 
     if ($opt_all){
-        @cg = grep { ! /[\._]all[\._]/ } glob("$single_c_dir/*CG*merged");
-        @chg = grep { ! /[\._]all[\._]/ } glob("$single_c_dir/*CHG*merged");
-        @chh = grep { ! /[\._]all[\._]/ } glob("$single_c_dir/*CHH*merged");
-        die "if not --all, there should be more than one of each in $single_c_dir"
-        unless (@cg > 1 && @chg > 1 && @chh > 1);
-    }
-    else{
         @cg = grep { /[\._]all[\._]/ } glob("$single_c_dir/*CG* $single_c_dir/*cg*");
         @chg = grep { /[\._]all[\._]/ } glob("$single_c_dir/*CHG* $single_c_dir/*chg*");
         @chh = grep { /[\._]all[\._]/ } glob("$single_c_dir/*CHH* $single_c_dir/*chh*");
         die "if --all, there should be exactly one of each in $single_c_dir"
         unless (@cg==1 && @chg == 1 && @chh == 1);
+    }
+    else{
+        @cg = grep { ! /[\._]all[\._]/ } glob("$single_c_dir/*CG*gff*");
+        @chg = grep { ! /[\._]all[\._]/ } glob("$single_c_dir/*CHG*gff*");
+        @chh = grep { ! /[\._]all[\._]/ } glob("$single_c_dir/*CHH*gff*");
+        die "if not --all, there should be more than one of each in $single_c_dir"
+        unless (@cg > 1 && @chg > 1 && @chh > 1);
     }
 
     while (my ($conf_name,$conf_hash) = each %config) {
