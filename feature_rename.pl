@@ -11,11 +11,13 @@ use lib "$FindBin::Bin/lib";
 use DZUtil qw/split_names/; 
 
 my $output;
+my $append;
 my $help;
 my $label;
 my $inplace;
 my $min = 7;
 my $result = GetOptions (
+    "append|a"    => \$append,
     "output|o=s"  => \$output,
     "label|l=s"   => \$label,
     "help|h"      => \$help,
@@ -93,7 +95,12 @@ while (my ($in,$out) = each %files) {
     while (defined(my $line = <$ifh>)){
         chomp $line;
         my @s = split /\t/, $line;
-        $s[2] = $feature;
+        if ($append){
+            $s[2] .= $feature;
+        }
+        else{
+            $s[2] = $feature;
+        }
         say $ofh join "\t", @s;
     }
 
