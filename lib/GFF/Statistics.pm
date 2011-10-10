@@ -13,6 +13,13 @@ our @ISA = qw(Exporter);
 our @EXPORT_OK = qw();
 our @EXPORT = qw(getstats);
 
+our @rownames = sort qw/
+nuc_ct_mean nuc_ct_median 
+chr_ct_mean chr_ct_median 
+mit_ct_mean mit_ct_median 
+nuc_methyl_mean chr_methyl_mean mit_methyl_mean coverage
+/;
+
 #######################################################################
 # utility
 
