@@ -7,6 +7,8 @@ use autodie;
 use Math::BigInt try => 'GMP';
 use Math::BigFloat try => 'GMP';
 use List::Util qw/sum/;
+use List::MoreUtils qw/all/;
+use Scalar::Util qw/looks_like_number/;
 use Pod::Usage;
 use Getopt::Long;
 
@@ -109,13 +111,21 @@ else {
 
 open my $fh, '<', $input;
 
-scalar(<$fh>) if $skip_header;
+if ($skip_header){
+    my $header = scalar(<$fh>);
+    chomp $header;
+    say $outfh "$header$sep"."p-val";
+}
 
 my $counter = 1;
 while (defined (my $line = <$fh>)){
     $line =~ tr/\n\r//d;
     my @parts = split /$sep/, $line;
     my ($a, $b, $c, $d) = @parts[$cola-1, $colb-1, $colc-1, $cold-1];
+    if (! all { looks_like_number $_ } ($a, $b, $c, $d)){
+        say $outfh join $sep, @parts, '.';
+        next;
+    }
 
     my $result = $exact ? fet($a,$b,$c,$d) : fet_using_log($a,$b,$c,$d);
     my $output = $result == 0 ? "0" : 
