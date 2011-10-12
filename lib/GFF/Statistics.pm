@@ -106,8 +106,11 @@ sub getstats{
     my $mit_methyl = make_averager();
 
     my $parser = GFF::Parser->new(file => $singlec);
+
+    my $counter = 0;
     PARSE:
     while (defined(my $gff = $parser->next())){
+        say STDERR $counter if $counter++ % 50000 == 0;
         my $c = $gff->get_column('c');
         my $t = $gff->get_column('t');
         next PARSE if ! (defined $c && defined $t);
