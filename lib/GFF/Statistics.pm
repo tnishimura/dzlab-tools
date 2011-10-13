@@ -13,11 +13,13 @@ our @ISA = qw(Exporter);
 our @EXPORT_OK = qw();
 our @EXPORT = qw(getstats);
 
-our @rownames = sort qw/
+our @rownames = qw/
 nuc_ct_mean nuc_ct_median 
 chr_ct_mean chr_ct_median 
 mit_ct_mean mit_ct_median 
-nuc_methyl_mean chr_methyl_mean mit_methyl_mean coverage
+nuc_methyl_mean chr_methyl_mean mit_methyl_mean 
+chr_methyl_total mit_methyl_total nuc_methyl_total
+coverage
 /;
 
 #######################################################################
@@ -104,8 +106,10 @@ sub getstats{
     my $nuclear_methyl = make_averager();
     my $chr_methyl = make_averager();
     my $mit_methyl = make_averager();
+    my ($mit_c, $mit_t, $chr_c, $chr_t, $nuc_c, $nuc_t) = (0) x 6;
 
     my $parser = GFF::Parser->new(file => $singlec);
+
 
     my $counter = 0;
     PARSE:
@@ -122,14 +126,20 @@ sub getstats{
             when (/chrc/i){
                 $chr_methyl->($methyl);
                 ++$chr_ct{$ct};
+                $chr_c += $c;
+                $chr_t += $t;
             }
             when (/chrm/i){
                 $mit_methyl->($methyl);
                 ++$mit_ct{$ct};
+                $mit_c += $c;
+                $mit_t += $t;
             }
             when (/chr\d+/i){
                 $nuclear_methyl->($methyl);
                 ++$nuclear_ct{$ct};
+                $nuc_c += $c;
+                $nuc_t += $t;
             }
             default{
                 next PARSE;
@@ -138,16 +148,19 @@ sub getstats{
     }
 
     return {
-        chr_ct_median   => histmedian(\%chr_ct),
-        mit_ct_median   => histmedian(\%mit_ct),
-        nuc_ct_median   => histmedian(\%nuclear_ct),
-        chr_ct_mean     => histmean(\%chr_ct),
-        mit_ct_mean     => histmean(\%mit_ct),
-        nuc_ct_mean     => histmean(\%nuclear_ct),
-        chr_methyl_mean => $chr_methyl->(),
-        mit_methyl_mean => $mit_methyl->(),
-        nuc_methyl_mean => $nuclear_methyl->(),
-        coverage        => sumhists(\%chr_ct, \%mit_ct, \%nuclear_ct),
+        chr_ct_median    => histmedian(\%chr_ct),
+        mit_ct_median    => histmedian(\%mit_ct),
+        nuc_ct_median    => histmedian(\%nuclear_ct),
+        chr_ct_mean      => histmean(\%chr_ct),
+        mit_ct_mean      => histmean(\%mit_ct),
+        nuc_ct_mean      => histmean(\%nuclear_ct),
+        chr_methyl_mean  => $chr_methyl->(),
+        mit_methyl_mean  => $mit_methyl->(),
+        nuc_methyl_mean  => $nuclear_methyl->(),
+        chr_methyl_total => ($chr_c + $chr_t > 0) ? ($chr_c / ($chr_c+$chr_t)) : 'na',
+        mit_methyl_total => ($mit_c + $mit_t > 0) ? ($mit_c / ($mit_c+$mit_t)) : 'na',
+        nuc_methyl_total => ($nuc_c + $nuc_t > 0) ? ($nuc_c / ($nuc_c+$nuc_t)) : 'na',
+        coverage         => sumhists(\%chr_ct, \%mit_ct, \%nuclear_ct),
     };
 }
 

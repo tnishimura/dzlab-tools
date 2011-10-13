@@ -14,21 +14,26 @@ use File::Basename qw/basename dirname/;
 use File::Path qw/make_path remove_tree/;
 use File::Spec::Functions qw/canonpath catdir catfile updir/;
 
-
 END {close STDOUT}
 $| = 1;
+use Pod::Usage;
+use Getopt::Long;
 
+my $result = GetOptions (
+    "tmp-dir|d=s" => \my $tmpdir,
+);
+pod2usage(-verbose => 99) if (!$result || !@ARGV);  
+
+if (! $tmpdir || ! -d $tmpdir){
+    $tmpdir = getcwd();
+}
 
 sub memoname{
     my $name = rel2abs shift;
     $name =~ s/\W/_/g;
     $name =~ s/^_//g;
-    return $name;
+    return catfile($tmpdir, $name);
 }
-
-#my $test_cg = "t/big-cg.gff";
-#my $test_chg = "t/big-chg.gff";
-#my @opt_files = ($test_cg, $test_chg);
 
 my %all_stats;
 
@@ -46,16 +51,79 @@ for my $file (@ARGV) {
 
 # header
 
-my @rownames = qw/
-coverage
-nuc_ct_mean nuc_ct_median 
-chr_ct_mean chr_ct_median 
-mit_ct_mean mit_ct_median 
-nuc_methyl_mean chr_methyl_mean mit_methyl_mean 
-/;
-
-say join "\t", "", @rownames;
+say join "\t", "", @GFF::Statistics::rownames;
 
 for my $file (sort keys %all_stats) {
-    say join "\t", $file, @{$all_stats{$file}}{@rownames};
+    say join "\t", $file, @{$all_stats{$file}}{@GFF::Statistics::rownames};
 }
+
+
+=head1 NAME
+
+gff-stats.pl - produce statistics about gff files
+
+=head1 SYNOPSIS
+
+Usage examples:
+
+ gff-stats.pl [-d /some/temporary/directory/] file1.gff file2.gff ...
+
+will produce a row for each file with the following columns for each:
+
+=head1 Output Columns
+
+=over
+
+=item nuc_ct_mean
+
+=item chr_ct_mean
+
+=item mit_ct_mean
+
+Mean C+T score per methylation site.  (Calculate C+T for each methylation site
+in the gff file, calculate the mean.)
+
+=item nuc_ct_median
+
+=item chr_ct_median
+
+=item mit_ct_median
+
+Median C+T score per methylation site.  (Calculate C+T for each methylation
+site in the gff file, calculate the median.)
+
+=item nuc_methyl_mean
+
+=item chr_methyl_mean
+
+=item mit_methyl_mean
+
+Mean C/(C+T) score per methylation site.  (Calcualte C/(C+T) for each
+methylation site in the gff file, calculate the mean.)
+
+=item nuc_methyl_total
+
+=item chr_methyl_total
+
+=item mit_methyl_total
+
+(Total C count in GFF file)/(Total C+T count in GFF file).  This is different
+from the methyl_mean scores b/c this is in total.  methyl_mean gives the same
+weight to a site where c=1;t=2 as c=10;t=20, whereas methyl_total combines the
+c and t's first.  
+
+=item coverage
+
+=back
+
+=head1 OPTIONS
+
+=over
+
+=item  -d <dir> | --tmp-dir <dir>
+
+Temporary directory for cache.
+
+=back
+
+=cut

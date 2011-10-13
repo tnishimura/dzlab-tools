@@ -44,10 +44,20 @@ for (1 .. 10) {
 #######################################################################
 # getstats
 
+sub safemeth{
+    my ($c, $t) = @_;
+    return ($c + $t > 0) ? ($c / ($c + $t)) : 'na';
+}
+
 sub naive_getstats{
     my $file = shift;
     my $p = GFF::Parser->new(file => $file);
     my (@chr_ct, @mit_ct, @nuc_ct, @chr_methyl, @mit_methyl, @nuc_methyl);
+    my %ct = (
+        chr => {c => 0, t => 0},
+        mit => {c => 0, t => 0},
+        nuc => {c => 0, t => 0},
+    );
     GFF:
     while (defined(my $gff = $p->next())){
         given ($gff->sequence){
@@ -58,14 +68,20 @@ sub naive_getstats{
             when (/chrc/i){
                 push @chr_ct, $ct;
                 push @chr_methyl, $methyl;
+                $ct{chr}{c}+=$c;
+                $ct{chr}{t}+=$t;
             }
             when (/chrm/i){
                 push @mit_ct, $ct;
                 push @mit_methyl, $methyl;
+                $ct{mit}{c}+=$c;
+                $ct{mit}{t}+=$t;
             }
             when (/chr\d+/i){
                 push @nuc_ct, $ct;
                 push @nuc_methyl, $methyl;
+                $ct{nuc}{c}+=$c;
+                $ct{nuc}{t}+=$t;
             }
         }
     }
@@ -79,16 +95,13 @@ sub naive_getstats{
         chr_methyl_mean => mean(@chr_methyl),
         mit_methyl_mean => mean(@mit_methyl),
         nuc_methyl_mean => mean(@nuc_methyl),
+        chr_methyl_total => safemeth($ct{chr}{c}, $ct{chr}{t}),
+        mit_methyl_total => safemeth($ct{mit}{c}, $ct{mit}{t}),
+        nuc_methyl_total => safemeth($ct{nuc}{c}, $ct{nuc}{t}),
         coverage        => sum(@chr_ct, @mit_ct, @nuc_ct),
     };
 }
 
-my @rownames = sort qw/
-nuc_ct_mean nuc_ct_median 
-chr_ct_mean chr_ct_median 
-mit_ct_mean mit_ct_median 
-nuc_methyl_mean chr_methyl_mean mit_methyl_mean coverage
-/;
 
 my $test_cg = "t/gff-stat-cg-test-data.gff";
 my $test_chh = "t/gff-stat-chh-test-data.gff";
@@ -105,7 +118,7 @@ sub compare{
 for my $file ($test_cg, $test_chh) {
     my $stats = getstats($file);
     my $naive = naive_getstats($file);
-    for my $rowname (@rownames) {
+    for my $rowname (@GFF::Statistics::rownames) {
         ok(compare($stats->{$rowname}, $naive->{$rowname}), "naive vs smart: $rowname");
     }
 }
