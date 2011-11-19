@@ -28,16 +28,25 @@ if (!defined $opt_sequence && ! defined $opt_range{start} && ! defined $opt_rang
     
     my $total = 0;
     for (sort keys %lengths){
-        say "$_:\t" . $lengths{$_};
+        if ($opt_gff){
+            say join "\t", $_, '.', 'chromosome', 1, $lengths{$_}, qw/. . ./, "Name=$_";
+        }
+        else{
+            say "$_:\t" . $lengths{$_};
+        }
         $total += $lengths{$_};
     }
-    say "total:\t" . $total; 
+    if (! $opt_gff){
+        say "total:\t" . $total; 
+    }
 }
 elsif (defined $opt_sequence && ! defined $opt_range{start} && ! defined $opt_range{end}){
-    say $r->get_pretty($opt_sequence, undef, undef, rc    => $opt_reverse_compliment);
+    say $r->get_pretty($opt_sequence, $opt_sequence, undef, undef, rc    => $opt_reverse_compliment);
 }
 else{
-    say $r->get_pretty($opt_sequence, $opt_range{start}, $opt_range{end}, 
+    say $r->get_pretty(
+        "$opt_sequence\_$opt_range{start}\_$opt_range{end}", 
+        $opt_sequence, $opt_range{start}, $opt_range{end}, 
         coord => $opt_coord,
         rc    => $opt_reverse_compliment,
         base  => $opt_base);
@@ -108,6 +117,10 @@ Do not slurp entire file into memory.
 
 =for Euclid
     file.default:     '-'
+
+=item  -g | --gff 
+
+If used without any other arguments, prints out sequence sizes in GFF format.
 
 =item -h | --help
 
