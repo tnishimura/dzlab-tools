@@ -12,6 +12,7 @@ use List::MoreUtils qw/all/;
 #use Config::General qw(ParseConfig);
 use POSIX qw/strftime/;
 use IO::Uncompress::Gunzip qw(gunzip $GunzipError) ;
+use IO::Uncompress::Bunzip2 qw(bunzip2 $Bunzip2Error) ;
 
 require Exporter;
 our @ISA = qw(Exporter);
@@ -19,7 +20,7 @@ our @ISA = qw(Exporter);
 our @EXPORT_OK = qw(localize reverse_complement common_suffix common_prefix
 mfor basename_prefix fastq_read_length timestamp datestamp overlap chext
 split_names base_match open_maybe_compressed fastq_convert_read_header c2t
-numdiff safediv);
+numdiff safediv safemethyl);
 our @EXPORT = qw();
 
 sub c2t{
@@ -31,7 +32,7 @@ sub numdiff{
     my ($x,$y)=@_;
     my @x_split = split //, $x;
     my @y_split = split //, $y;
-    die "len mismatch" unless @x_split == @y_split;
+    croak "len mismatch" unless @x_split == @y_split;
     my $total = 0;
     for (0..$#x_split){
         if ($x_split[$_] ne $y_split[$_]){
@@ -133,9 +134,11 @@ sub fastq_read_length{
     }
     # assume a prefix
     else{
-        my @sizes = map { _fastq_read_length_single($_) } glob("$prefix*");
+        my @sizes = map { 
+            _fastq_read_length_single($_) 
+        } glob(join " ", catfile($prefix, "*.gz"), catfile($prefix, "*.bz2"));
         if (@sizes == 0){
-            die "no files in $prefix";
+            croak "no files in $prefix";
         }
         else{
             my $first = shift @sizes;
@@ -143,7 +146,7 @@ sub fastq_read_length{
                 return $first;
             }
             else{
-                die "uneven read lengths in $prefix";
+                croak "uneven read lengths in $prefix";
             }
         }
     }
@@ -154,7 +157,11 @@ sub _fastq_read_length_single{
     my $fh;
     if ($filename =~ /\.gz$/){
         $fh = new IO::Uncompress::Gunzip $filename 
-            or die "IO::Uncompress::Gunzip failed: $GunzipError\n";
+            or croak "IO::Uncompress::Gunzip failed: $GunzipError\n";
+    }
+    elsif ($filename =~ /\.bz2$/){
+        $fh = new IO::Uncompress::Bunzip2 $filename 
+            or croak "IO::Uncompress::Bunzip2 failed: $Bunzip2Error\n";
     }
     else{
         open $fh, "<", $filename;
@@ -199,7 +206,7 @@ sub open_maybe_compressed{
     my $filename = shift;
     if ($filename =~ /\.gz$/){
         return new IO::Uncompress::Gunzip $filename 
-            or die "IO::Uncompress::Gunzip failed: $GunzipError\n";
+            or croak "IO::Uncompress::Gunzip failed: $GunzipError\n";
     }
     else {
         open my $fh, '<', $filename;
@@ -214,7 +221,7 @@ sub open_maybe_compressed{
 #    my (undef, $file) = splice @main::ARGV, $index, 2;
 #    return () if ! $file;
 #
-#    die "--conf $file not a file?" if ! -f $file;
+#    croak "--conf $file not a file?" if ! -f $file;
 #
 #    return ParseConfig("$file");
 #}
@@ -311,6 +318,16 @@ sub safediv{
         return $num/$den;
     }
     return 0;
+}
+
+sub safemethyl{
+    my ($c, $t) = @_;
+    if ($c + $t > 0){
+        return $c / ($c + $t);
+    }
+    else{
+        return 0;
+    }
 }
 
 1;

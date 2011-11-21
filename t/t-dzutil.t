@@ -6,7 +6,8 @@ use feature 'say';
 use autodie;
 use FindBin;
 use lib "$FindBin::Bin/../lib";
-use DZUtil qw/overlap common_suffix common_prefix chext split_names base_match/;
+use DZUtil qw/fastq_read_length overlap common_suffix common_prefix chext split_names base_match/;
+use Test::Exception;
 
 
 use Test::More qw(no_plan);
@@ -55,3 +56,10 @@ ok(common_suffix( "", "1123_", "112_",) eq "", 'common_suffix');
 ok(common_suffix( 123, 12223, "11asdf223",) eq '23', 'common_suffix');
 
 ok(overlap([1,40], [39, 45]) == 2, 'overlap');
+
+is(100, fastq_read_length("t/data/fastq_read_length/fastq_read_length-test.fastq"), "fastq_read_length plain");
+is(100, fastq_read_length("t/data/fastq_read_length/fastq_read_length-test.fastq.gz"), "fastq_read_length gzip");
+is(100, fastq_read_length("t/data/fastq_read_length/fastq_read_length-test.fastq.bz2"), "fastq_read_length bzip2");
+is(100, fastq_read_length("t/data/fastq_read_length/dir-gzip"), "fastq_read_length gzip dir");
+is(100, fastq_read_length("t/data/fastq_read_length/dir-bz2"), "fastq_read_length bzip2 dir");
+dies_ok { fastq_read_length "t/data/fastq_read_length/dir-gzip-uneven" } "fastq_read_length gzip dir uneven dies";
