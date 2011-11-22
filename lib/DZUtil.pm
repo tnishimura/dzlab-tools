@@ -154,18 +154,7 @@ sub fastq_read_length{
 
 sub _fastq_read_length_single{
     my $filename = shift;
-    my $fh;
-    if ($filename =~ /\.gz$/){
-        $fh = new IO::Uncompress::Gunzip $filename 
-            or croak "IO::Uncompress::Gunzip failed: $GunzipError\n";
-    }
-    elsif ($filename =~ /\.bz2$/){
-        $fh = new IO::Uncompress::Bunzip2 $filename 
-            or croak "IO::Uncompress::Bunzip2 failed: $Bunzip2Error\n";
-    }
-    else{
-        open $fh, "<", $filename;
-    }
+    my $fh = open_maybe_compressed($filename);
     <$fh>;
     my $line = <$fh>;
     close $fh;
@@ -204,9 +193,13 @@ return a file handle for a file which may be compressed
 =cut 
 sub open_maybe_compressed{
     my $filename = shift;
-    if ($filename =~ /\.gz$/){
+    if ($filename =~ /\.gz$/i){
         return new IO::Uncompress::Gunzip $filename 
             or croak "IO::Uncompress::Gunzip failed: $GunzipError\n";
+    }
+    elsif ($filename =~ /\.bz2$/i){
+        return new IO::Uncompress::Bunzip2 $filename 
+            or croak "IO::Uncompress::Bunzip2 failed: $Bunzip2Error\n";
     }
     else {
         open my $fh, '<', $filename;
