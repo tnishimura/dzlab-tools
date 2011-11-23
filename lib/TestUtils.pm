@@ -10,15 +10,21 @@ use Launch;
 use File::Basename;
 use File::Spec::Functions;
 use Test::More;
+use File::Path qw/make_path/;
 
 require Exporter;
 our @ISA = qw(Exporter);
 our @EXPORT_OK = qw();
-our @EXPORT = qw(exists_and_nonempty setup_reference);
+our @EXPORT = qw(setup_intermediate_dir exists_and_nonempty setup_reference);
+our $intermediate_dir = 't_intermediate';
+
+sub setup_intermediate_dir{
+    make_path $intermediate_dir;
+}
 
 sub setup_reference{
     my $test_dir = shift;
-    my $gz = 't/TAIR_mini.fas.gz';
+    my $gz = 't/data/TAIR_mini.fas.gz';
     my $ref = catfile($test_dir, basename($gz, '.gz'));
     if (-e $test_dir && ! -d $test_dir){
         croak "$test_dir is not a directory? dying";
