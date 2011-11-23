@@ -4,14 +4,20 @@ use warnings;
 use 5.010_000;
 use Data::Dumper;
 use autodie;
-
 use Test::More qw(no_plan);
+use TestUtils;
+use Cwd qw/getcwd/;
+use File::Basename qw/basename dirname/;
+use File::Path qw/make_path remove_tree/;
+use File::Spec::Functions qw/canonpath catdir catfile updir/;
 
-my $input = "t/ends_filter.ends";
-my $output3 = "t/ends_filter.ends.out.3";
-my $output5 = "t/ends_filter.ends.out.5";
-my $exons = "t/ends_filter.exon-anno.gff";
-my $genes = "t/ends_filter.gene-anno.gff";
+setup_intermediate_dir();
+
+my $input = "t/data/ends_filter.ends";
+my $output3 = catfile $TestUtils::intermediate_dir, "ends_filter.ends.out.3";
+my $output5 = catfile $TestUtils::intermediate_dir, "ends_filter.ends.out.5";
+my $exons = "t/data/ends_filter.exon-anno.gff";
+my $genes = "t/data/ends_filter.gene-anno.gff";
 
 system("ends_filter.pl --everywhere -t 100 -5 -b 100 -d 5000 -g $genes -gl ID -e $exons -el Parent -o $output5 $input");
 system("ends_filter.pl --everywhere -t 100 -3 -b 100 -d 5000 -g $genes -gl ID -e $exons -el Parent -o $output3 $input");
