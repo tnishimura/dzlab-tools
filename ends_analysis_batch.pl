@@ -118,7 +118,10 @@ for my $dir (@opt_base_dirs) {
                     # $File::Find::name - filename relative to pwd
                     # $File::Find::dir  - dirname relative to pwd 
                     # $_                - filename relative to $File::Find::dir
-                    if (! /_all_/){ # '_all_' are the completed ones... avoid nesting
+                    if ($opt_all && /^all\.cg/i){ push @{$files{cg}}, $File::Find::name; }
+                    elsif ($opt_all && /^all\.chg/i){ push @{$files{chg}}, $File::Find::name; }
+                    elsif ($opt_all && /^all\.chh/i){ push @{$files{chh}}, $File::Find::name; }
+                    elsif (!$opt_all && ! /_all_/){ # '_all_' are the completed ones... avoid nesting
                         if    (/CG.$extension$/i)     { push @{$files{cg}}, $File::Find::name; }
                         elsif (/CHG.$extension$/i) { push @{$files{chg}}, $File::Find::name; }
                         elsif (/CHH.$extension$/i) { push @{$files{chh}}, $File::Find::name; }
@@ -148,7 +151,10 @@ for my $dir (@opt_base_dirs) {
                 }
 
                 # concatenate files
-                if (! -f $consolidated_input && ! $opt_dry){
+                if ($opt_all){
+                    $consolidated_input = $group_files->[0];
+                }
+                elsif ($opt_all && ! -f $consolidated_input && ! $opt_dry){
                     $logger->info("concatenating $group files into $consolidated_input");
                     open my $outfh, '>', $consolidated_input;
                     for my $f (@$group_files) {
@@ -233,6 +239,11 @@ Number of simultaneous ends to perform.  Default 0 for no parallelization.
 
 =for Euclid
     threads.default:     0
+
+=item  -a | --all
+
+If given, assume the single-c's are pre-concatenated into files named
+'all.cg*', 'all.chg*, 'all.chh*'. 
 
 =back
 
