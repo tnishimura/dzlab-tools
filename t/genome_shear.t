@@ -22,7 +22,7 @@ my $wrong_meth;
 my $non_c_meth;
 my $counter = 1;
 
-open my $shearfh, "./genome_shear.pl -n $numreads -l $readlen -o - $fasta |";
+open my $shearfh, "./genome_shear.pl -r .1 -n $numreads -l $readlen -o - $fasta |";
 OUTER:
 while (! eof $shearfh){
     my @lines = map { scalar <$shearfh> } (1 .. 4);
