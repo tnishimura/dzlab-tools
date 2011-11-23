@@ -16,7 +16,7 @@ sub rc{
 
 for my $slurp (0, 1) {
 #for my $slurp (0) {
-    my $f = FastaReader->new(file => 't/test.fasta', ht => sub { s/>(\w+)/$1/; return $_ }, slurp => $slurp );
+    my $f = FastaReader->new(file => 't/data/test.fasta', ht => sub { s/>(\w+)/$1/; return $_ }, slurp => $slurp );
     my %lengths = $f->sequence_lengths();
     my $chr1len = $f->get_length("chr1");
     my $chr4len = $f->get_length("chr4");

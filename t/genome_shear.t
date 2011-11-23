@@ -9,7 +9,7 @@ use Carp;
 use Test::More tests => 6;
 use List::MoreUtils qw/all/;
 
-my $fasta = "t/test.fasta";
+my $fasta = "t/data/test.fasta";
 my $fr = FastaReader->new(file => $fasta, slurp => 1);
 my $numreads = 1000;
 my $readlen = 100;

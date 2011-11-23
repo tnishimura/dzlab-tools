@@ -8,7 +8,7 @@ use FastaOO;
 use Test::More qw(no_plan);
 use feature 'say';
 
-my $f = FastaOO->new(file => 't/test.fasta');
+my $f = FastaOO->new(file => 't/data/test.fasta');
 
 is($f->get('CHR1' , 1  , 10 , coord => 'f' , base => 1) , 'CCCTAAACCC' , "base 1 forward 1-10");
 is($f->get('CHr1' , 11 , 20 , coord => 'f' , base => 1) , 'TAAACCCTAA' , "base 1 forward 11-20");
