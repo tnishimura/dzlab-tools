@@ -103,8 +103,8 @@ sub naive_getstats{
 }
 
 
-my $test_cg = "t/gff-stat-cg-test-data.gff";
-my $test_chh = "t/gff-stat-chh-test-data.gff";
+my $test_cg = "t/data/gff-stat-cg-test-data.gff";
+my $test_chh = "t/data/gff-stat-chh-test-data.gff";
 
 sub compare{
     my ($x, $y) = @_;
