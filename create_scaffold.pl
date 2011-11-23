@@ -24,15 +24,22 @@ if ($opt_output ne '-'){
 my $fr  = FastaReader->new(file => $opt_input, slurp => 1);
 my $parser = GFF::Parser->new(skip => 1,file => $opt_gff);
 
+my $strand_error = 0;
 while (my $gff = $parser->next()){
-    print $fr->get_pretty(
-        $gff->get_column($opt_locus_id),
-        $gff->sequence,
-        $gff->start, 
-        $gff->end, 
-        coord => 'f', 
-        rc => $gff->strand eq '-' ? 1 : 0
-    );
+    my $str = $gff->strand;
+    if (defined $str && ($str ne '+' || $str ne '-') ){ # IGNORE entries without strands
+        print $fr->get_pretty(
+            $gff->get_column($opt_locus_id),
+            $gff->sequence,
+            $gff->start, 
+            $gff->end, 
+            coord => 'f', 
+            rc => $str eq '-' ? 1 : 0
+        );
+    }
+    else {
+        $strand_error++;
+    }
         #print format_fasta(
         #    #sprintf("%s | %s, %s, %s", $gff->get_column($opt_locus_id),$gff->start, $gff->end, $gff->strand),
         #    $gff->get_column($opt_locus_id),
@@ -41,6 +48,9 @@ while (my $gff = $parser->next()){
 }
 if ($opt_output ne '-'){
     close \*STDOUT;
+}
+if ($strand_error){
+    say STDERR "warning: ignored $strand_error lines with an undefined/malformed strand columns";
 }
 
 =head1 NAME
