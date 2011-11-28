@@ -11,18 +11,13 @@ use Launch;
 use Getopt::Euclid qw( :vars<opt_> );
 use Pod::Usage;
 use File::Temp qw/tempfile tempdir/;
-use Cwd qw/getcwd/;
-use File::Basename qw/basename dirname/;
-use File::Path qw/make_path remove_tree/;
-use File::Spec::Functions qw/rel2abs catdir catfile updir/;
-use Log::Log4perl qw/:easy/;
+use File::Path qw/make_path/;
+use File::Spec::Functions qw/rel2abs catdir catfile/;
 
 END {close STDOUT}
 $| = 1;
 
 pod2usage(-verbose => 99,-sections => [qw/NAME SYNOPSIS OPTIONS/]) if $opt_help || ! defined $opt_input;
-
-Log::Log4perl->easy_init({ level => $DEBUG, layout => '%d{HH:mm:ss} %.1p > %m%n' });
 
 #######################################################################
 # temp dir for compiled wiggle-- either given my --tmp-dir or $HOME/.widdgle
@@ -41,7 +36,6 @@ else{
     }
 }
 
-my $logger = get_logger();
 #my $track  = $opt_trackname // 'track';
 my $p      = GFF::Parser->new(file => $opt_input, normalize => 0);
 
@@ -73,7 +67,8 @@ while (defined(my $gff = $p->next())){
         # if debug on, then in same dir as compiled wigs.  otherwise in /tmp
         $opt_debug ? tempfile(catfile($tempdir, "wig-$seq-XXXXXXX"), UNLINK => 0) : tempfile(UNLINK => 1);
         open my $fh, '>', $tempfile;
-        $logger->debug("creating $tempfile for $seq");
+
+        say STDERR "creating $tempfile for $seq";
 
         say $fh "variableStep  chrom=$seq  span=$opt_width";
         $seen{$seq} = {fh => $fh, filename => $tempfile};
@@ -82,8 +77,6 @@ while (defined(my $gff = $p->next())){
     my $output_fh = $seen{$seq}{fh};
     say $output_fh "$start\t$score";
 }
-
-
 
 #######################################################################
 # wiggle2gff3 for each sequence, plus post-processing.
