@@ -7,7 +7,7 @@ use autodie;
 use FindBin;
 use lib "$FindBin::Bin/lib";
 use GFF::Parser;
-use Launch;
+use Launch qw/cast/;
 use Getopt::Euclid qw( :vars<opt_> );
 use Pod::Usage;
 use File::Temp qw/tempfile tempdir/;
@@ -91,15 +91,15 @@ for my $seq (sort keys %seen){
     close $fh;
 
     #launch("wiggle2gff3 --trackname $track --path $tempdir $filename >> $tmpout", dryrun => 0);
-    launch("wiggle2gff3 --path $tempdir $filename >> $tmpout", dryrun => 0);
+    cast("wiggle2gff3 --path $tempdir $filename >> $tmpout");
 }
 
 # eliminate all non-gff lines (like comments) in intermediate gff file:
-launch("perl -i -wlnaF'\\t' -e '\@F == 9 and print' $tmpout");
+cast("perl -i -wlnaF'\\t' -e '\@F == 9 and print' $tmpout");
 
 # change column 3
 if (defined $opt_feature_name){
-    launch("perl -i -wlpe 's/microarray_oligo/$opt_feature_name/' $tmpout");
+    cast("perl -i -wlpe 's/microarray_oligo/$opt_feature_name/' $tmpout");
 }
 
 #######################################################################
