@@ -75,7 +75,7 @@ launch("fasget.pl -g $refnorm > $refgff");
 my @wiggffs;
 for my $methylation_file (@opt_methylation) {
     my $wiggff = catfile($opt_output_dir, basename($methylation_file, qw/gff GFF/) . "wig.gff");
-    launch("methylgff2wiggle.pl -d $opt_output_dir -i $methylation_file >> $wiggff");
+    launch("gb-methylgff2wiggle.pl -d $opt_output_dir -i $methylation_file >> $wiggff");
     push @wiggffs, $wiggff;
 }
 launch("bp_seqfeature_load -c -f -a DBI::SQLite -d $sqlite $annonorm $refnorm $refgff @wiggffs");
