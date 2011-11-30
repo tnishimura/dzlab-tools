@@ -13,6 +13,7 @@ use Pod::Usage;
 use File::Temp qw/tempfile tempdir/;
 use File::Path qw/make_path/;
 use File::Spec::Functions qw/rel2abs catdir catfile/;
+use File::Basename qw/basename dirname/;
 
 END {close STDOUT}
 $| = 1;
@@ -97,9 +98,11 @@ for my $seq (sort keys %seen){
 cast("perl -i -wlnaF'\\t' -e '\@F == 9 and print' $tmpout");
 
 # change column 3
-if (defined $opt_feature_name){
-    cast("perl -i -wlpe 's/microarray_oligo/$opt_feature_name/' $tmpout");
+if (! defined $opt_feature_name){
+    $opt_feature_name = basename($opt_input, qw/.gff .GFF/);
 }
+
+cast("perl -i -wlpe 's/\tmicroarray_oligo\t/\t$opt_feature_name\t/' $tmpout");
 
 #######################################################################
 # output gff
@@ -152,10 +155,7 @@ Directory for binary wig file.  Also, intermediate files if --debug on
 
 =item  -f <feature> | --feature-name <feature>
 
-The feature name in column 3 of output
-
-=for Euclid
-    feature.default:     "methylation"
+The feature name in column 3 of output. Default to filename.
 
 =item  -t <name> | --trackname <name>
 
