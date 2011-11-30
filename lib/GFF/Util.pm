@@ -41,7 +41,12 @@ sub parse_gff{
     = map { ($_ eq q{.} || $_ eq q{} ) ? undef : $_ } @split;
 
     if (defined $accum{sequence} && $normalize){
-        $accum{sequence} = uc $accum{sequence};
+        if ($normalize == -1){
+            $accum{sequence} = lc $accum{sequence};
+        }
+        else{
+            $accum{sequence} = uc $accum{sequence};
+        }
     }
 
     return GFF->new(%accum);

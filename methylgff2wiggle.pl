@@ -37,7 +37,7 @@ else{
 }
 
 #my $track  = $opt_trackname // 'track';
-my $p      = GFF::Parser->new(file => $opt_input, normalize => 0);
+my $p      = GFF::Parser->new(file => $opt_input, normalize => -1);
 
 #######################################################################
 # process gff line by line
@@ -90,7 +90,6 @@ for my $seq (sort keys %seen){
     my ($fh, $filename) = @{$seen{$seq}}{qw/fh filename/};
     close $fh;
 
-    #launch("wiggle2gff3 --trackname $track --path $tempdir $filename >> $tmpout", dryrun => 0);
     cast("wiggle2gff3 --path $tempdir $filename >> $tmpout");
 }
 

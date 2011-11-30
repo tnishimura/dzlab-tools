@@ -19,7 +19,7 @@ END {close STDOUT}
 $| = 1;
 
 pod2usage(-verbose => 99,-sections => [qw/NAME SYNOPSIS OPTIONS/]) 
-if $opt_help || ! defined $opt_reference || ! defined $opt_output_dir;
+if $opt_help || ! defined $opt_reference || ! defined $opt_output_dir || ! defined $opt_label;
 
 if (-e $opt_output_dir && ! -d $opt_output_dir){
     die "$opt_output_dir exists but isn't a directory?";
@@ -29,9 +29,16 @@ elsif (! -e $opt_output_dir){
 }
 die "can't create/write to $opt_output_dir?" if ! -d $opt_output_dir;
 
+#######################################################################
+
 my $log    = catfile($opt_output_dir, join ".", "log", timestamp(), "txt");
 my $sqlite = catfile($opt_output_dir, "features.sqlite");
+$opt_annotation //= '';
+my $annonorm = $opt_annotation ? catfile($opt_output_dir, basename($opt_annotation, qw/gff GFF/) . "norm.gff") : '';
+my $refnorm = catfile($opt_output_dir, basename($opt_reference, qw/fa fas fasta FA FASTA FAS/) . "norm.gff");
 my $refgff = catfile($opt_output_dir, basename($opt_reference, qw/fa fas fasta FA FASTA FAS/) . "gff");
+
+#######################################################################
 
 my $conf=qq/
     log4perl.logger          = DEBUG, Print
@@ -53,11 +60,17 @@ Log::Log4perl::init( \$conf );
 
 my $logger = get_logger();
 
+
 $logger->info("output dir: $opt_output_dir");
 $logger->info("reference: $opt_reference");
-$logger->info(defined $opt_annotation ? "annotation: $opt_annotation" : "no annotation");
+$logger->info("annotation: $opt_annotation");
 
-launch("fasget.pl -g $opt_reference > $refgff");
+launch("gb-normalize-fasta.sh $opt_reference > $refnorm");
+if ($opt_annotation){
+    launch("gb-normalize-gff.pl $opt_annotation > $annonorm");
+}
+
+launch("fasget.pl -g $refnorm > $refgff");
 
 my @wiggffs;
 for my $methylation_file (@opt_methylation) {
@@ -65,7 +78,7 @@ for my $methylation_file (@opt_methylation) {
     launch("methylgff2wiggle.pl -d $opt_output_dir -i $methylation_file >> $wiggff");
     push @wiggffs, $wiggff;
 }
-launch("bp_seqfeature_load -c -f -a DBI::SQLite -d $sqlite $opt_reference $refgff @wiggffs");
+launch("bp_seqfeature_load -c -f -a DBI::SQLite -d $sqlite $annonorm $refnorm $refgff @wiggffs");
 
 =head1 NAME
 
@@ -97,6 +110,8 @@ Usage examples:
 
 =for Euclid
     fasta.type:        readable
+
+=item  -l <label> | --label <label>
 
 =item --help | -h
 
