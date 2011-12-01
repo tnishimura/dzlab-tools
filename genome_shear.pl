@@ -20,7 +20,7 @@ END {close STDOUT}
 my $result = GetOptions (
     "num-reads|n=i"   => \(my $num_reads = 10_000),
     "read-length|l=i" => \(my $read_length = 100),
-    "bs-rate|r=f"     => \(my $bsrate = .1),
+    "methylation-rate|r=f"     => \(my $methrate),
     "out-file|o=s"    => \(my $out_file),
     "tag|t=s"         => \(my $tag),
     "no-rc|f"         => \(my $norc),
@@ -28,7 +28,7 @@ my $result = GetOptions (
 );
 
 unless (defined $out_file && @ARGV == 1 && -f $ARGV[0]){
-    say "usage: $0 [--no-rc] [--bs-rate .1] [-j #junk] [-n #numreads] [-l read_length] [-o out.fastq] input";
+    say "usage: $0 [--no-rc] [--methylation-rate .1] [-j #junk] [-n #numreads] [-l read_length] [-o out.fastq] input";
     say "  --no-rc means don't shear the rc strand. use for rc genomes";
     exit 1;
 }
@@ -53,20 +53,38 @@ my $quality = "#" x $read_length;
 
 for (1 .. $num_reads){
     my $seq   = rmultinomial(@$multargs);
-    my $start = int(rand($seqlen{$seq}-$read_length))+1;
-    my $stop  = $start + $read_length -1;
+    my $start;
+    my $stop;
+
+    if ($read_length > $seqlen{$seq}){
+        $start = 1;
+        $stop = $seqlen{$seq};
+    }
+    else{
+        $start = int(rand($seqlen{$seq}-$read_length))+1;
+        $stop  = $start + $read_length -1;
+    }
+
     my $get_rc   = $norc ? 0 : rand() > .50;
     my $strand_label = $get_rc ? '-' : '+';
     
     my $read = $fr->get($seq, $start, $stop, base => 1, rc => $get_rc);
-    my ($bsread, $meth) = bisulfite($read, $start, $stop, $get_rc, $bsrate);
+    if (defined $methrate){
+        my ($bsread, $meth) = bisulfite($read, $start, $stop, $get_rc, $methrate);
 
-    record_meth($seq, $strand_label, @$meth);
+        record_meth($seq, $strand_label, @$meth);
 
-    say "\@$seq:$start:$stop:$strand_label:" , join(":",@$meth); 
-    say $bsread;
-    say "+";
-    say $read;
+        say "\@$seq:$start:$stop:$strand_label:" , join(":",@$meth);
+        say $bsread;
+        say "+";
+        say $read;
+    }
+    else{
+        say "\@$seq:$start:$stop:$strand_label";
+        say $read;
+        say "+";
+        say $read;
+    }
 } 
 
 for (1 .. $junk){
@@ -105,13 +123,15 @@ if ($logfile){
     }
 }
 
+# $rate is methylation (protection from conversion)
+# returns bisulfite simulated sequence and the absolute positions of methylation
 sub bisulfite{
-    my ($subseq, $start, $end, $getrc, $rate) = @_;
+    my ($subseq, $start, $end, $rc, $rate) = @_;
     my @split = split //, $subseq;
     my @meth;
     for my $abspos ($start .. $end){
         my $relpos = $abspos - $start;
-        if ($getrc){
+        if ($rc){
             $abspos = $end - $relpos;
         }
 

@@ -48,12 +48,25 @@ find(
             # $File::Find::name - filename relative to pwd
             # $File::Find::dir  - dirname relative to pwd, eq getcwd()
             # $_                - filename relative to $File::Find::dir
-            if (/^single-c(-\w+)?$/){
+            if (/^(concat-)?single-c(-\w+)?$/){
                 say getcwd();
                 my $armadir = "armageddon";
-                my @cg = grep { ! /[\._]all[\._]/ } glob("$_/*CG*merged*");
-                my @chg = grep { ! /[\._]all[\._]/ } glob("$_/*CHG*merged*");
-                my @chh = grep { ! /[\._]all[\._]/ } glob("$_/*CHH*merged*");
+                my @cg;
+                my @chg;
+                my @chh;
+
+                if ($opt_all){
+                    @cg = grep { /[\._]all[\._]/ } glob("$_/*CG*merged*");
+                    @chg = grep { /[\._]all[\._]/ } glob("$_/*CHG*merged*");
+                    @chh = grep { /[\._]all[\._]/ } glob("$_/*CHH*merged*");
+                }
+                else{
+                    @cg = grep { ! /[\._]all[\._]/ } glob("$_/*CG* $_/*cg*");
+                    @chg = grep { ! /[\._]all[\._]/ } glob("$_/*CHG* $_/*chg*");
+                    @chh = grep { ! /[\._]all[\._]/ } glob("$_/*CHH* $_/*chh*");
+                    die "if --all, there should be exactly one of each in $_"
+                    unless (@cg==1 && @chg == 1 && @chh == 1);
+                }
 
                 make_path($armadir);
                 while (my ($conf_name,$conf_hash) = each %config) {
@@ -136,6 +149,8 @@ Number of simultaneous ends to perform.  Default 0 for no parallelization.
 
 =for Euclid
     threads.default:     0
+
+=item  -a | --all 
 
 =back
 

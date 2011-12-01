@@ -8,14 +8,31 @@ use FindBin;
 use lib "$FindBin::Bin/../lib";
 use GFF::Split;
 use Test::More qw(no_plan);
+use TestUtils;
+use Cwd qw/getcwd/;
+use File::Basename qw/basename dirname/;
+use File::Path qw/make_path remove_tree/;
+use File::Spec::Functions qw/canonpath catdir catfile updir/;
+use File::Copy qw/copy/;
 
-my @a = GFF::Split::split_feature('t/test1.gff','gene');
-my @b = GFF::Split::split_sequence('t/test1.gff');
+setup_intermediate_dir();
+my $int = $TestUtils::intermediate_dir;
 
-is_deeply(\@a, [ 't/test1-gene.gff' ], "feature");
-is_deeply(\@b, [ 't/test1-Chr1.gff', 't/test1-Chr2.gff' ], "sequence");
+my $testgff = 't/data/test1.gff';
+my $copy = catfile($int, basename($testgff));
+say "==== $copy";
+
+copy $testgff, $copy;
+
+my ($gene, $chr1, $chr2) = map { catfile($int, "test1-$_.gff") } qw/gene Chr1 Chr2/;
+
+my @a = GFF::Split::split_feature($copy,'gene');
+my @b = GFF::Split::split_sequence($copy);
+
+is_deeply(\@a, [ $gene ], "feature");
+is_deeply(\@b, [ $chr1, $chr2 ], "sequence");
 is_deeply(
-    [GFF::Split::split_names('t/test1.gff', qw/CHR1 CHR2/)], 
-    [ 't/test1-CHR1.gff', 't/test1-CHR2.gff' ], 
+    [GFF::Split::split_names($copy, qw/Chr1 Chr2/)], 
+    [ $chr1, $chr2 ], 
     "split_names",
 );

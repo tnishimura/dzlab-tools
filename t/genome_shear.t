@@ -9,7 +9,7 @@ use Carp;
 use Test::More tests => 6;
 use List::MoreUtils qw/all/;
 
-my $fasta = "t/test.fasta";
+my $fasta = "t/data/test.fasta";
 my $fr = FastaReader->new(file => $fasta, slurp => 1);
 my $numreads = 1000;
 my $readlen = 100;
@@ -22,7 +22,7 @@ my $wrong_meth;
 my $non_c_meth;
 my $counter = 1;
 
-open my $shearfh, "./genome_shear.pl -n $numreads -l $readlen -o - $fasta |";
+open my $shearfh, "./genome_shear.pl -r .1 -n $numreads -l $readlen -o - $fasta |";
 OUTER:
 while (! eof $shearfh){
     my @lines = map { scalar <$shearfh> } (1 .. 4);

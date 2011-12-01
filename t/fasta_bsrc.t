@@ -4,21 +4,19 @@ use warnings;
 use Data::Dumper;
 use feature 'say';
 use autodie;
-
 use Test::More qw(no_plan);
 use FindBin;
 use lib "$FindBin::Bin/../lib";
 use Fasta qw/slurp_fasta bisulfite_convert/;
+use File::Temp qw/tempdir tempfile/;
+my (undef, $tmp) = tempfile(UNLINK => 1);
 
-my $file = 't/test.fasta';
-my $tmp = 't/test.fasta.tmp';
+my $file = 't/data/test.fasta';
 
 system("perl fasta_bsrc.pl $file > $tmp");
 
 my $original = slurp_fasta($file);
 my $converted = slurp_fasta($tmp);
-
-#print Dumper $converted;
 
 for my $seq (sort keys %$original) {
     my $original_forward = $original->{$seq};
@@ -32,6 +30,4 @@ for my $seq (sort keys %$original) {
     is($original_forward, $converted->{$seq});
     is($original_backward, $converted->{"RC_$seq"});
 }
-
-unlink $tmp;
 

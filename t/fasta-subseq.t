@@ -10,7 +10,7 @@ use Fasta;
 use Test::More qw(no_plan);
 use feature 'say';
 
-my $seq = slurp_fasta('t/test.fasta');
+my $seq = slurp_fasta('t/data/test.fasta');
 
 is(fasta_subseq($seq , 'CHR1' , 1  , 10 , coord => 'f' , base => 1) , 'CCCTAAACCC' , "base 1 forward 1-10");
 is(fasta_subseq($seq , 'CHr1' , 11 , 20 , coord => 'f' , base => 1) , 'TAAACCCTAA' , "base 1 forward 11-20");
