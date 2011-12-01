@@ -20,8 +20,17 @@ our @ISA = qw(Exporter);
 our @EXPORT_OK = qw(localize reverse_complement common_suffix common_prefix
 mfor basename_prefix fastq_read_length timestamp datestamp overlap chext
 split_names base_match open_maybe_compressed fastq_convert_read_header c2t
-numdiff safediv safemethyl);
+numdiff safediv safemethyl sanitize_filename);
 our @EXPORT = qw();
+
+sub sanitize_filename{
+    my $path = shift or croak "need filename";
+    $path = basename($path);
+    $path =~ s/\.\w+$//;    # no extension
+    $path =~ s/[^\s\w-]//g; # get rid of funny chars
+    $path =~ s/\s+/_/g;     # spaces to underscores
+    return $path;
+}
 
 sub c2t{
     (my $c2t = $_[0]) =~ s/C/T/gi;
