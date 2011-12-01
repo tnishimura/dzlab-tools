@@ -7,10 +7,12 @@ use Data::Dumper;
 use Carp;
 use autodie;
 use GFF::Parser;
+use Scalar::Util qw/looks_like_number/;
+use List::MoreUtils qw/all/;
 
 require Exporter;
 our @ISA = qw(Exporter);
-our @EXPORT_OK = qw();
+our @EXPORT_OK = qw(gff_detect_width);
 our @EXPORT = qw(getstats);
 
 our @rownames = qw/
@@ -21,6 +23,45 @@ nuc_methyl_mean chr_methyl_mean mit_methyl_mean
 chr_methyl_total mit_methyl_total nuc_methyl_total
 coverage
 /;
+
+=head2 gff_detect_width "file", N
+
+Try to guess the window width of a file from its first N lines, default 100.
+
+=cut
+
+sub gff_detect_width{
+    my $file = shift or croak "need file";
+    my $numlines = shift // 100; # number of lines to read
+    my $p = GFF::Parser->new(file => $file);
+    my @widths;
+    my $counter = 0;
+    while ($counter < $numlines && defined(my $gff = $p->next())){
+        $counter++;
+        my ($start, $end) = ($gff->start(), $gff->end());
+
+        croak "bad start/end column in gff_detect_width $file" 
+        if (! looks_like_number($start) || !looks_like_number($end));
+
+        my $width = $end - $start + 1;
+        push @widths, $width;
+    }
+
+    if ($counter == 0){
+        return 0;
+    }
+    elsif ($counter == 1){
+        return $widths[0];
+    }
+    else{
+        pop @widths; # b/c the last one can be uneven
+        my $first = shift @widths;
+        if (all { $first == $_ } @widths){
+            return $first;
+        }
+        return 0;
+    }
+}
 
 #######################################################################
 # utility
