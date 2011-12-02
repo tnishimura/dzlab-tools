@@ -32,11 +32,11 @@ die "can't create/write to $opt_output_dir?" if ! -d $opt_output_dir;
 #######################################################################
 
 my $log    = catfile($opt_output_dir, join ".", "log", timestamp(), "txt");
-my $sqlite = catfile($opt_output_dir, "features.sqlite");
+my $sqlite = catfile($opt_output_dir, "seqfeature.sqlite");
 $opt_annotation //= '';
 my $annonorm = $opt_annotation ? catfile($opt_output_dir, basename($opt_annotation, qw/gff GFF/) . "norm.gff") : '';
 my $refnorm = catfile($opt_output_dir, basename($opt_reference, qw/fa fas fasta FA FASTA FAS/) . "norm.fasta");
-my $refgff = catfile($opt_output_dir, basename($refnorm, qw/fa fas fasta FA FASTA FAS/) . "gff");
+my $gff = catfile($opt_output_dir, "seqfeature.gff");
 
 #######################################################################
 
@@ -59,21 +59,19 @@ if ($opt_annotation){
 #######################################################################
 # create chromosome annotation
 
-launch("fasget.pl -g $refnorm > $refgff");
+launch("fasget.pl -g $refnorm > $gff");
 
 #######################################################################
 # convert
 
-my (undef, $wiggff) = tempfile(catfile($opt_output_dir, "wig.gff-tmpXXXXXX"), UNLINK => 1);
-
 for my $methylation_file (@opt_methylation) {
-    launch("gb-methylgff2wiggle.pl -d $opt_output_dir $methylation_file >> $wiggff");
+    launch("gb-methylgff2wiggle.pl -d $opt_output_dir $methylation_file >> $gff");
 }
 
 #######################################################################
 # load
 
-launch("bp_seqfeature_load -c -f -a DBI::SQLite -d $sqlite $annonorm $refnorm $refgff $wiggff");
+launch("bp_seqfeature_load -c -f -a DBI::SQLite -d $sqlite $annonorm $refnorm $gff");
 
 =head1 NAME
 
