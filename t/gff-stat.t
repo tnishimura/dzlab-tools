@@ -5,7 +5,7 @@ use 5.010_000;
 use Data::Dumper;
 use autodie;
 use Test::More qw(no_plan);
-use GFF::Statistics;
+use GFF::Statistics qw/methylation_stats/;
 use List::Util qw/sum/;
 
 #######################################################################
@@ -42,14 +42,14 @@ for (1 .. 10) {
 }
 
 #######################################################################
-# getstats
+# methylation_stats
 
 sub safemeth{
     my ($c, $t) = @_;
     return ($c + $t > 0) ? ($c / ($c + $t)) : 'na';
 }
 
-sub naive_getstats{
+sub naive_methylation_stats{
     my $file = shift;
     my $p = GFF::Parser->new(file => $file);
     my (@chr_ct, @mit_ct, @nuc_ct, @chr_methyl, @mit_methyl, @nuc_methyl);
@@ -116,13 +116,13 @@ sub compare{
     }
 }
 for my $file ($test_cg, $test_chh) {
-    my $stats = getstats($file);
-    my $naive = naive_getstats($file);
+    my $stats = methylation_stats($file);
+    my $naive = naive_methylation_stats($file);
     for my $rowname (@GFF::Statistics::rownames) {
         ok(compare($stats->{$rowname}, $naive->{$rowname}), "naive vs smart: $rowname");
     }
 }
 
-#say Dumper getstats($test_cg);
-#say Dumper naive_getstats($test_cg);
-#say Dumper getstats($test_chh);
+#say Dumper methylation_stats($test_cg);
+#say Dumper naive_methylation_stats($test_cg);
+#say Dumper methylation_stats($test_chh);

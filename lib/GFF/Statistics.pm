@@ -12,17 +12,12 @@ use List::MoreUtils qw/all/;
 
 require Exporter;
 our @ISA = qw(Exporter);
-our @EXPORT_OK = qw(gff_detect_width);
-our @EXPORT = qw(getstats);
+our @EXPORT_OK = qw(methylation_stats gff_detect_width);
+our @EXPORT = qw();
 
-our @rownames = qw/
-nuc_ct_mean nuc_ct_median 
-chr_ct_mean chr_ct_median 
-mit_ct_mean mit_ct_median 
-nuc_methyl_mean chr_methyl_mean mit_methyl_mean 
-chr_methyl_total mit_methyl_total nuc_methyl_total
-coverage
-/;
+#######################################################################
+#                       gff_detect_width
+#######################################################################
 
 =head2 gff_detect_width "file", N
 
@@ -62,6 +57,20 @@ sub gff_detect_width{
         return 0;
     }
 }
+
+#######################################################################
+#                       methylation_stats
+#######################################################################
+
+
+our @rownames = qw/
+nuc_ct_mean nuc_ct_median 
+chr_ct_mean chr_ct_median 
+mit_ct_mean mit_ct_median 
+nuc_methyl_mean chr_methyl_mean mit_methyl_mean 
+chr_methyl_total mit_methyl_total nuc_methyl_total
+coverage
+/;
 
 #######################################################################
 # utility
@@ -139,7 +148,7 @@ sub tohist{
 #######################################################################
 # statistics
 
-sub getstats{
+sub methylation_stats{
     my $singlec = shift;
     my %nuclear_ct;
     my %chr_ct;

@@ -6,7 +6,7 @@ use Data::Dumper;
 use autodie;
 use FindBin;
 use lib "$FindBin::Bin/lib";
-use GFF::Statistics;
+use GFF::Statistics qw/methylation_stats/;
 use File::Spec::Functions qw/rel2abs/;
 use YAML qw/LoadFile DumpFile/;
 use Cwd qw/getcwd/;
@@ -43,7 +43,7 @@ for my $file (@ARGV) {
         $all_stats{$file} = LoadFile($memo);
     }
     else{
-        my $stats = getstats($file);
+        my $stats = methylation_stats($file);
         DumpFile($memo, $stats);
         $all_stats{$file} = $stats;
     }
