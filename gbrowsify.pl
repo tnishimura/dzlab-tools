@@ -7,13 +7,13 @@ use autodie;
 use FindBin;
 use lib "$FindBin::Bin/lib";
 use Launch;
-use Log::Log4perl qw/get_logger/;
 use Getopt::Euclid qw( :vars<opt_> );
 use Pod::Usage;
-use DZUtil qw/timestamp/;
+use DZUtil qw/timestamp clean_basename/;
 use File::Path qw/make_path/;
 use File::Spec::Functions qw/catfile/;
 use File::Basename qw/basename/;
+use File::Temp qw/tempfile/;
 
 END {close STDOUT}
 $| = 1;
@@ -35,50 +35,45 @@ my $log    = catfile($opt_output_dir, join ".", "log", timestamp(), "txt");
 my $sqlite = catfile($opt_output_dir, "features.sqlite");
 $opt_annotation //= '';
 my $annonorm = $opt_annotation ? catfile($opt_output_dir, basename($opt_annotation, qw/gff GFF/) . "norm.gff") : '';
-my $refnorm = catfile($opt_output_dir, basename($opt_reference, qw/fa fas fasta FA FASTA FAS/) . "norm.gff");
-my $refgff = catfile($opt_output_dir, basename($opt_reference, qw/fa fas fasta FA FASTA FAS/) . "gff");
+my $refnorm = catfile($opt_output_dir, basename($opt_reference, qw/fa fas fasta FA FASTA FAS/) . "norm.fasta");
+my $refgff = catfile($opt_output_dir, basename($refnorm, qw/fa fas fasta FA FASTA FAS/) . "gff");
 
 #######################################################################
 
-my $conf=qq/
-    log4perl.logger          = DEBUG, Print
-    log4perl.logger.Script   = DEBUG, Print, File
-    log4perl.logger.PipeLine = DEBUG, Print, File
-    log4perl.logger.Module   = DEBUG, Print, File
-
-    log4perl.appender.Print        = Log::Log4perl::Appender::Screen
-    log4perl.appender.Print.layout = PatternLayout
-    log4perl.appender.Print.layout.ConversionPattern = %d{HH:mm:ss} %p> %M - %m%n
-
-    log4perl.appender.File          = Log::Log4perl::Appender::File
-    log4perl.appender.File.filename = $log
-    log4perl.appender.File.layout   = PatternLayout
-    log4perl.appender.File.syswrite = 1
-    log4perl.appender.File.layout.ConversionPattern = %d{HH:mm:ss} %p> (%L) %M - %m%n
-/;
-Log::Log4perl::init( \$conf );
-
+use Log::Log4perl qw/:easy/;
+Log::Log4perl->easy_init({ level => $DEBUG, layout => '%d{HH:mm:ss} %.1p > %m%n' });
 my $logger = get_logger();
-
 
 $logger->info("output dir: $opt_output_dir");
 $logger->info("reference: $opt_reference");
 $logger->info("annotation: $opt_annotation");
+
+#######################################################################
+# normalize to lower case seq names
 
 launch("gb-normalize-fasta.sh $opt_reference > $refnorm");
 if ($opt_annotation){
     launch("gb-normalize-gff.pl $opt_annotation > $annonorm");
 }
 
+#######################################################################
+# create chromosome annotation
+
 launch("fasget.pl -g $refnorm > $refgff");
 
-my @wiggffs;
+#######################################################################
+# convert
+
+my (undef, $wiggff) = tempfile(catfile($opt_output_dir, "wig.gff-tmpXXXXXX"), UNLINK => 1);
+
 for my $methylation_file (@opt_methylation) {
-    my $wiggff = catfile($opt_output_dir, basename($methylation_file, qw/gff GFF/) . "wig.gff");
-    launch("gb-methylgff2wiggle.pl -d $opt_output_dir -i $methylation_file >> $wiggff");
-    push @wiggffs, $wiggff;
+    launch("gb-methylgff2wiggle.pl -d $opt_output_dir $methylation_file >> $wiggff");
 }
-launch("bp_seqfeature_load -c -f -a DBI::SQLite -d $sqlite $annonorm $refnorm $refgff @wiggffs");
+
+#######################################################################
+# load
+
+launch("bp_seqfeature_load -c -f -a DBI::SQLite -d $sqlite $annonorm $refnorm $refgff $wiggff");
 
 =head1 NAME
 
@@ -88,7 +83,7 @@ gbrowsify.pl - :
 
 Usage examples:
 
- gbrowsify.pl [options]...
+ gbrowsify.pl -o outputdir -a annotation -r genome.fasta methylation1.gff methylation2.gff
 
 =head1 OPTIONS
 
