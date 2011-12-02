@@ -9,11 +9,64 @@ use autodie;
 use GFF::Parser;
 use Scalar::Util qw/looks_like_number/;
 use List::MoreUtils qw/all/;
+use Statistics::Descriptive;
+use YAML qw/Bless Dump/;
 
 require Exporter;
 our @ISA = qw(Exporter);
-our @EXPORT_OK = qw(methylation_stats gff_detect_width);
+our @EXPORT_OK = qw(gff_info methylation_stats gff_detect_width);
 our @EXPORT = qw();
+
+#######################################################################
+#                       gff_info
+#######################################################################
+
+=head2 gff_info("file1.gff", "file2.gff")
+
+Compute basic stats about gff files, including list of features/sequences,
+window length statistics.  Returns a hashref of sequences to a hashref with the
+following keys:
+
+   count mean standard_deviation min median max number_of_sequences sequences number_of_features features
+
+=cut
+sub gff_info{
+    my %yaml;
+
+    for my $file (@_) {
+        croak "gff_info - arg error" if ! -f $file;
+        my $count = 0;
+        my $lengths = Statistics::Descriptive::Full->new();
+        my %file_yaml;
+
+        my $parser = GFF::Parser->new(file => $file, normalize => -1);
+        while (defined(my $gff = $parser->next())){
+            my ($seq, $feature) = ($gff->sequence(), $gff->feature());
+
+            $file_yaml{sequences}{$seq}++;
+            $file_yaml{features}{$feature}++;
+            $file_yaml{count}++;
+
+            $lengths->add_data($gff->end - $gff->start + 1);
+        }
+
+        $file_yaml{mean}                = sprintf "%.1f", $lengths->mean();
+        $file_yaml{standard_deviation}  = sprintf "%.1f", $lengths->standard_deviation();
+        $file_yaml{min}                 = $lengths->min();
+        $file_yaml{median}              = $lengths->median();
+        $file_yaml{max}                 = $lengths->max();
+        $file_yaml{number_of_sequences} = scalar(keys %{$file_yaml{sequences}});
+        $file_yaml{number_of_features}  = scalar(keys %{$file_yaml{features}});
+
+        Bless(\%file_yaml)->keys([qw/
+            count mean standard_deviation min median max number_of_sequences sequences number_of_features features
+            /]);
+
+        $yaml{$file} = \%file_yaml;
+    }
+
+    return \%yaml;
+}
 
 #######################################################################
 #                       gff_detect_width
@@ -93,7 +146,6 @@ sub make_averager{
 }
 
 #######################################################################
-# 
 
 sub sum{
     my $total = 0;
