@@ -24,9 +24,9 @@ numdiff safediv safemethyl clean_basename open_cached close_cached_all);
 our @EXPORT = qw();
 
 sub clean_basename{
-    my $path = shift or croak "need filename";
-    $path = basename($path);
-    # $path =~ s/\.\w+$//;    # no extension
+    my ($path, @exts) = @_;
+    defined $path or croak "need filename";
+    $path = basename($path, @exts);
     $path =~ s/[^\s.\w-]//g; # get rid of funny chars
     $path =~ s/\s+/_/g;     # spaces to underscores
     return $path;

@@ -49,7 +49,7 @@ sub methyl2wiggle{
         $score //= "0.0000";
         if ($opt_ct){ $score = ($c + $t) == 0 ? 0 : $c / ($c + $t); }
 
-        my $clean_basename = clean_basename($file);
+        my $clean_basename = clean_basename($file, qw/.gff .GFF/);
 
         # create wigs if ! exist
         for my $type (qw/methyl coverage/) {
@@ -75,7 +75,7 @@ sub process_wiggle2gff3_output{
     my %opt = @_;
 
     my ($file, $original, $dir, $seq, $type, $prefix) = @opt{qw/wigfile original dir seq type prefix/};
-    $prefix //= clean_basename($original);
+    $prefix //= clean_basename($original, qw/.gff .GFF/);
 
     my $contents = drain('wiggle2gff3', '--path', $dir, $file);
 
