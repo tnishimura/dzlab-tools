@@ -14,7 +14,7 @@ use IPC::Cmd qw/run/;
 
 require Exporter;
 our @ISA = qw(Exporter);
-our @EXPORT_OK = qw(cast);
+our @EXPORT_OK = qw(drain cast);
 our @EXPORT = qw(launch);
 
 our $VERBOSE = exists $ENV{QUIET} ? ! $ENV{QUIET} : 1;
@@ -149,6 +149,16 @@ sub cast{
     }
     say STDERR "Successfully Launched: $cmd_string";
 }
-1;
 
+sub drain{
+    my @cmd = @_;
+    my $cmd_string = join " ", @cmd;
+    my $contents;
+    if (run(command => \@cmd, verbose => 0, buffer => \$contents)){
+        return $contents;
+    }
+    croak "can't run $cmd_string";
+}
+
+1;
 

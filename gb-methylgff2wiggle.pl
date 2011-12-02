@@ -7,142 +7,146 @@ use autodie;
 use FindBin;
 use lib "$FindBin::Bin/lib";
 use GFF::Parser;
-use Launch qw/cast/;
+use Launch qw/drain/;
 use Getopt::Euclid qw( :vars<opt_> );
 use Pod::Usage;
-use File::Temp qw/tempfile tempdir/;
+use File::Temp qw/tempfile/;
 use File::Path qw/make_path/;
 use File::Spec::Functions qw/rel2abs catdir catfile/;
 use File::Basename qw/basename dirname/;
+use DZUtil qw/open_cached close_cached_all clean_basename/;
+use GFF::Statistics qw/gff_detect_width/;
 
 END {close STDOUT}
 $| = 1;
 
-pod2usage(-verbose => 99,-sections => [qw/NAME SYNOPSIS OPTIONS/]) if $opt_help || ! defined $opt_input;
-
-#######################################################################
-# temp dir for compiled wiggle-- either given my --tmp-dir or $HOME/.widdgle
-
-my $tempdir;
-if (defined $opt_tmp_dir){
-    if (! -d $opt_tmp_dir){
-        make_path($opt_tmp_dir);
-    }
-    $tempdir = rel2abs($opt_tmp_dir)
-}
-else{
-    $tempdir = catdir($ENV{HOME}, ".wiggle");
-    if (! -d $tempdir){
-        make_path($tempdir);
-    }
+sub capped_log10 { 
+    my $n = shift; 
+    my $x = $n == 0 ? 0 : log($n)/log(10); 
+    return $x >= 5 ? 5 : $x;
 }
 
-#my $track  = $opt_trackname // 'track';
-my $p      = GFF::Parser->new(file => $opt_input, normalize => -1);
+sub methyl2wiggle{
+    my ($file, $dir) = @_;
+    my %wigs;
+    my %done;
+    my $detected_width = gff_detect_width $file;
 
-#######################################################################
-# process gff line by line
+    my $p = GFF::Parser->new(file => $file, normalize => -1);
 
-my %seen;
-my %done;
+    while (defined(my $gff = $p->next())){
+        my ($seq, $start, $end, $score, $c, $t) 
+        = ($gff->sequence(), $gff->start(), $gff->end(), $gff->score(), $gff->get_column('c') // 0, $gff->get_column('t') // 0,);
 
-while (defined(my $gff = $p->next())){
-    my ($seq, $start, $end, $score, $c, $t) 
-    = ($gff->sequence(), $gff->start(), $gff->end(), $gff->score(), $gff->get_column('c'), $gff->get_column('t'),);
+        my $width = $end - $start + 1;
 
-    my $width = $end - $start + 1;
+        # okay for a single window to be different size b/c the last one may be smaller
+        if ($width != $detected_width){
+            if (exists $done{$seq}){ die "uneven widths"; }
+            else{ $done{$seq} = 1; }
+        }
 
-    # okay for a single window to be different size b/c the last one may be smaller
-    if ($width != $opt_width){
-        if (exists $done{$seq}){ die "uneven widths"; }
-        else{ $done{$seq} = 1; }
+        $score //= "0.0000";
+        if ($opt_ct){ $score = ($c + $t) == 0 ? 0 : $c / ($c + $t); }
+
+        my $clean_basename = clean_basename($file);
+
+        # create wigs if ! exist
+        for my $type (qw/methyl coverage/) {
+            if (!exists $wigs{$seq}{$type}){
+                my (undef, $tempfile) = tempfile(catfile($dir, "wig-$type-$clean_basename-XXXXXXX"), UNLINK => ! $opt_debug); 
+                my $fh = open_cached('>', $tempfile);
+                say $fh "variableStep  chrom=$seq  span=$detected_width";
+                $wigs{$seq}{$type} = $tempfile;
+            }
+        }
+
+        say {open_cached '>', $wigs{$seq}{methyl}}   "$start\t$score";
+        say {open_cached '>', $wigs{$seq}{coverage}} sprintf("%d\t%4f", $start, capped_log10($c + $t));
     }
 
-    $score //= "0.0000";
-    if ($opt_ct){ $score = $c / ($c + $t); }
-    
-    # initialize wig
-    if (!exists $seen{$seq}){
-        my (undef, $tempfile) = 
+    close_cached_all();
 
-        # if debug on, then in same dir as compiled wigs.  otherwise in /tmp
-        $opt_debug ? tempfile(catfile($tempdir, "wig-$seq-XXXXXXX"), UNLINK => 0) : tempfile(UNLINK => 1);
-        open my $fh, '>', $tempfile;
+    return %wigs;
+}
 
-        say STDERR "creating $tempfile for $seq";
+sub process_wiggle2gff3_output{
+    if (@_ % 2 != 0) { die "arg error" }
+    my %opt = @_;
 
-        say $fh "variableStep  chrom=$seq  span=$opt_width";
-        $seen{$seq} = {fh => $fh, filename => $tempfile};
+    my ($file, $original, $dir, $seq, $type, $prefix) = @opt{qw/wigfile original dir seq type prefix/};
+    $prefix //= clean_basename($original);
+
+    my $contents = drain('wiggle2gff3', '--path', $dir, $file);
+
+    # grab the GFF line
+    my @gff_lines = grep { scalar(@$_) == 9 } map { [split /\t/, $_] } split /\n/, $contents;
+    if (@gff_lines != 1){
+        die "wiggle2gff3 output gff malformatted?";
     }
+    my @fields = @{pop @gff_lines};
 
-    my $output_fh = $seen{$seq}{fh};
-    say $output_fh "$start\t$score";
+    $fields[2] = "$prefix-$seq-$type";
+    $fields[8] =~ s/Name=000;/Name=$prefix;/;
+    return join "\t", @fields;
 }
 
 #######################################################################
-# wiggle2gff3 for each sequence, plus post-processing.
 
-# create a temporary output file
-# if debug on, then in same dir as compiled wigs.  otherwise in /tmp
-my (undef, $tmpout) = $opt_debug ? tempfile(catfile($tempdir, "gff-XXXXXXX"), UNLINK => 0) : tempfile(UNLINK => 1);
+pod2usage(-verbose => 99,-sections => [qw/NAME SYNOPSIS OPTIONS/]) 
+if $opt_help || ! defined $opt_input || ! defined $opt_tmp_dir;
+
+if (defined $opt_feature_name){
+    $opt_feature_name = clean_basename($opt_feature_name);
+}
+
+# stdout
+if (defined $opt_output){
+    open my $fh, '>', $opt_output;
+    select $fh;
+}
+
+# make directory
+my $opt_tmp_dir = rel2abs($opt_tmp_dir);
+if (! -d $opt_tmp_dir){
+    make_path($opt_tmp_dir);
+}
+
+# poof
+my %text_wigs = methyl2wiggle($opt_input, $opt_tmp_dir); 
 
 # convert each.
-for my $seq (sort keys %seen){
-    my ($fh, $filename) = @{$seen{$seq}}{qw/fh filename/};
-    close $fh;
-
-    cast("wiggle2gff3 --path $tempdir $filename >> $tmpout");
+for my $seq (sort keys %text_wigs){
+    for my $type (qw/methyl coverage/) {
+        say process_wiggle2gff3_output(
+            wigfile  => $text_wigs{$seq}{$type},
+            original => $opt_input,
+            dir      => $opt_tmp_dir,
+            seq      => $seq,
+            type     => $type,
+            prefix   => $opt_feature_name,
+        );
+    }
 }
-
-# eliminate all non-gff lines (like comments) in intermediate gff file:
-cast("perl -i -wlnaF'\\t' -e '\@F == 9 and print' $tmpout");
-
-# change column 3
-if (! defined $opt_feature_name){
-    $opt_feature_name = basename($opt_input, qw/.gff .GFF/);
-}
-
-cast("perl -i -wlpe 's/\tmicroarray_oligo\t/\t$opt_feature_name\t/' $tmpout");
-
-#######################################################################
-# output gff
-
-# slurp
-my $content = do {
-    local $/;
-    open my $tmpfh, '<', $tmpout;
-    my $content = scalar <$tmpfh>;
-    close $tmpfh;
-    $content;
-};
-
-# spit
-if (defined $opt_output){
-    open my $outfh, '>', $opt_output;
-    select $outfh;
-}
-print $content;
-
-=head1 NAME
-
-methylgff2wiggle.pl - ...
 
 =head1 SYNOPSIS
 
 Usage examples:
 
- methylgff2wiggle.pl [options]...
+ gb-methylgff2wiggle.pl -d output_dir -f featurename input.gff > output.wig
 
 =head1 OPTIONS
 
 =over
 
-=item  -i <filename> | --input <filename>
+=item  <input>
 
 =for Euclid
-    filename.type:        readable
+    input.type:        readable
 
 =item  -o <filename> | --output <filename>
+
+Default to STDOUT.
 
 =item  --ct 
 
@@ -151,24 +155,18 @@ column 6.
 
 =item  -d <dir> | --tmp-dir <dir>
 
-Directory for binary wig file.  Also, intermediate files if --debug on
+Directory for intermediate and binary wig file.  
 
 =item  -f <feature> | --feature-name <feature>
 
-The feature name in column 3 of output. Default to filename.
+The feature name prefix in column 3 of output. Default to filename.
 
-=item  -t <name> | --trackname <name>
+=item --debug
 
-=item  -w <size> | --width <size>
-
-=for Euclid
-    size.default:     50
-
-=item  --debug 
-
-Put intermediate files in --tmp-dir
+Keep intermediate wiggle text file.
 
 =item --help | -h
+
 
 =back
 

@@ -20,16 +20,35 @@ our @ISA = qw(Exporter);
 our @EXPORT_OK = qw(localize reverse_complement common_suffix common_prefix
 mfor basename_prefix fastq_read_length timestamp datestamp overlap chext
 split_names base_match open_maybe_compressed fastq_convert_read_header c2t
-numdiff safediv safemethyl sanitize_filename);
+numdiff safediv safemethyl clean_basename open_cached close_cached_all);
 our @EXPORT = qw();
 
-sub sanitize_filename{
+sub clean_basename{
     my $path = shift or croak "need filename";
     $path = basename($path);
-    $path =~ s/\.\w+$//;    # no extension
-    $path =~ s/[^\s\w-]//g; # get rid of funny chars
+    # $path =~ s/\.\w+$//;    # no extension
+    $path =~ s/[^\s.\w-]//g; # get rid of funny chars
     $path =~ s/\s+/_/g;     # spaces to underscores
     return $path;
+}
+
+{
+    my %cached_filehandles;
+    sub open_cached{
+        my ($mode, $file) = @_;
+        if (exists $cached_filehandles{$file}){
+            return $cached_filehandles{$file};
+        }
+        else{
+            open my($fh), $mode, $file;
+            $cached_filehandles{$file} = $fh;
+            return $fh;
+        }
+    }
+    sub close_cached_all{
+        close $_ for values %cached_filehandles;
+        %cached_filehandles = ();
+    }
 }
 
 sub c2t{
