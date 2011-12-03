@@ -23,7 +23,7 @@ our @EXPORT = qw();
 
 =head2 gff_info("file1.gff", "file2.gff")
 
-Compute basic stats about gff files, including list of features/sequences,
+Compute basic stats about gff file, including list of features/sequences,
 window length statistics.  Returns a hashref of sequences to a hashref with the
 following keys:
 
@@ -31,42 +31,38 @@ following keys:
 
 =cut
 sub gff_info{
-    my %yaml;
+    my $file = shift || croak "gff_info - arg error";
 
-    for my $file (@_) {
-        croak "gff_info - arg error" if ! -f $file;
-        my $count = 0;
-        my $lengths = Statistics::Descriptive::Full->new();
-        my %file_yaml;
+    my $count = 0;
+    my $lengths = Statistics::Descriptive::Full->new();
+    my %file_yaml;
 
-        my $parser = GFF::Parser->new(file => $file, normalize => -1);
-        while (defined(my $gff = $parser->next())){
-            my ($seq, $feature) = ($gff->sequence(), $gff->feature());
+    my $parser = GFF::Parser->new(file => $file, normalize => -1);
+    while (defined(my $gff = $parser->next())){
+        my ($seq, $feature) = ($gff->sequence(), $gff->feature());
 
-            $file_yaml{sequences}{$seq}++;
-            $file_yaml{features}{$feature}++;
-            $file_yaml{count}++;
+        $file_yaml{sequences}{$seq}++;
+        $file_yaml{features}{$feature}++;
+        $file_yaml{count}++;
 
-            $lengths->add_data($gff->end - $gff->start + 1);
-        }
-
-        $file_yaml{mean}                = sprintf "%.1f", $lengths->mean();
-        $file_yaml{standard_deviation}  = sprintf "%.1f", $lengths->standard_deviation();
-        $file_yaml{min}                 = $lengths->min();
-        $file_yaml{median}              = $lengths->median();
-        $file_yaml{max}                 = $lengths->max();
-        $file_yaml{number_of_sequences} = scalar(keys %{$file_yaml{sequences}});
-        $file_yaml{number_of_features}  = scalar(keys %{$file_yaml{features}});
-
-        Bless(\%file_yaml)->keys([qw/
-            count mean standard_deviation min median max number_of_sequences sequences number_of_features features
-            /]);
-
-        $yaml{$file} = \%file_yaml;
+        $lengths->add_data($gff->end - $gff->start + 1);
     }
 
-    return \%yaml;
+    $file_yaml{mean}                = sprintf "%.1f", $lengths->mean();
+    $file_yaml{standard_deviation}  = sprintf "%.1f", $lengths->standard_deviation();
+    $file_yaml{min}                 = $lengths->min();
+    $file_yaml{median}              = $lengths->median();
+    $file_yaml{max}                 = $lengths->max();
+    $file_yaml{number_of_sequences} = scalar(keys %{$file_yaml{sequences}});
+    $file_yaml{number_of_features}  = scalar(keys %{$file_yaml{features}});
+
+    Bless(\%file_yaml)->keys([qw/
+        count mean standard_deviation min median max number_of_sequences sequences number_of_features features
+        /]);
+
+    return \%file_yaml;
 }
+
 
 #######################################################################
 #                       gff_detect_width

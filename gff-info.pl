@@ -12,5 +12,7 @@ use YAML qw/Dump/;
 END {close STDOUT}
 $| = 1;
 
-print Dump gff_info @ARGV;
+for my $file (@ARGV) {
+    print Dump gff_info $file;
+}
 
