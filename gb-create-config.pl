@@ -22,25 +22,41 @@ $| = 1;
 # with defaults for common features.
 
 {
-    my %default_colors = (
-        gene                 => "blue",
-        exon                 => "purple",
-        CDS                  => "red",
-        chromosome           => "green",
-        five_prime_UTR       => "brown",
-        three_prime_UTR      => "brown",
-        protein              => "cyan",
-        mRNA                 => "yellow",
-        transposable_element => "peachpuff",
-    );
+    # colors that look ok on white.
+    my @colors = qw{
+        aqua 	aquamarine 	bisque 	black 	blue 	blueviolet 	brown 	burlywood 	cadetblue 	
+        chartreuse 	chocolate 	coral 	cornflowerblue 	crimson 	cyan 	darkblue 	darkcyan 	
+        darkgoldenrod 	darkgray 	darkgreen 	darkkhaki 	darkmagenta 	darkolivegreen 	darkorange 	darkorchid 	
+        darkred 	darksalmon 	darkseagreen 	darkslateblue 	darkslategray 	darkturquoise 	darkviolet 	deeppink 	
+        deepskyblue 	dimgray 	dodgerblue 	firebrick 	forestgreen 	fuchsia 	gold 	goldenrod 	
+        gray 	green 	green 	greenyellow 	hotpink 	indianred 	indigo 	lawngreen 	
+        lightblue 	lightcoral 	lightgreen 	lightpink 	lightsalmon 	lightseagreen 	lightskyblue 	lightslategray 	
+        lightsteelblue 	lime 	limegreen 	magenta 	maroon 	mediumaquamarine 	mediumblue 	mediumorchid 	
+        mediumpurple 	mediumseagreen 	mediumslateblue 	mediumslateblue 	mediumspringgreen 	mediumturquoise 	mediumvioletred 	midnightblue 	
+        navy 	olive 	olivedrab 	orange 	orangered 	orchid 	palegreen 	paleturquoise 	
+        palevioletred 	peachpuff 	peru 	pink 	plum 	powderblue 	purple 	red 	
+        rosybrown 	royalblue 	saddlebrown 	salmon 	sandybrown 	seagreen 	sienna sienna 	
+        silver skyblue slateblue slategray springgreen steelblue tan teal
+        thistle tomato turquoise violet wheat yellow yellowgreen
+    };
+
+    # my %default_colors = (
+    #     gene                 => "blue",
+    #     exon                 => "purple",
+    #     CDS                  => "red",
+    #     chromosome           => "green",
+    #     five_prime_UTR       => "brown",
+    #     three_prime_UTR      => "brown",
+    #     protein              => "cyan",
+    #     mRNA                 => "yellow",
+    #     transposable_element => "peachpuff",
+    # );
 
     sub string2color{
         my $str = shift or die "need string";
-        if (exists $default_colors{$str}){
-            return $default_colors{$str};
-        }
-        my ($r, $g, $b) = map { $_ % 256 } unpack "lll",  md5 $str;
-        return sprintf "#%x%x%x", $r, $g, $b;
+        #if (exists $default_colors{$str}){ return $default_colors{$str}; }
+        my ($index) = map { $_ % scalar(@colors) } unpack "l",  md5 $str;
+        return $colors[$index];
     }
 }
 
