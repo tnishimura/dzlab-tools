@@ -33,10 +33,15 @@ die "can't create/write to $opt_output_dir?" if ! -d $opt_output_dir;
 
 my $log    = catfile($opt_output_dir, join ".", "log", timestamp(), "txt");
 my $sqlite = catfile($opt_output_dir, "seqfeature.sqlite");
+
 $opt_annotation //= '';
+
+# normalized annotation and FASTA reference
 my $annonorm = $opt_annotation ? catfile($opt_output_dir, basename($opt_annotation, qw/gff GFF/) . "norm.gff") : '';
 my $refnorm = catfile($opt_output_dir, basename($opt_reference, qw/fa fas fasta FA FASTA FAS/) . "norm.fasta");
-my $gff = catfile($opt_output_dir, "seqfeature.gff");
+
+my $gff    = catfile($opt_output_dir, "seqfeature.gff");
+my $config = catfile($opt_output_dir, "seqfeature.conf");
 
 #######################################################################
 
@@ -65,13 +70,14 @@ launch("fasget.pl -g $refnorm > $gff");
 # convert
 
 for my $methylation_file (@opt_methylation) {
-    launch("gb-methylgff2wiggle.pl -d $opt_output_dir $methylation_file >> $gff");
+    launch("gb-methylgff2wiggle.pl -d $opt_output_dir -o $gff --append $methylation_file");
 }
 
 #######################################################################
 # load
 
 launch("bp_seqfeature_load -c -f -a DBI::SQLite -d $sqlite $annonorm $refnorm $gff");
+launch("gb-create-config.pl -o $config -t $opt_label -s $sqlite -a $annonorm -g $gff");
 
 =head1 NAME
 

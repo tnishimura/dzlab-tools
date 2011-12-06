@@ -102,7 +102,7 @@ if (defined $opt_feature_name){
 
 # stdout
 if (defined $opt_output){
-    open my $fh, '>', $opt_output;
+    open my $fh, ($opt_append ? '>>' : '>'), $opt_output;
     select $fh;
 }
 
@@ -147,6 +147,10 @@ Usage examples:
 =item  -o <filename> | --output <filename>
 
 Default to STDOUT.
+
+=item  -a | --append 
+
+Append to --output instead of overwriting.
 
 =item  --ct 
 

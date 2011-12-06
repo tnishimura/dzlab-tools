@@ -11,11 +11,15 @@ use Template;
 use Digest::MD5 qw/md5/;
 use Pod::Usage;
 use Getopt::Long;
+use File::Spec::Functions qw/rel2abs/;
+
 
 END {close STDOUT}
 $| = 1;
 
 #######################################################################
+# stupid subroutine to assign colors 'randomly' but consistently,
+# with defaults for common features.
 
 {
     my %default_colors = (
@@ -43,10 +47,11 @@ $| = 1;
 #######################################################################
 
 my $result = GetOptions (
-    "a|annotation=s" => \my $annotation,
-    "g|gff=s"        => \my $gfffile,
     "t|title=s"      => \my $title,
     "s|sqlite=s"     => \my $sqlite,
+    "a|annotation=s" => \my $annotation,
+    "g|gff=s"        => \my $gfffile,
+    "o|output=s"     => \my $output,
 );
 
 if (!$result || ! $title || ! $sqlite){
@@ -92,7 +97,7 @@ my $tt = Template->new() || die "$Template::ERROR\n";
 
 my $vars = {
     title        => $title,
-    sqlite       => $sqlite,
+    sqlite       => rel2abs($sqlite),
 
     sequences    => \@sequences,
     features     => \@features,
@@ -104,7 +109,7 @@ my $vars = {
 
 # say Dumper $vars;
 
-$tt->process(\*DATA, $vars) || die $tt->error(), "\n";
+$tt->process(\*DATA, $vars, $output) || die $tt->error(), "\n";
 
 __DATA__
 
