@@ -62,7 +62,8 @@ sub methyl2wiggle{
         }
 
         say {open_cached '>', $wigs{$seq}{methyl}}   "$start\t$score";
-        say {open_cached '>', $wigs{$seq}{coverage}} sprintf("%d\t%4f", $start, capped_log10($c + $t));
+        #say {open_cached '>', $wigs{$seq}{coverage}} sprintf("%d\t%4f", $start, capped_log10($c + $t));
+        say {open_cached '>', $wigs{$seq}{coverage}} sprintf("%d\t%4f", $start, $c + $t);
     }
 
     close_cached_all();

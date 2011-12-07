@@ -114,6 +114,7 @@ my $tt = Template->new() || die "$Template::ERROR\n";
 my $vars = {
     title        => $title,
     sqlite       => rel2abs($sqlite),
+    max_coverage => 1000,
 
     sequences    => \@sequences,
     features     => \@features,
@@ -200,7 +201,7 @@ fgcolor        = black
 bgcolor        = [% string2color(c) %]
 height         = 50
 min_score      = 0
-max_score      = 5
+max_score      = [% max_coverage %]
 scale          = right
 group_on       = display_name
 category       = Quantitative Data

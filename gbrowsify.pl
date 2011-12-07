@@ -116,4 +116,16 @@ Usage examples:
 
 =back
 
+=head1 DEV NOTES
+
+gbrowsify is a script which, with the support of the gb-* scripts, convert genomes, annotations, 
+and methylation data and converts them into something viewable via gbrowse.  it will produce a conf 
+file named foo.conf, which you need to point /etc/gbrowse/GBrowse.conf to with the following lines:
+
+ [foo]
+ description = foo
+ path        = /full/path/to/foo.conf
+
+The supporting scripts are: gb-create-config.pl gb-methylgff2wiggle.pl gb-normalize-fasta.sh gb-normalize-gff.pl
+
 =cut
