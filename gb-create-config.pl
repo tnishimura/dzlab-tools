@@ -181,7 +181,8 @@ bgcolor     = [% string2color(f) %]
 height      = 10
 key         = [% f %]
 description = 1
-[%- END %]
+
+[% END %]
 
 #######################################################################
 # -methyl$ from gff files
@@ -200,7 +201,8 @@ scale          = right
 group_on       = display_name
 category       = Quantitative Data
 key            = [% m %]
-[%- END %]
+
+[% END %]
 
 #######################################################################
 # -coverage$ from gff files
@@ -219,5 +221,6 @@ scale          = right
 group_on       = display_name
 category       = Quantitative Data
 key            = [% c %]
-[%- END %]
+
+[% END %]
 
