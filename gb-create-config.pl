@@ -157,17 +157,30 @@ bump density  = 100
 # where to link to when user clicks in detailed view
 link          = AUTO
 
+[DNA]
+glyph          = dna
+global feature = 1
+height         = 40
+do_gc          = 1
+gc_window      = auto
+fgcolor        = red
+axis_color     = blue
+strand         = both
+category       = DNA
+key            = DNA/GC Content
+
 #######################################################################
 # features found in annotation file
 
 [% FOREACH f = features -%]
 [[% f %]]
-feature      = [% f %]
-glyph        = generic
-stranded     = 1
-bgcolor      = [% string2color(f) %]
-height       = 10
-key          = [% f %]
+feature     = [% f %]
+glyph       = generic
+stranded    = 1
+bgcolor     = [% string2color(f) %]
+height      = 10
+key         = [% f %]
+description = 1
 [%- END %]
 
 #######################################################################
@@ -207,3 +220,4 @@ group_on       = display_name
 category       = Quantitative Data
 key            = [% c %]
 [%- END %]
+
