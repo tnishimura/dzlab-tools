@@ -5,7 +5,7 @@ The Zilberman Lab's perl scripts.
 
 This page contains everything you need to know to get the Zilberman Lab scripts running on your computer.  
 
-=head2 L<Download|http://dzlab.pmb.berkeley.edu/tools/archive>
+=head2 L<Download|../releases/>
 
 =head2 L<Online manual pages|scripts.pod>
 
