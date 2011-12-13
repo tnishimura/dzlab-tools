@@ -47,17 +47,18 @@ my $bowtie = "$opt_output.vs-scaffold_$scaffold_prefix.$splice_note.bowtie";
 my $output = "$bowtie.freq";
 my $log = "$bowtie.log";
 my $threadarg = $opt_threads ? "-p $opt_threads" : "";
+my $fastaflag = $opt_fasta ? '-f' : '';
 
 
 if (defined $opt_right_reads){
-    launch("bowtie $opt_scaffold $splicearg $threadarg -1 $opt_left_reads -2 $opt_right_reads ?? -v $opt_mismatches -B 1 --best",
+    launch("bowtie $fastaflag $opt_scaffold $splicearg $threadarg -1 $opt_left_reads -2 $opt_right_reads ?? -v $opt_mismatches -B 1 --best",
         expected => $bowtie,
         also => $log,
         dryrun => $opt_dry,
     );
 }
 else {
-    launch("bowtie $opt_scaffold $splicearg $threadarg $opt_left_reads ?? -v $opt_mismatches -B 1 --best",
+    launch("bowtie $fastaflag $opt_scaffold $splicearg $threadarg $opt_left_reads ?? -v $opt_mismatches -B 1 --best",
         expected => $bowtie,
         also => $log,
         dryrun => $opt_dry,
@@ -109,6 +110,10 @@ launch(qq{perl -S bowtie_count.pl -r $opt_scaffold -o ?? $bowtie},
 
 =for Euclid
     mm.default:     2
+
+=item  -f | --fasta
+
+Scaffold is fasta, not a fastq.
 
 =back
 
