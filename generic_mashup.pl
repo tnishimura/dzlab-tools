@@ -1,5 +1,4 @@
 #!/usr/bin/env perl
-package main;
 use strict;
 use warnings FATAL => "all";
 use 5.010_000;
@@ -10,7 +9,6 @@ use Data::Dumper;
 use File::Temp qw/tempdir tempfile/;
 use File::Basename;
 use Pod::Usage;
-use Log::Log4perl qw/:easy/;
 use Launch qw/cast/;
 use List::Util qw/max/;
 use Pod::Usage;
@@ -21,11 +19,8 @@ use File::Path qw/make_path remove_tree/;
 use File::Spec::Functions qw/rel2abs canonpath catdir catfile updir/;
 use File::Copy;
 
-
 END {close STDOUT}
 $| = 1;
-
-
 
 #######################################################################
 # utilities
@@ -220,7 +215,32 @@ sub run{
         "keys|k=s"      => \my $opt_keys,
     );
     if (!$result || ! $opt_output || ! $opt_columns || ! $opt_keys){
-        say "usage: generic_mashup.pl ...";
+        say <<"END";
+$0 - mashup tab-separated files using certain columns as keys and other 
+     columns as values
+
+     --output    -o  Output file.
+     --keys      -k  Comma separated list of columns to use as key.  
+                     Append numerical columns with a 'n'.
+     --values    -v  Comma separated list of columns to use as values.  
+                     Append numerical columns with a 'n'.
+     --nicknames -n  Comma separated list of nicknames of files. Optional.
+
+usage:
+
+use column 1 (as text) and 2 (as numerical) as keys to mashup column 3:
+
+  $0 -o output.txt --keys '1,2n' --values '3' input1.txt input2.txt input3.txt
+
+use column 1 (as text) as key to mashup column 3, 4:
+
+  $0 -o output.txt --keys '1' --values '3,4' input1.txt input2.txt input3.txt
+
+use column 3, then 2 keys to mashup column 3, with file nicknames:
+
+  $0 -o output.txt -k '3,2' -v '3' -n 'in1,in2,in3' input1.txt input2.txt input3.txt
+
+END
         exit 1;
     }
 
@@ -320,69 +340,3 @@ sub run{
 
 run() unless caller();
 
-# for my $pair (@files) {
-#     my ($input_file, $nick) = @$pair;
-# 
-#     # input
-#     my $parser = GFF::Parser->new(file => $input_file, normalize => 0);
-# 
-#     # existinng output. append.
-#     if (-f $opt_output){
-#         open my $output_read, '<', $opt_output;
-#         my $numcells;
-#         while (defined(my $line = <$output_read>)){
-#             chomp $line;
-#             # -1 to split b/c when stata mangles output file, dots are turned to blank...
-#             my ($seq, $coord, @cells) = split /\t/, $line, -1; 
-#             $numcells //= @cells;
-# 
-#             # header
-#             if ($seq =~ /^Sequence/i){
-#                 say $tempout join "\t", $seq, $coord, @cells, map { $nick . "_" . $_ } @columns;
-#             }
-#             else {
-#                 if (! $parser->done()){
-#                     PARSER:
-#                     while (defined (my $gff = $parser->next())){
-#                         # gff behind output. new line with gff.
-#                         if (gff_lessthan($gff->sequence, $gff->start, $seq, $coord)){
-#                             say $tempout join "\t", $gff->sequence, $gff->start, (map { '.' } @cells), get_columns($gff, @columns);
-#                         }
-#                         # gff past output. new line with output. and move to next output
-#                         elsif (gff_greaterthan($gff->sequence, $gff->start, $seq, $coord)){
-#                             say $tempout join "\t", $seq, $coord, @cells, map { '.' } @columns;
-#                             $parser->rewind($gff);
-#                             last PARSER;
-#                         }
-#                         # coincides
-#                         elsif (gff_equal($gff->sequence, $gff->start, $seq, $coord)){
-#                             say $tempout join "\t", $seq, $coord, @cells, get_columns($gff, @columns);
-#                             last PARSER;
-#                         }
-#                     }
-#                 }
-#                 else {
-#                     # print excess outputs on new line
-#                     say $tempout join "\t", $seq, $coord, @cells, map { '.' } @columns;
-#                 }
-#             }
-#         }
-#         # get any remaining that are past the end of output:
-#         while (defined (my $gff = $parser->next())){
-#             say $tempout join "\t", $gff->sequence, $gff->start, (map { '.' } (1 .. $numcells)), get_columns($gff, @columns);
-#         }
-# 
-#         close $output_read;
-#     }
-# 
-#     # new output file
-#     else {
-#         say $tempout join "\t", "Sequence", "Coord", map { $nick . "_" . $_ } @columns;
-#         while (defined(my $gff = $parser->next())){
-#             say $tempout join "\t", $gff->sequence, $gff->start, get_columns($gff, @columns);
-#         }
-#     }
-#     close $tempout;
-# 
-#     rename $tempout_file, $opt_output;
-# }
