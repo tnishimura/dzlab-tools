@@ -208,6 +208,7 @@ sub ndots{
 }
 
 sub run{
+    $0 = basename($0);
     my $result = GetOptions (
         "output|o=s"    => \my $opt_output,
         "nicknames|n=s" => \my $opt_nicknames,
