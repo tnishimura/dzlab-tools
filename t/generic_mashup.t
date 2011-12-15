@@ -66,17 +66,17 @@ my $cmp_name = "cmp01";
     my $cmp = make_comparator( parse_key_specs("3n,1") );
     my $junk = "junk01";
 
-    is($cmp->(['chr1' , $junk++, 50]  , ['chr1' , $junk++, 100]) , -1 , $cmp_name++);
-    is($cmp->(['chr1' , $junk++, 100] , ['chr1' , $junk++, 100]) , 0  , $cmp_name++);
-    is($cmp->(['chr1' , $junk++, 100] , ['chr1' , $junk++, 50])  , 1  , $cmp_name++);
-
-    is($cmp->(['chr1' , $junk++, 50]  , ['chr2' , $junk++, 100]) , -1 , $cmp_name++);
-    is($cmp->(['chr1' , $junk++, 100] , ['chr2' , $junk++, 100]) , -1 , $cmp_name++);
-    is($cmp->(['chr1' , $junk++, 100] , ['chr2' , $junk++, 50])  , 1 , $cmp_name++);
-
-    is($cmp->(['chr2' , $junk++, 50]  , ['chr1' , $junk++, 100]) , -1  , $cmp_name++);
-    is($cmp->(['chr2' , $junk++, 100] , ['chr1' , $junk++, 100]) , 1  , $cmp_name++);
-    is($cmp->(['chr2' , $junk++, 100] , ['chr1' , $junk++, 50])  , 1  , $cmp_name++);
+    is($cmp->([ 50  ,'chr1' ]  , [100, 'chr1',]) , -1 , $cmp_name++);
+    is($cmp->([ 100 ,'chr1' ] , [100, 'chr1',]) , 0  , $cmp_name++);
+    is($cmp->([ 100 ,'chr1' ] , [50, 'chr1',])  , 1  , $cmp_name++);
+                            
+    is($cmp->([ 50  ,'chr1' ]  , [100, 'chr2',]) , -1 , $cmp_name++);
+    is($cmp->([ 100 ,'chr1' ] , [100, 'chr2',]) , -1 , $cmp_name++);
+    is($cmp->([ 100 ,'chr1' ] , [50, 'chr2',])  , 1 , $cmp_name++);
+                            
+    is($cmp->([ 50  ,'chr2' ]  , [100, 'chr1',]) , -1  , $cmp_name++);
+    is($cmp->([ 100 ,'chr2' ] , [100, 'chr1',]) , 1  , $cmp_name++);
+    is($cmp->([ 100 ,'chr2' ] , [50, 'chr1',])  , 1  , $cmp_name++);
 }
 
 
@@ -111,6 +111,6 @@ is_deeply([extract_columns([qw/a b c d e/], [3,1])], [qw/c a/], "extract_columns
     copy($csv1, $tmp1);
     copy($csv2, $tmp2);
 
-    ok(cast("perl", "generic_mashup.pl", "-o", $tmpresult, qw/-v 3 -k 1,2n/, $tmp1, $tmp2), "generic_mashup.pl run");
+    ok(cast("perl", "generic_mashup.pl", "-o", $tmpresult, '-v', '3', '-k', '1,2n', $tmp1, $tmp2), "generic_mashup.pl run");
     is(slurp($tmpresult), slurp($result), "generic_mashup.pl results ok");
 }

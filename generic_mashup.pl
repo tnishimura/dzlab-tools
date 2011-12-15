@@ -125,23 +125,25 @@ sub parse_nicknames{
 
 sub make_comparator{
     my $keycolspec = shift;
+    my $numkeys_expected = @$keycolspec;
     my $maxcol = max map { $_->[0] } @$keycolspec;
 
     return sub{
-        my ($left_parts, $right_parts) = @_;
-        my $left_size  = @$left_parts;
-        my $right_size = @$right_parts;
+        my ($input_keys, $mashup_keys) = @_;
 
-        die "uneven parts size" if $left_size != $right_size;
+        die "bug: unexpected number of mashup_keys. report to programmer" if @$mashup_keys != $numkeys_expected;
+        die "bug: unexpected number of input_keys. report to programmer" if @$input_keys != $numkeys_expected;
 
-        die "not enough columns" if ($maxcol > $left_size || $maxcol > $right_size);
+        #say Dumper "make_comparator", $input_line, $mashup_keys;
 
-        #say Dumper "make_comparator", $left_parts, $right_parts;
+        for my $i (0 .. $#$keycolspec) {
+            #for my $pair (@$keycolspec) {
+            my $colnum = $keycolspec->[$i][0];
+            my $type = $keycolspec->[$i][1];
 
-        for my $pair (@$keycolspec) {
-            my ($colnum, $type) = @$pair;
-            my $left = $left_parts->[$colnum - 1];
-            my $right = $right_parts->[$colnum - 1];
+            my $left = $input_keys->[$i];
+            my $right = $mashup_keys->[$i];
+
             my $cmp;
             if ($type eq 't'){
                 $cmp = $left cmp $right;
@@ -248,8 +250,9 @@ sub run{
             my $mashup_parser = make_split_iterator($opt_output);
             my $num_mashup_vals;
             while (defined(my $mashup_line = $mashup_parser->())){
-                my @mashup_keys = extract_columns($mashup_line, \@key_columns);
-                my @mashup_vals = extract_columns($mashup_line, \@val_columns);
+                my @mashup_keys = @{$mashup_line}[0 .. scalar(@key_columns) -1]; 
+                my @mashup_vals = @{$mashup_line}[scalar(@key_columns) .. $#$mashup_line];
+
                 $num_mashup_vals //= @mashup_vals;
 
                 # first (header) line?
@@ -263,7 +266,7 @@ sub run{
                             my @input_keys = extract_columns($input_line, \@key_columns);
                             my @input_vals = extract_columns($input_line, \@val_columns);
 
-                            my $cmp = $comparator->($input_line, $mashup_line);
+                            my $cmp = $comparator->(\@input_keys, \@mashup_keys);
 
                             # input behind mashup
                             if ($cmp == -1){
