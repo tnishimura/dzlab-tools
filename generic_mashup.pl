@@ -70,6 +70,7 @@ sub parse_val{
     return @split;
 }
 
+# extract_columns([qw/col1 col2 col3 .../], [3,2]) => qw/col3 col2/
 sub extract_columns{
     my ($parts, $columns) = @_;
     return map {
@@ -158,13 +159,14 @@ sub make_comparator{
     }
 }
 
+# line-splitting file iterator.
 {
     my $sep = "\t";
     sub make_split_iterator{
         my $filename = shift;
         my $numcol;
         my $numread = 0;
-        my @rewind;
+        my @rewind; # fifo of put-backs
         open my $fh, '<', $filename;
         return sub{
             my $cmd = shift;
@@ -202,6 +204,7 @@ sub make_comparator{
     }
 }
 
+# create list of n dots
 sub ndots{
     my $n = shift;
     return join "\t", ('.') x $n;
@@ -211,7 +214,7 @@ sub run{
     my $result = GetOptions (
         "output|o=s"    => \my $opt_output,
         "nicknames|n=s" => \my $opt_nicknames,
-        "values|v=s"   => \my $opt_columns,
+        "values|v=s"    => \my $opt_columns,
         "keys|k=s"      => \my $opt_keys,
     );
     if (!$result || ! $opt_output || ! $opt_columns || ! $opt_keys){
@@ -227,17 +230,18 @@ sub run{
     my $comparator      = make_comparator($key_specs);
     my $files_and_nicks = parse_nicknames(\@opt_input, $opt_nicknames);
 
-    say Dumper \@opt_input, $files_and_nicks;
+    # say Dumper \@opt_input, $files_and_nicks;
 
-    for my $pair (@$files_and_nicks) {
+    for my $pair (@$files_and_nicks) { # foreach file and its nickname
         my ($input_file, $nick) = @$pair;
 
-        sort_file_in_place($input_file, $key_specs);
+        # no option to disable like gff version-- can't trust user to sort properly. 
+        sort_file_in_place($input_file, $key_specs); 
 
         # output to tempfile
         my (undef, $tempout_file) = tempfile("$opt_output.XXXXX");
-
         open my $tempout, '>', $tempout_file;
+
         my $input_parser = make_split_iterator($input_file);
 
         if (-f $opt_output){
@@ -248,16 +252,16 @@ sub run{
                 my @mashup_vals = extract_columns($mashup_line, \@val_columns);
                 $num_mashup_vals //= @mashup_vals;
 
+                # first (header) line?
                 if ($mashup_parser->('numread') == 1){
                     say $tempout join "\t", @mashup_keys, @mashup_vals, map { "${nick}_$_" } @val_columns;
                 }
                 else{
-                    if (! $input_parser->('eof')){
+                    if (! $input_parser->('eof')){ # input file done? 
                         INPUT:
                         while (defined(my $input_line = $input_parser->())){
                             my @input_keys = extract_columns($input_line, \@key_columns);
                             my @input_vals = extract_columns($input_line, \@val_columns);
-                            
 
                             my $cmp = $comparator->($input_line, $mashup_line);
 
@@ -273,7 +277,11 @@ sub run{
                             # input ahead of mashup
                             elsif ($cmp == 1){
                                 say $tempout join "\t", @mashup_keys, @mashup_vals, ndots(scalar(@input_vals));
+
+                                # put the input line back and get another mashup line. this is cleaner than
+                                # trying to let mashup catchup here. 
                                 $input_parser->('rewind', $input_line);
+
                                 last INPUT; # and get next mashup line
                             }
                         }
@@ -294,13 +302,14 @@ sub run{
             }
         }
 
-        # no existing output file
+        # no existing output file - create one. 
         else{
             say $tempout join "\t", (map { "key_$_" } @key_columns), (map { "${nick}_$_" } @val_columns);
             while (defined(my $parts = $input_parser->())){
                 say $tempout join "\t", extract_columns($parts, \@key_columns), extract_columns($parts, \@val_columns);
             }
         }
+
         close $tempout;
         rename $tempout_file, $opt_output;
     }

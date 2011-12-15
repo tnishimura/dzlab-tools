@@ -99,7 +99,7 @@ is_deeply([extract_columns([qw/a b c d e/], [2,1])], [qw/b a/], "extract_columns
 is_deeply([extract_columns([qw/a b c d e/], [3,1])], [qw/c a/], "extract_columns");
 
 {
-    my $tempdir = tempdir(CLEANUP => 0);
+    my $tempdir = tempdir(CLEANUP => 1);
     my $csv1 = "t/data/generic_mashup_csv1.txt";
     my $csv2 = "t/data/generic_mashup_csv2.txt";
     my $result = "t/data/generic_mashup_csv_results.txt";
