@@ -109,9 +109,6 @@ sub run{
     while (defined(my $gff = $parser->next())){
         my $seq = $gff->sequence();
         next if ! $seq;
-        if (! exists $slurp{$seq}){
-            $slurp{$seq} = [];
-        }
         push @{$slurp{$seq}}, $gff;
     }
 
