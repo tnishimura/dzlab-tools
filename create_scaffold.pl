@@ -29,7 +29,10 @@ while (my $gff = $parser->next()){
     my $str = $gff->strand;
     if (defined $str && ($str ne '+' || $str ne '-') ){ # IGNORE entries without strands
         print $fr->get_pretty(
-            $gff->get_column($opt_locus_id),
+            ($opt_full ? 
+                join "_", $gff->get_column($opt_locus_id), $gff->sequence, $gff->start, $gff->end 
+                : $gff->get_column($opt_locus_id)
+            ),
             $gff->sequence,
             $gff->start, 
             $gff->end, 
@@ -91,6 +94,8 @@ Input fasta file.
 =item  -o <file> | --output <file>
 
 output. Use '-' (without quotes) to print to screen.
+
+=item  -f | --full
 
 =item --help | -h
 

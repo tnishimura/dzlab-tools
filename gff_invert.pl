@@ -117,7 +117,10 @@ sub run{
         my $merged = bubble_merge($slurp{$seq}, \&gff_get_start, \&gff_get_end);
         my $inverted = invert($merged, 0, $fasta->get_length($seq));
         for my $block (@$inverted) {
-            say join "\t", $seq, q{.}, $feature, $block->[0]+1, $block->[1]-1, qw{. . .}, "ID=I" . ++$id;
+            my ($start, $end) = ($block->[0]+1, $block->[1]-1);
+            if ($start <= $end){
+                say join "\t", $seq, q{.}, $feature, $start, $end, qw{. + .}, "ID=I" . ++$id;
+            }
         }
     }
 
