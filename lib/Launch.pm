@@ -148,6 +148,7 @@ sub cast{
 
     }
     say STDERR "Successfully Launched: $cmd_string";
+    return 1;
 }
 
 sub drain{
