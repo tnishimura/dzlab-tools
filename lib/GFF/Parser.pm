@@ -9,6 +9,7 @@ use Carp;
 use GFF;
 use GFF::Util;
 use autodie;
+use Scalar::Util qw/looks_like_number/;
 
 has filename_or_handle => (
     is => 'ro',
@@ -20,6 +21,7 @@ has skip => (
     is => 'ro',
     default => 1
 );
+
 has done => (
     is => 'rw',
     default => 0
@@ -29,6 +31,12 @@ has normalize => (
     is => 'ro',
     default => 1,
 );
+
+has launder => (
+    is => 'ro',
+    default => 0,
+);
+
 has putback => (
     traits  => ['Array'],
     is      => 'ro',
@@ -86,10 +94,24 @@ sub next{
     if ($self->has_putback){
         return $self->shift_putback;
     }
+    my $launder = $self->launder();
     while (defined (my $line = scalar readline $self->filehandle)){
         my $gff = parse_gff($line, $self->normalize);
         if (!$self->skip || is_gff($gff)){
-            return $gff;
+            if (
+                (
+                    $launder &&
+                    do {
+                        my $start = $gff->start; 
+                        my $end = $gff->end;
+                        looks_like_number($start) && looks_like_number($end) && $start <= $end
+                    }
+                )
+                || 
+                ! $launder
+            ){
+                return $gff;
+            }
         }
     }
     $self->done(1);

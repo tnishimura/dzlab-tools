@@ -16,24 +16,37 @@ use GFF::Parser;
 use GFF::Slurp;
 
 my $data_pos = tell DATA;
+{
+    my $arr = gff_slurp(\*DATA);
+    is(scalar @$arr, 8, "slurp");
+}
 
-my $arr = gff_slurp(\*DATA);
+{
+    seek DATA, $data_pos, 0;
 
-is(scalar @$arr, 8, "slurp");
+    my $hash = gff_slurp_index(\*DATA,'sequence');
 
-seek DATA, $data_pos, 0;
+    is(scalar @{$hash->{CHR1}},6,"slurp index 1");
+    is(scalar @{$hash->{CHR2}},1,"slurp index 2");
+}
 
-my $hash = gff_slurp_index(\*DATA,'sequence');
+{
+    seek DATA, $data_pos, 0;
 
-is(scalar @{$hash->{CHR1}},6,"slurp index 1");
-is(scalar @{$hash->{CHR2}},1,"slurp index 2");
+    my $parser = GFF::Parser->new(file => \*DATA, launder => 1);
+    my $count = 0;
+    while (defined(my $gff = $parser->next())){
+        $count++;
+    }
+    is($count, 5, "laundering");
+}
 
 __DATA__
 Chr1	TAIR8	gene	3631	5899	.	+	.	AT1G01010; ANAC001 (Arabidopsis NAC domain containing protein 1); transcription factor
 Chr1	TAIR8	gene	6790	8737	.	-	.	AT1G01020; ARV1
 Chr1	TAIR8	gene	11649	13714	.	-	.	AT1G01030; NGA3 (NGATHA3); transcription factor
 Chr2	TAIR8	gene	23146	31227	.	+	.	AT1G01040; DCL1 (DICER-LIKE1); ATP-dependent helicase/ ribonuclease III
-chr1	TAIR8	gene	28500	28706	.	+	.	AT1G01046; MIR838a; miRNA
-Chr1	TAIR8	gene	31170	33153	.	-	.	AT1G01050; ATPPA1 (ARABIDOPSIS THALIANA PYROPHOSPHORYLASE 1); inorganic diphosphatase/ pyrophosphatase
-Chr1	TAIR8	gene	33379	37840	.	-	.	AT1G01060; LHY (LATE ELONGATED HYPOCOTYL); DNA binding / transcription factor
+chr1	TAIR8	gene	28500	28400	.	+	.	AT1G01046; MIR838a; miRNA
+Chr1	TAIR8	gene	asdf	33153	.	-	.	AT1G01050; ATPPA1 (ARABIDOPSIS THALIANA PYROPHOSPHORYLASE 1); inorganic diphosphatase/ pyrophosphatase
+Chr1	TAIR8	gene	39900	37840	.	-	.	AT1G01060; LHY (LATE ELONGATED HYPOCOTYL); DNA binding / transcription factor
 .	TAIR8	gene	33379	37840	.	-	.	AT1G01060; LHY (LATE ELONGATED HYPOCOTYL); DNA binding / transcription factor
