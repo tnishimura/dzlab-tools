@@ -4,10 +4,8 @@ use warnings FATAL => "all";
 use 5.010_000;
 use Data::Dumper;
 use autodie;
-use List::MoreUtils qw{
-    uniq 
-};
-
+use Pod::Usage;
+use Getopt::Long;
 
 use FindBin;
 use lib "$FindBin::Bin/lib";
@@ -18,18 +16,12 @@ use GFF::Slurp qw/gff_slurp_index/;
 END {close STDOUT}
 $| = 1;
 
-use Pod::Usage;
-use Getopt::Long;
-
 my $result = GetOptions (
     "ignore-feature|i=s" => \my @ignore,
     "locus-tag|t=s" => \my @locus_tags,
     "constituents|c" => \my $constituents,
 );
-if (!$result){
-    say "usage: gff_merge_annotation.pl ...";
-    exit 1;
-}
+pod2usage(-verbose => 1) if (!$result);
 
 sub all_features{
     map { $_->feature() } @_;
@@ -110,3 +102,46 @@ for my $seq (sort keys %seq2gff) {
 
     say STDERR "dumping done";
 }
+
+=head1 NAME
+
+gff_merge_annotation.pl - Merge overlapping windows in an annotation GFF file.
+
+=head1 SYNOPSIS
+
+Basic usage:
+
+ gff_merge_annotation.pl yourannotation.gff > TAIR8_gmod.merged.gff
+
+Some annotations include 'chromosome' features which will screw everything up
+(b/c it overlaps with everything), so you'll want to ignore it:
+
+ gff_merge_annotation.pl -i chromosome TAIR8_gmod.gff > TAIR8_gmod.merged.gff
+
+If you want to gather the ID and Parent fields from entries, do (Note multiple
+-t options):
+
+ gff_merge_annotation.pl -i chromosome -t ID -t Parent TAIR8_gmod.gff > TAIR8_gmod.merged.gff
+
+=head1 OPTIONS
+
+=over
+
+=item  -t <tag> | --locus-tag <tag>
+
+If given, output GFF lines will have an 'ID=' field with collected ID's from
+each constituent lines.  You can specifiy multiple times if desired.
+
+=item  -i <varname> | --ignore-feature <varname>
+
+If given, lines with this feature will be ignore.  For example, '-i gene' will
+ignore all genes in the file.  You can specifiy multiple times if desired.
+
+=item  -c | --constituents 
+
+If given, output GFF lines will have an 'Constituent=' field with collected
+features.
+
+=back
+
+=cut
