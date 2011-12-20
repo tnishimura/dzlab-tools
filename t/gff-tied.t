@@ -10,7 +10,7 @@ use lib "$FindBin::Bin/../lib";
 use GFF;
 use GFF::Tied;
 
-my $tied = GFF::Tied->new(file => 't/gff-parser-test.gff');
+my $tied = GFF::Tied->new(file => 't/data/gff-tied.gff');
 
 ### first 8 lines should be blank
 
