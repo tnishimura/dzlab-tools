@@ -19,6 +19,8 @@ use List::MoreUtils qw{
 
 use Test::More qw(no_plan);
 
+use IntervalMerge;
+
 require_ok("gff_invert.pl");
 
 sub get_start{ return $_[0]->[0]; }
@@ -33,11 +35,11 @@ sub strip_out_elems{
 
 is_deeply(
     [ [0,15], [20,29], [30,40], ],
-    strip_out_elems(bubble_merge(
+    strip_out_elems(interval_merge(
         [ [5,15], [0,10], [20,29], [30,40], ],
         \&get_start, \&get_end, 
     )),
-    "bubble_merge",
+    "interval_merge",
 );
 
 is_deeply(
@@ -59,12 +61,12 @@ is_deeply(
     [20,29, $elem3], 
     [30,40, $elem4], 
     ],
-    bubble_merge(
+    interval_merge(
         [ $elem1, $elem2, $elem3, $elem4 ],
         sub { $_[0]{start} },
         sub { $_[0]{end} },
     ),
-    "bubble_merge with elems",
+    "interval_merge with elems",
 );
 
 
