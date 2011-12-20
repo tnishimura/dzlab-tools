@@ -18,10 +18,16 @@ $| = 1;
 
 my $result = GetOptions (
     "ignore-feature|i=s" => \my @ignore,
-    "locus-tag|t=s" => \my @locus_tags,
-    "constituents|c" => \my $constituents,
+    "locus-tag|t=s"      => \my @locus_tags,
+    "constituents|c"     => \my $constituents,
+    "output|o=s"         => \(my $output = '-'),
 );
-pod2usage(-verbose => 1) if (!$result);
+pod2usage(-verbose => 1) if (!$result || !@ARGV);
+
+if ($output ne '-'){
+    open my $fh, '>', $output;
+    select $fh;
+}
 
 sub all_features{
     map { $_->feature() } @_;
@@ -111,17 +117,17 @@ gff_merge_annotation.pl - Merge overlapping windows in an annotation GFF file.
 
 Basic usage:
 
- gff_merge_annotation.pl yourannotation.gff > TAIR8_gmod.merged.gff
+ gff_merge_annotation.pl -o merged.gff yourannotation.gff 
 
 Some annotations include 'chromosome' features which will screw everything up
 (b/c it overlaps with everything), so you'll want to ignore it:
 
- gff_merge_annotation.pl -i chromosome TAIR8_gmod.gff > TAIR8_gmod.merged.gff
+ gff_merge_annotation.pl -o merged.gff -i chromosome TAIR8_gmod.gff 
 
 If you want to gather the ID and Parent fields from entries, do (Note multiple
 -t options):
 
- gff_merge_annotation.pl -i chromosome -t ID -t Parent TAIR8_gmod.gff > TAIR8_gmod.merged.gff
+ gff_merge_annotation.pl -o merged.gff -i chromosome -t ID -t Parent TAIR8_gmod.gff 
 
 =head1 OPTIONS
 
