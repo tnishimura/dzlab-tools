@@ -4,6 +4,10 @@ use warnings FATAL => "all";
 use 5.010_000;
 use Data::Dumper;
 use autodie;
+use List::MoreUtils qw{
+    uniq 
+};
+
 
 use FindBin;
 use lib "$FindBin::Bin/lib";
@@ -19,6 +23,8 @@ use Getopt::Long;
 
 my $result = GetOptions (
     "ignore-feature|i=s" => \my @ignore,
+    "locus-tag|t=s" => \my @locus_tags,
+    "constituents|c" => \my $constituents,
 );
 if (!$result){
     say "usage: gff_merge_annotation.pl ...";
@@ -41,7 +47,41 @@ while (defined(my $gff = $parser->next())){
 
 say STDERR "done slurping.";
 
-my $id = "0000000";
+{
+    my $id = "0000000";
+    sub id{
+        my @elems = @_;
+        if (! @locus_tags){
+            return "ID=M" . ++$id;
+        }
+        else{
+            my %tag_values;
+            my $other;
+            ELEM:
+            for my $e (@elems) {
+                for my $tag (@locus_tags) {
+                    my $val = $e->get_column($tag);
+                    if (defined $val){
+                        for my $split_val (split /,/, $val) {
+                            $tag_values{$split_val} = 1;
+                        }
+                        next ELEM;
+                    }
+                }
+                $other = 1;
+            }
+            #die Dumper \@elems, \%tag_values;
+            return "ID=" . join ",", (sort keys %tag_values), $other ? ('other') : ();
+        }
+    }
+
+    sub constituents{
+        my @elems = @_;
+        my %features = map { $_ => 1 } all_features(@elems);
+        return "Constituents=" . join ",", keys %features;
+    }
+}
+
 for my $seq (sort keys %seq2gff) {
     my $gffs = $seq2gff{$seq};
     say STDERR "$seq interval_merge start. number of elements: ", scalar(@$gffs);
@@ -65,7 +105,8 @@ for my $seq (sort keys %seq2gff) {
         '.',
         '+',
         '.',
-        "ID=M" . ++$id;
+        id(@elems) . ($constituents ? ";" . constituents(@elems) : ''),
     }
+
     say STDERR "dumping done";
 }
