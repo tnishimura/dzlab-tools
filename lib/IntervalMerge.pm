@@ -7,12 +7,12 @@ use Data::Dumper;
 use Carp;
 use autodie;
 use List::Util qw/max min/;
-use List::MoreUtils qw/all/;
+use List::MoreUtils qw/all uniq/;
 
 require Exporter;
 our @ISA = qw(Exporter);
 our @EXPORT_OK = qw();
-our @EXPORT = qw(interval_merge);
+our @EXPORT = qw(interval_merge interval_deinterlace);
 
 # input:
 #   $list      - arrayref to list of elems to be merge
@@ -92,6 +92,73 @@ sub interval_merge{
     }
     push @merged, $in_progress; # last one
     return \@merged;
+}
+
+# turn:
+# [              ]
+#     [              ]
+#         [   ]
+# into:
+# [  ][  ][   ][ ][  ]
+#
+# NOTE: $list cannot contain any gaps.  
+#
+# input:
+#   $list      - arrayref to list of elems to be merge
+#   $get_start - sub to get start coord of $list elem
+#   $get_end   - sub to get end coord of $list elem
+# output:
+#   [
+#     [start1, end1],
+#     [start2, end2],
+#     ...
+#   ]
+sub interval_deinterlace{
+    my ($list, $get_start, $get_end) = @_;
+
+    my %starts = map { $get_start->($_) => 1 } @$list;
+    my %ends = map { $get_end->($_) => 1 } @$list;
+
+    my @positions = uniq sort { $a <=> $b } keys(%starts), keys(%ends);
+    my @deinterlaced;
+
+    #say Dumper \@positions;
+
+    for my $i (1 .. $#positions) {
+        my $from = $positions[$i-1];
+        my $to   = $positions[$i];
+
+        my $from_is_start = exists $starts{$from};
+        my $from_is_end   = exists $ends{$from};
+        my $to_is_start   = exists $starts{$to};
+        my $to_is_end     = exists $ends{$to};
+
+        if (! $from_is_end && $from_is_start && $to_is_end){
+            push @deinterlaced, [$from, $to]
+        }
+        elsif ($from_is_end && $from_is_start && $to_is_end){
+            push @deinterlaced, [$from + 1, $to]
+        }
+        elsif ($from_is_start && $to_is_start){
+            push @deinterlaced, [$from, $to - 1]
+        }
+        elsif ($from_is_end && $to_is_end){
+            push @deinterlaced, [$from + 1, $to]
+        }
+        elsif ($from_is_end && $to_is_start && $to - $from > 1){
+            push @deinterlaced, [$from + 1, $to - 1]
+        }
+        elsif ($from_is_end && $to_is_start && $from + 1== $to){
+            # skip:
+            # [   ][    ]
+            #     ^^
+        }
+        else{
+            croak "impossible case... bug?";
+        }
+    }
+
+    return \@deinterlaced;
 }
 
 1;
