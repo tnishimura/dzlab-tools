@@ -22,8 +22,8 @@ return an arrayref of all gff records
 =cut
 
 sub gff_slurp{
-    my ($file_or_handle) = @_;
-    my $p = GFF::Parser->new(file => $file_or_handle);
+    my ($file_or_handle, $normalize) = @_;
+    my $p = GFF::Parser->new(file => $file_or_handle, normalize => $normalize);
     my @accum;
     while (my $gff = $p->next()){
         # if we're skipping, no need to check
@@ -41,8 +41,8 @@ return a hashref of get_column val to gff record. Sort GFF records by start.
 =cut
 
 sub gff_slurp_index{
-    my ($file_or_handle, $column) = @_;
-    my $p = GFF::Parser->new(file => $file_or_handle);
+    my ($file_or_handle, $column, $normalize) = @_;
+    my $p = GFF::Parser->new(file => $file_or_handle, normalize => $normalize);
 
     my %index; # { index => [gffs] }
 
