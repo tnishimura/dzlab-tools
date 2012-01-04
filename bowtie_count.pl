@@ -10,31 +10,51 @@ use FastaReader;
 use Getopt::Euclid qw( :vars<opt_> );
 use Pod::Usage;
 
-pod2usage(-verbose => 99,-sections => [qw/NAME SYNOPSIS OPTIONS/]) if $opt_help || ! $opt_reference;
+pod2usage(-verbose => 99,-sections => [qw/NAME SYNOPSIS OPTIONS/]) 
+if $opt_help || ! $opt_reference || ! $opt_input || ($opt_forward_only && $opt_reverse_only);
+
+my $both = ! $opt_forward_only && ! $opt_reverse_only;
 
 END {close STDOUT}
 $| = 1;
 
 my $fr = FastaReader->new(file => $opt_reference, ht => sub { s/^>(\S+)\s?.*$/$1/}, slurp => 1);
+
+# number of reads
 my %counts = map { $_ => 0 } $fr->sequence_list();
+
+# number of actual bases... may not be read_count*length b/c in paired/splicing
 my %bases = %counts;
 
-open my $fh, '<', $opt_input;
+#######################################################################
+# read in bowtie
 
+open my $fh, '<', $opt_input;
 while (defined(my $line = <$fh>)){
     chomp $line;
     my ( $read_id, $strand, $target, $coordinate, $sequence, $qualities,
         $alternatives, $snp )
     = split /\t/, $line;
     if (exists $counts{$target}){
-        ++$counts{$target};
-        $bases{$target}+=length $sequence;
+        if ($both 
+            || $opt_forward_only && $strand eq '+' 
+            || $opt_reverse_only && $strand eq '-' 
+        ){
+            ++$counts{$target};
+            $bases{$target}+=length $sequence;
+        }
+        else {
+            # SKIP
+        }
     }
     else{
         die "$target doesn't exist in $opt_reference";
     }
 }
 close $fh;
+
+#######################################################################
+# output
 
 if ($opt_output ne '-'){
     open my $out, '>', $opt_output;
@@ -99,6 +119,10 @@ no normalization is done-- that's up to you.
 
 =for Euclid
     output_file.default:     '-'
+
+=item  --forward-only
+
+=item  --reverse-only
 
 =item --help | -h
 

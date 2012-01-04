@@ -45,6 +45,8 @@ else{
 
 my $bowtie = "$opt_output.vs-scaffold_$scaffold_prefix.$splice_note.bowtie";
 my $output = "$bowtie.freq";
+my $output_forward = "$bowtie.forward.freq";
+my $output_reverse = "$bowtie.reverse.freq";
 my $log = "$bowtie.log";
 my $threadarg = $opt_threads ? "-p $opt_threads" : "";
 my $fastaflag = $opt_fasta ? '-f' : '';
@@ -65,10 +67,23 @@ else {
     );
 }
 
-launch(qq{perl -S bowtie_count.pl -r $opt_scaffold -o ?? $bowtie},
-    expected => $output,
-    dryrun => $opt_dry,
-);
+if ($opt_split_strand){
+    launch(qq{perl -S bowtie_count.pl --forward-only -r $opt_scaffold -o ?? $bowtie},
+        expected => $output_forward,
+        dryrun => $opt_dry,
+    );
+    launch(qq{perl -S bowtie_count.pl --reverse-only -r $opt_scaffold -o ?? $bowtie},
+        expected => $output_reverse,
+        dryrun => $opt_dry,
+    );
+}
+else {
+    launch(qq{perl -S bowtie_count.pl -r $opt_scaffold -o ?? $bowtie},
+        expected => $output,
+        dryrun => $opt_dry,
+    );
+}
+
 
 =head1 OPTIONS
 
@@ -114,6 +129,8 @@ launch(qq{perl -S bowtie_count.pl -r $opt_scaffold -o ?? $bowtie},
 =item  -f | --fasta
 
 Scaffold is fasta, not a fastq.
+
+=item  --split-strand
 
 =back
 
