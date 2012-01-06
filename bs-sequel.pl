@@ -201,7 +201,7 @@ unless ($opt_single_ends) {
 
 # align with bowtie
 if ($pm->start == 0){
-    launch("bs-bowtie -r $opt_left_read -f $opt_reference -s @left_splice -n $opt_mismatches -mh $opt_max_hits -o ??",
+    launch("perl -S bs-bowtie -r $opt_left_read -f $opt_reference -s @left_splice -n $opt_mismatches -mh $opt_max_hits -o ??",
         expected => $eland_left_post, dryrun => $dry, also => $bowtie_logname);
     $pm->finish;
 }
@@ -209,11 +209,11 @@ if ($pm->start == 0){
 if ($pm->start == 0){
     if ($do_right){
         if ($opt_single_ends) {
-            launch("bs-bowtie -r $opt_left_read -f $opt_reference -s @right_splice -n $opt_mismatches -mh $opt_max_hits -o ??",
+            launch("perl -S bs-bowtie -r $opt_left_read -f $opt_reference -s @right_splice -n $opt_mismatches -mh $opt_max_hits -o ??",
                 expected => $eland_right_post, dryrun => $dry, also => $bowtie_logname);
         }
         else {
-            launch("bs-bowtie -r $opt_right_read -f $opt_reference -s @right_splice -n $opt_mismatches -mh $opt_max_hits -o ??",
+            launch("perl -S bs-bowtie -r $opt_right_read -f $opt_reference -s @right_splice -n $opt_mismatches -mh $opt_max_hits -o ??",
                 expected => $eland_right_post, dryrun => $dry, also => $bowtie_logname);
         }
     }
