@@ -27,16 +27,18 @@ my $gff = $bowtie . ".gff";
 my $w50 = $bowtie . ".w50.gff";
 my $log = $bowtie . ".w50.gff.log";
 
+my $fasta_flag = $opt_fasta ? ' -f ' : '';
+my $thread_flag = $opt_threads ? "-p $opt_threads" : "";
 
 if (defined $opt_right_reads){
-    launch("bowtie $opt_reference -1 $opt_left_reads -2 $opt_right_reads ?? -v 2 -B 1 --best",
+    launch("bowtie $opt_reference -1 $opt_left_reads -2 $opt_right_reads ?? -v 2 -B 1 --best $fasta_flag $thread_flag",
         expected => $bowtie,
         also => $log,
         dryrun => $opt_dry,
     );
 }
 else {
-    launch("bowtie $opt_reference $opt_left_reads ?? -v 2 -B 1 --best",
+    launch("bowtie $opt_reference $opt_left_reads ?? -v 2 -B 1 --best $fasta_flag $thread_flag",
         expected => $bowtie,
         also => $log,
         dryrun => $opt_dry,
@@ -71,6 +73,12 @@ launch("window_by_fixed.pl -m -w 50 -k -r $opt_reference -o ?? $gff",
 
 =for Euclid
     input.type:        readable
+
+=item  -f | --fasta 
+
+Reads are FASTA, not FASTQ
+
+=item -p <threads> | --threads <threads>
 
 =back
 
