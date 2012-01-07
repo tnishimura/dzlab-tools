@@ -354,16 +354,16 @@ sub safemethyl{
 }
 
 sub downsample{
-    my ($file, $percent, $multiple) = @_;
+    my ($file, $percent, $multiple, $tempdir) = @_;
     $multiple //= 1;
     if (defined $percent && looks_like_number $percent && $percent < 0 || $percent > 1){
         croak "downsample: \$percent needs to be 0<=p<=1";
     }
 
-    my $tempdir = tempdir(CLEANUP => 1);
-    my $tempfile = catfile($tempdir, basename($file) . ".downsample_$percent");
+    $tempdir //= tempdir(CLEANUP => 1);
+    my $tempfile = catfile($tempdir, basename($file) . ".downsample$percent");
 
-    open my $infh, '<', $file;
+    my $infh = open_maybe_compressed $file;
     open my $outfh, '>', $tempfile;
 
     my $sampled = 0;

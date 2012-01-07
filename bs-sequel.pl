@@ -14,7 +14,7 @@ use Getopt::Euclid qw( :vars<opt_> );
 use Pod::Usage;
 use File::Copy;
 use lib "$FindBin::Bin/lib";
-use DZUtil qw/mfor timestamp split_names fastq_read_length/;
+use DZUtil qw/downsample mfor timestamp split_names fastq_read_length/;
 use Launch;
 use GFF::Split;
 my $pm = Parallel::ForkManager->new($opt_parallel);
@@ -89,12 +89,22 @@ elsif (! $opt_single_ends && !defined $opt_library_size){
 }
 
 #######################################################################
-# splice argument sanitizing
+# downsample
 
 my $read_size = fastq_read_length($opt_left_read);
 if (defined($opt_right_read) && $read_size =~ fastq_read_length($opt_right_read)){
     $logger->logdie("$opt_right_read and $opt_left_read not same read lengths?");
 }
+
+if (defined $opt_downsample){
+    $opt_left_read = downsample $opt_left_read, $opt_downsample, 4, dirname $opt_left_read;
+    if (defined $opt_right_read){
+        $opt_right_read = downsample $opt_right_read, $opt_downsample, 4, dirname $opt_right_read;
+    }
+}
+
+#######################################################################
+# splice argument sanitizing
 
 if (! %opt_left_splice){
     $logger->logwarn("Left splice -ls was not defined, using full length.");
@@ -329,7 +339,6 @@ else{
         }
     };
 
-
     $pm->wait_all_children;
 
     launch("perl -S collect-freqs.pl -o $basename.single-c.freq $single_c_dir", dryrun => $dry);
@@ -527,6 +536,14 @@ Use the new discountMethylation.pl instead of theolder countMethylation.pl. (EXP
 Use memory when possible. For discountMethylation.pl only currently. Careful. 
 
 =item  --dry 
+
+=item  --downsample <fraction>
+
+Downsample reads by given fraction.
+
+=for Euclid
+    fraction.type:        number, fraction >= 0 && fraction <= 1
+    fraction.type.error:  <fraction> must be between 0 and 1.
 
 =item -h | --help
 
