@@ -7,6 +7,10 @@ use Data::Dumper;
 use Carp;
 use Getopt::Long;
 use Pod::Usage;
+use FindBin;
+use lib "$FindBin::Bin/lib";
+use FastaReader;
+
 
 # Check required command line parameters
 pod2usage ( -verbose => 1 )
@@ -35,8 +39,11 @@ if ($output) {
 }
 
 my $reference = $ARGV[0];
-my %reference = %{ index_fasta ($reference, join "|", @excluded_sequences) };
 my %nucleotide_frequencies;
+
+print STDERR "# Reading in $reference";
+my $fr = FastaReader->new(file => $reference, slurp => 0);
+print STDERR "# Done";
 
 for my $k (1, $kmer) {
     
@@ -45,15 +52,15 @@ for my $k (1, $kmer) {
     my %frequencies  = ();
     my $total_length = 0;
 
-    for my $chromosome (sort keys %reference) {
-        next if $chromosome =~ m/-length/;
+    for my $chromosome ($fr->sequence_list()) {
+        my $chrlen = $fr->get_length($chromosome);
 
-        $total_length += $reference{"$chromosome-length"};
+        $total_length += $chrlen;
         
         print STDERR "#chromosome:\t$chromosome\n";
-        print STDERR "#length:\t", $reference{"$chromosome-length"}, "\n";
+        print STDERR "#length:\t", $chrlen, "\n";
 
-        my %frequency = %{ word_composition ($reference{$chromosome}, $k) };
+        my %frequency = %{ word_composition ($fr->get($chromosome, undef, undef), $k) };
 
         for my $word (sort keys %frequency) {
 
@@ -64,7 +71,7 @@ for my $k (1, $kmer) {
             print STDERR join ("\t",
                                $word,
                                $frequency{$word},
-                               $frequency{$word} / $reference{"$chromosome-length"},
+                               $frequency{$word} / $chrlen, 
                            ), "\n";
         }
     }
@@ -130,50 +137,6 @@ sub word_composition {
     return \%frequency;
 }
 
-
-sub index_fasta {
-    my $reference_file     = shift;
-    my $excluded_sequences = shift;
-
-    my %reference = ();
-
-    return \%reference unless $reference_file;
-
-    # reads in the reference genome file into @fastaseq
-    open my $REF, '<', "$reference_file"
-    or croak "Can't open $reference for reading: $!";
-    my @fastaseq = <$REF>;
-    close $REF;
-
-    # find and store indices for each chromosome change and corresponding descriptions
-    my ( @idx, @dsc ) = ();
-    for my $i ( 0 .. @fastaseq - 1 ) {
-        if ( $fastaseq[$i] =~ m/^>/ ) {
-            $fastaseq[$i] =~ s/>//g;
-            $fastaseq[$i] = ( split /\s/, "$fastaseq[$i]" )[0];
-            next if grep {m/$excluded_sequences/i} $fastaseq[$i];
-            push @idx, $i;
-            push @dsc, $fastaseq[$i];
-        }
-    }
-
-    for my $j ( 0 .. @idx - 1 ) {
-        my $line;
-        if ( $j == scalar @idx - 1 ) {
-            $line = join( q{}, @fastaseq[ $idx[$j] + 1 .. @fastaseq - 1]);
-        }
-        else {
-            $line = join( q{}, @fastaseq[ $idx[$j] + 1 .. $idx[$j + 1] - 1]);
-        }
-        $line =~ s/[\n\r]//g;
-        
-        my $length = $line =~ tr/ACGT//;
-
-        $reference{$dsc[$j]} = $line;
-        $reference{"$dsc[$j]-length"} = $length;
-    }
-    return \%reference;
-}
 
 __END__
 
