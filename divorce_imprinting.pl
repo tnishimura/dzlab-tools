@@ -109,6 +109,14 @@ if ($pm->start == 0){
 }
 $pm->wait_all_children;
 
+#######################################################################
+# split/strand
+
+if ($opt_split_strand){
+    launch(qq{split_strand.pl -c 1 $bowtie_a});
+    launch(qq{split_strand.pl -c 1 $bowtie_b});
+}
+
 
 #######################################################################
 # parse bowtie
@@ -178,6 +186,12 @@ if ($pm->start == 0){
     $pm->finish();
 }
 $pm->wait_all_children;
+
+if ($opt_split_strand){
+    launch(qq{perl -S split_strand.pl -c 6 $gff_a});
+    launch(qq{perl -S split_strand.pl -c 6 $gff_b});
+}
+
 
 #######################################################################
 # Parse_eland.pl
@@ -356,6 +370,8 @@ Locus tag in the annotation file. Default: ID.
 Enabling this option will create a second set of filtered eland and resulting
 ratio files with coordinate checking on split_on_mismatches_2.pl enabled.  You
 probably don't need this. 
+
+=item  --split-strand
 
 =back
 
