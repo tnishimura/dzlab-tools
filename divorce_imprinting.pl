@@ -196,11 +196,10 @@ if ($pm->start == 0){
 }
 $pm->wait_all_children;
 
-if ($opt_split_strand){
-    launch(qq{perl -S split_strand.pl -c 6 $gff_a});
-    launch(qq{perl -S split_strand.pl -c 6 $gff_b});
-}
-
+# if ($opt_split_strand){
+#     launch(qq{perl -S split_strand.pl -c 6 $gff_a});
+#    launch(qq{perl -S split_strand.pl -c 6 $gff_b});
+# }
 
 #######################################################################
 # Parse_eland.pl
@@ -210,15 +209,25 @@ $logger->info("sort the gff's");
 my $gff_sorted_a = "$basename_a.5.sorted.gff$nocc";
 my $gff_sorted_b = "$basename_b.5.sorted.gff$nocc";
 
+my @gff_sorted_a_split = ( "$basename_a.5.sorted.minus.gff$nocc", "$basename_a.5.sorted.plus.gff$nocc" );
+my @gff_sorted_b_split = ( "$basename_b.5.sorted.minus.gff$nocc", "$basename_b.5.sorted.plus.gff$nocc" );
+
 if ($pm->start == 0){
     launch("sort -k 1,1 -k 4,4n -k 5,5n -k 7,7 -S 100M $gff_a -o $gff_sorted_a", expected => $gff_sorted_a);
+    if ($opt_split_strand){
+        launch("perl -S split_strand.pl -c 6 $gff_sorted_a", expected => \@gff_sorted_a_split);
+    }
     $pm->finish();
 }
 if ($pm->start == 0){
     launch("sort -k 1,1 -k 4,4n -k 5,5n -k 7,7 -S 100M $gff_b -o $gff_sorted_b", expected => $gff_sorted_b);
+    if ($opt_split_strand){
+        launch("perl -S split_strand.pl -c 6 $gff_sorted_b", expected => \@gff_sorted_b_split);
+    }
     $pm->finish();
 }
 $pm->wait_all_children;
+
 
 #######################################################################
 # filter_gff
@@ -263,6 +272,14 @@ if (! $opt_no_windowing){
         launch("perl -S window_gff.pl -t $opt_locus_tag $gff_sorted_b -g $opt_annotation -k -c sum -o $w50_b -r", expected => $w50_b);
         launch("perl -S window_gff.pl -t $opt_locus_tag $gff_filtered_b -g $opt_annotation -k -c sum -o $w50_filtered_b -r", expected => $w50_filtered_b);
         $pm->finish();
+    }
+    if ($opt_split_strand){
+        for (@gff_sorted_a_split, @gff_sorted_b_split){
+            my $window = $_;
+            $window =~ s/\.gff/\.w50\.gff/;
+            $window =~ s/\.5\.sorted\./.7.win-anno./;
+            launch("perl -S window_gff.pl -t $opt_locus_tag $_ -g $opt_annotation -k -c sum -o ?? -r", expected => $window);
+        }
     }
     $pm->wait_all_children;
 
@@ -385,9 +402,15 @@ probably don't need this.
 
 =item  -ss | --split-strand
 
+Split the 0.bowtie, 5.sorted.gff file by strand.
+
 =item  -bw | --bowtie-windowing
 
+Window the 0.bowtie files
+
 =item  -nw | --no-windowing
+
+Don't do windowing of .5.sorted.gff or 6.filtered.gff
 
 =back
 
