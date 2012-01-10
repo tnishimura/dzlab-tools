@@ -99,6 +99,8 @@ my $bowtie_logname = "$basename.bowtie.log";
 my $bowtie_a = "$basename_a.0.bowtie";
 my $bowtie_b = "$basename_b.0.bowtie";
 
+my @bowties = ($bowtie_a, $bowtie_b);
+
 if ($pm->start == 0){
     launch("bowtie $opt_reference_a -f -B 1 -v $opt_bowtie_mismatches --best -5 $trim5 -3 $trim3 $rawfas $bowtie_a",
         expected => $bowtie_a, force => $opt_force, also => $bowtie_logname);
@@ -115,19 +117,24 @@ $pm->wait_all_children;
 # split/strand
 
 if ($opt_split_strand){
-    launch(qq{split_strand.pl -c 1 $bowtie_a});
-    launch(qq{split_strand.pl -c 1 $bowtie_b});
+    my @bowtie_a_split = ("$basename_a.0.minus.bowtie", "$basename_a.0.plus.bowtie");
+    my @bowtie_b_split = ("$basename_b.0.minus.bowtie", "$basename_b.0.plus.bowtie");
+    
+    launch(qq{perl -S split_strand.pl -c 1 $bowtie_a}, expected => \@bowtie_a_split);
+    launch(qq{perl -S split_strand.pl -c 1 $bowtie_b}, expected => \@bowtie_b_split);
+    push @bowties, @bowtie_a_split, @bowtie_b_split;
 }
 
 #######################################################################
 # bowtie-windowing
 
 if ($opt_bowtie_windowing){
-    for my $b (glob(catfile($opt_output_directory, "*.bowtie"))) {
-        launch(qq{bowtie_window.pl -r $opt_reference_a -b $b});
+    for my $b (@bowties){
+        my $w50 = $b;
+        $w50 =~ s/gff/w50\.gff/;
+        launch(qq{perl -S bowtie_window.pl -r $opt_reference_a -b $b}, expected => $w50);
     }
 }
-
 
 #######################################################################
 # parse bowtie
