@@ -48,7 +48,7 @@ launch(sprintf(q{perl -S parse_bowtie.pl -g -o - %s | perl -wlnaF'\t' -e '$F[3]=
     expected => $gff,
     dryrun => $opt_dry,
 );
-launch("window_by_fixed.pl -m -w 50 -k -r $opt_reference -o ?? $gff",
+launch("perl -S window_by_fixed.pl -m -w 50 -k -r $opt_reference -o ?? $gff",
     expected => $w50,
     dryrun => $opt_dry,
 );
