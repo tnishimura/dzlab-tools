@@ -94,17 +94,19 @@ $logger->info("running $opt_raw against eco a and b bowtie");
 my $basename_a = "$basename-vs-$opt_ecotype_a";
 my $basename_b = "$basename-vs-$opt_ecotype_b";
 
+my $bowtie_logname = "$basename.bowtie.log";
+
 my $bowtie_a = "$basename_a.0.bowtie";
 my $bowtie_b = "$basename_b.0.bowtie";
 
 if ($pm->start == 0){
     launch("bowtie $opt_reference_a -f -B 1 -v $opt_bowtie_mismatches --best -5 $trim5 -3 $trim3 $rawfas $bowtie_a",
-        expected => $bowtie_a, force => $opt_force);
+        expected => $bowtie_a, force => $opt_force, also => $bowtie_logname);
     $pm->finish();
 }
 if ($pm->start == 0){
     launch("bowtie $opt_reference_b -f -B 1 -v $opt_bowtie_mismatches --best -5 $trim5 -3 $trim3 $rawfas $bowtie_b",
-        expected => $bowtie_b, force => $opt_force);
+        expected => $bowtie_b, force => $opt_force, also => $bowtie_logname);
     $pm->finish();
 }
 $pm->wait_all_children;
@@ -292,13 +294,13 @@ copy($logname, $opt_output_directory);
 
 =head1 NAME
 
-ratio.pl - Your program here
+divorce_imprinting.pl - hope you signed a prenup!
 
 =head1 SYNOPSIS
 
 Usage examples:
 
- ratio.pl -t ID -r raw.fastq -ea Col -b Ler -ra genome-a.fasta -rb genome-b.fasta -l 100 -m 2 -s 1 50 -o outdir -b basename
+ divorce_imprinting.pl -t ID -r raw.fastq -ea Col -b Ler -ra genome-a.fasta -rb genome-b.fasta -l 100 -m 2 -s 1 50 -o outdir -b basename
 
 =head1 REQUIRED ARGUMENTS
 
@@ -349,8 +351,8 @@ Ecotype B label.
 =item  -s <start> <end> | --splice <start> <end>
 
 =for Euclid
-    start.type:     int
-    end.type:     int
+    start.type: int
+    end.type: int
 
 =item  -l <len> | --read-length <len>
 
