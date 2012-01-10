@@ -117,6 +117,15 @@ if ($opt_split_strand){
     launch(qq{split_strand.pl -c 1 $bowtie_b});
 }
 
+#######################################################################
+# bowtie-windowing
+
+if ($opt_bowtie_windowing){
+    for my $b (glob(catfile($opt_output_directory, "*.bowtie"))) {
+        launch(qq{bowtie_window.pl -r $opt_reference_a -b $b});
+    }
+}
+
 
 #######################################################################
 # parse bowtie
@@ -237,27 +246,30 @@ $pm->wait_all_children;
 
 $logger->info("filter_repeats");
 
-my $w50_a = "$basename_a.7.win-anno.gff$nocc";
-my $w50_b = "$basename_b.7.win-anno.gff$nocc";
 
-my $w50_filtered_a = "$basename_a.7.win-anno-filtered.gff$nocc";
-my $w50_filtered_b = "$basename_b.7.win-anno-filtered.gff$nocc";
+if (! $opt_no_windowing){
+    my $w50_a = "$basename_a.7.win-anno.gff$nocc";
+    my $w50_b = "$basename_b.7.win-anno.gff$nocc";
 
-if ($pm->start == 0){
-    launch("perl -S window_gff.pl -t $opt_locus_tag $gff_sorted_a -g $opt_annotation -k -c sum -o $w50_a -r", expected => $w50_a);
-    launch("perl -S window_gff.pl -t $opt_locus_tag $gff_filtered_a -g $opt_annotation -k -c sum -o $w50_filtered_a -r", expected => $w50_filtered_a);
-    $pm->finish();
+    my $w50_filtered_a = "$basename_a.7.win-anno-filtered.gff$nocc";
+    my $w50_filtered_b = "$basename_b.7.win-anno-filtered.gff$nocc";
+
+    if ($pm->start == 0){
+        launch("perl -S window_gff.pl -t $opt_locus_tag $gff_sorted_a -g $opt_annotation -k -c sum -o $w50_a -r", expected => $w50_a);
+        launch("perl -S window_gff.pl -t $opt_locus_tag $gff_filtered_a -g $opt_annotation -k -c sum -o $w50_filtered_a -r", expected => $w50_filtered_a);
+        $pm->finish();
+    }
+    if ($pm->start == 0){
+        launch("perl -S window_gff.pl -t $opt_locus_tag $gff_sorted_b -g $opt_annotation -k -c sum -o $w50_b -r", expected => $w50_b);
+        launch("perl -S window_gff.pl -t $opt_locus_tag $gff_filtered_b -g $opt_annotation -k -c sum -o $w50_filtered_b -r", expected => $w50_filtered_b);
+        $pm->finish();
+    }
+    $pm->wait_all_children;
+
+    my $table = "$basename.table.txt$nocc";
+
+    launch("perl -S divorce_gene_table.pl -a $opt_annotation -f $w50_a $w50_filtered_a $w50_b $w50_filtered_b -o $table", expected => $table);
 }
-if ($pm->start == 0){
-    launch("perl -S window_gff.pl -t $opt_locus_tag $gff_sorted_b -g $opt_annotation -k -c sum -o $w50_b -r", expected => $w50_b);
-    launch("perl -S window_gff.pl -t $opt_locus_tag $gff_filtered_b -g $opt_annotation -k -c sum -o $w50_filtered_b -r", expected => $w50_filtered_b);
-    $pm->finish();
-}
-$pm->wait_all_children;
-
-my $table = "$basename.table.txt$nocc";
-
-launch("perl -S divorce_gene_table.pl -a $opt_annotation -f $w50_a $w50_filtered_a $w50_b $w50_filtered_b -o $table", expected => $table);
 
 copy($logname, $opt_output_directory);
 
@@ -371,7 +383,11 @@ Enabling this option will create a second set of filtered eland and resulting
 ratio files with coordinate checking on split_on_mismatches_2.pl enabled.  You
 probably don't need this. 
 
-=item  --split-strand
+=item  -ss | --split-strand
+
+=item  -bw | --bowtie-windowing
+
+=item  -nw | --no-windowing
 
 =back
 

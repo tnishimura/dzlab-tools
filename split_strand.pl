@@ -25,7 +25,7 @@ my $bowtie = shift || die "usage: $0 file";
 
 my $basename = $bowtie;
 my $ext = '';
-if ($basename =~ /(\.\w+)$/){
+if ($basename =~ s/(\.\w+)$//){
     $ext = $1;
 }
 
