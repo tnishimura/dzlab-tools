@@ -29,7 +29,7 @@ $basename =~ s/\.bowtie$//;
 my $gff = "$basename.gff";
 my $w50 = "$basename.w50.gff";
 
-launch(sprintf(q{perl -S parse_bowtie.pl -g -o - %s | perl -wlnaF'\t' -e '$F[3]=$F[4]; print join "\t",@F' > ?? }, $bowtie),
+launch("perl -S parse_bowtie.pl -g --windowable -o ?? $bowtie",
     expected => $gff,
 );
 launch("perl -S window_by_fixed.pl -m -w 50 -k -r $reference -o ?? $gff",

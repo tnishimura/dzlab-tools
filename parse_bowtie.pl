@@ -26,6 +26,7 @@ my $output;
 my $unmatched;
 my @splice;
 my $whole;
+my $windowable;
 
 # Grabs and parses command line options
 my $result = GetOptions(
@@ -39,6 +40,7 @@ my $result = GetOptions(
     'id-regex|i=s'  => \$id_regex,
     'reference|r=s' => \$reference,
     'whole|w'       => \$whole,
+    'windowable'    => \$windowable,
     'verbose|v'     => sub { use diagnostics; },
     'quiet|q'       => sub { no warnings; },
     'help|h'        => sub { pod2usage( -verbose => 1 ); },
@@ -88,7 +90,7 @@ while (<>) {
         $counts->{ $current->{target}->[0] }{frequencies}++;
     }
     elsif ($gff) {
-        print_gff( $current );
+        print_gff( $current, $windowable );
     }
     elsif ($paired) {
 
@@ -209,14 +211,14 @@ catch_up( $previous, $unmatched, @splice )
 
 
 sub print_gff {
-    my ($eland) = @_;
+    my ($eland, $windowable) = @_;
 
     print join( "\t",
                 $eland->{target}->[0],
                 'bowtie',
                 'read',
                 $eland->{coordinate}->[0],
-                $eland->{coordinate}->[0] + length $eland->{sequence},
+                ($windowable ? $eland->{coordinate}->[0] : $eland->{coordinate}->[0] + length $eland->{sequence}),
                 q{.},
                 $eland->{strand}->[0],
                 q{.},

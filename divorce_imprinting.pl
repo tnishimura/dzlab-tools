@@ -131,7 +131,7 @@ if ($opt_split_strand){
 if ($opt_bowtie_windowing){
     for my $b (@bowties){
         my $w50 = $b;
-        $w50 =~ s/gff/w50\.gff/;
+        $w50 =~ s/bowtie/w50\.gff/;
         launch(qq{perl -S bowtie_window.pl -r $opt_reference_a -b $b}, expected => $w50);
     }
 }
@@ -285,7 +285,6 @@ if (! $opt_no_windowing){
     if ($opt_split_strand){
         for (@gff_sorted_a_split, @gff_sorted_b_split){
             my $window = $_;
-            $window =~ s/\.gff/\.w50\.gff/;
             $window =~ s/\.5\.sorted\./.7.win-anno./;
             launch("perl -S window_gff.pl -t $opt_locus_tag $_ -g $opt_annotation -k -c sum -o ?? -r", expected => $window);
         }
