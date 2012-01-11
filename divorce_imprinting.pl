@@ -128,11 +128,11 @@ if ($opt_split_strand){
 #######################################################################
 # bowtie-windowing
 
-if ($opt_bowtie_windowing){
+if ($opt_window_by_fixed){
     for my $b (@bowties){
         my $w50 = $b;
-        $w50 =~ s/bowtie/w50\.gff/;
-        launch(qq{perl -S bowtie_window.pl -r $opt_reference_a -b $b}, expected => $w50);
+        $w50 =~ s/bowtie/w$opt_window_by_fixed\.gff/;
+        launch(qq{perl -S bowtie_window.pl -w $opt_window_by_fixed -r $opt_reference_a -b $b}, expected => $w50);
     }
 }
 
@@ -266,34 +266,52 @@ $logger->info("filter_repeats");
 
 
 if (! $opt_no_windowing){
-    my $w50_a = "$basename_a.7.win-anno.gff$nocc";
-    my $w50_b = "$basename_b.7.win-anno.gff$nocc";
+    my $winanno_a = "$basename_a.7.win-anno.gff$nocc";
+    my $winanno_b = "$basename_b.7.win-anno.gff$nocc";
+    my $winanno_filtered_a = "$basename_a.7.win-anno-filtered.gff$nocc";
+    my $winanno_filtered_b = "$basename_b.7.win-anno-filtered.gff$nocc";
 
-    my $w50_filtered_a = "$basename_a.7.win-anno-filtered.gff$nocc";
-    my $w50_filtered_b = "$basename_b.7.win-anno-filtered.gff$nocc";
+    my ($w50_a, $w50_b, $w50_filtered_a, $w50_filtered_b);
+    if ($opt_window_by_fixed){
+        $w50_a = "$basename_a.7.w$opt_window_by_fixed.gff$nocc";
+        $w50_b = "$basename_b.7.w$opt_window_by_fixed.gff$nocc";
+        $w50_filtered_a = "$basename_a.7.w$opt_window_by_fixed-filtered.gff$nocc";
+        $w50_filtered_b = "$basename_b.7.w$opt_window_by_fixed-filtered.gff$nocc";
+    }
 
     if ($pm->start == 0){
-        launch("perl -S window_gff.pl -t $opt_locus_tag $gff_sorted_a -g $opt_annotation -k -c sum -o $w50_a -r", expected => $w50_a);
-        launch("perl -S window_gff.pl -t $opt_locus_tag $gff_filtered_a -g $opt_annotation -k -c sum -o $w50_filtered_a -r", expected => $w50_filtered_a);
+        launch("perl -S window_gff.pl -t $opt_locus_tag $gff_sorted_a -g $opt_annotation -k -c sum -o ?? -r", expected => $winanno_a);
+        launch("perl -S window_gff.pl -t $opt_locus_tag $gff_filtered_a -g $opt_annotation -k -c sum -o ?? -r", expected => $winanno_filtered_a);
+        if ($opt_window_by_fixed){
+            launch("perl -S window_by_fixed.pl -n -w $opt_window_by_fixed -r $opt_reference_a -o ?? -k --count-in-scores $gff_sorted_a", expected => $w50_a);
+            launch("perl -S window_by_fixed.pl -n -w $opt_window_by_fixed -r $opt_reference_a -o ?? -k --count-in-scores $gff_filtered_a", expected => $w50_filtered_a);
+        }
         $pm->finish();
     }
     if ($pm->start == 0){
-        launch("perl -S window_gff.pl -t $opt_locus_tag $gff_sorted_b -g $opt_annotation -k -c sum -o $w50_b -r", expected => $w50_b);
-        launch("perl -S window_gff.pl -t $opt_locus_tag $gff_filtered_b -g $opt_annotation -k -c sum -o $w50_filtered_b -r", expected => $w50_filtered_b);
+        launch("perl -S window_gff.pl -t $opt_locus_tag $gff_sorted_b -g $opt_annotation -k -c sum -o ?? -r", expected => $winanno_b);
+        launch("perl -S window_gff.pl -t $opt_locus_tag $gff_filtered_b -g $opt_annotation -k -c sum -o ?? -r", expected => $winanno_filtered_b);
+        if ($opt_window_by_fixed){
+            launch("perl -S window_by_fixed.pl -n -w $opt_window_by_fixed -r $opt_reference_a -o ?? -k --count-in-scores $gff_sorted_b", expected => $w50_b);
+            launch("perl -S window_by_fixed.pl -n -w $opt_window_by_fixed -r $opt_reference_a -o ?? -k --count-in-scores $gff_filtered_b", expected => $w50_filtered_b);
+        }
         $pm->finish();
     }
     if ($opt_split_strand){
         for (@gff_sorted_a_split, @gff_sorted_b_split){
-            my $window = $_;
-            $window =~ s/\.5\.sorted\./.7.win-anno./;
-            launch("perl -S window_gff.pl -t $opt_locus_tag $_ -g $opt_annotation -k -c sum -o ?? -r", expected => $window);
+            my $window_anno = $_;
+            my $window_50 = $_;
+            $window_anno =~ s/\.5\.sorted\./.7.win-anno./;
+            $window_50   =~ s/\.5\.sorted\./.7.w$opt_window_by_fixed./;
+            launch("perl -S window_gff.pl -t $opt_locus_tag $_ -g $opt_annotation -k -c sum -o ?? -r", expected => $window_anno);
+            launch("perl -S window_by_fixed.pl -n -w $opt_window_by_fixed -r $opt_reference_a -o ?? -k --count-in-scores $_", expected => $window_50);
         }
     }
     $pm->wait_all_children;
 
     my $table = "$basename.table.txt$nocc";
 
-    launch("perl -S divorce_gene_table.pl -a $opt_annotation -f $w50_a $w50_filtered_a $w50_b $w50_filtered_b -o $table", expected => $table);
+    launch("perl -S divorce_gene_table.pl -a $opt_annotation -f $winanno_a $winanno_filtered_a $winanno_b $winanno_filtered_b -o $table", expected => $table);
 }
 
 copy($logname, $opt_output_directory);
@@ -412,9 +430,13 @@ probably don't need this.
 
 Split the 0.bowtie, 5.sorted.gff file by strand.
 
-=item  -bw | --bowtie-windowing
+=item  -wf <size> | --window-by-fixed <size>
 
-Window the 0.bowtie files
+=for Euclid
+    size.type:        int, size > 1 
+    size.type.error:  <size> must be greater than 1
+
+Window the 0.bowtie files and 5.sorted.gff files.
 
 =item  -nw | --no-windowing
 
