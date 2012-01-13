@@ -18,7 +18,8 @@ our @ISA = qw(Exporter);
 our @EXPORT_OK = qw();
 our @EXPORT = qw(debug info);
 
-my %name2numeric = (DEBUG => 3,   INFO => 2,   WARN => 1,   FATAL => 0);
+my %name2numeric = (DEBUG => 3, INFO => 2, WARN => 1, FATAL => 0);
+my %firstletter = (DEBUG => 'D', INFO => 'I', WARN => 'W', FATAL => 'F');
 #my %numeric2name = (3 => 'DEBUG', 2 => 'INFO', 1 => 'WARN', 0 => 'FATAL');
 my $scriptname = basename($0);
 
@@ -95,19 +96,19 @@ sub _log{
         $function = $c[3];
     }
     else{
-        $function = "__TOP__";
+        $function = "_";
     }
 
     #strftime("%H:%M:%S", localtime(time()))
     my $logmsg = sprintf(
-        "[%s - %s (%s) %s(%s) %s]\n%s\n", 
+        "[%s - %s (%s) %s(%s) %s] %s\n", 
         $scriptname,
         _minutes(time() - $config{starttime}), 
-        $level, 
-        $file, 
+        $firstletter{$level}, 
+        ($file eq $scriptname ? "_" : $file), 
         $line, 
         $function, 
-        join("\n", map { "  $_" } split /\n/, $message),
+        join("\n  ", split /\n/, $message),
     ); 
 
     for my $file (@{$config{files}}) {
@@ -140,4 +141,56 @@ sub _minutes{
     return sprintf("%d:%02d", $m, $s);
 }
 
+
 1; # End of Log::SQLogger
+
+
+=head1 SYNOPSIS
+
+Log format:
+
+  [caller_script.pl - 00:01 (L) file(line) function] message
+
+  caller_script.pl - basename($0)
+
+  00:01    - time in minutes since start
+  L        - first letter of level
+  file     - actual line of info/debug/warn/die. '_' if same as caller_script.pl
+  line     - line number in above file
+  function - function name. '_' if top level.
+  message  - message.
+
+=head2 set_file
+
+log file.  
+
+ Log::Flogger::set_file("log.txt");
+
+=head2 set_level
+
+Threshold level.
+
+ Log::Flogger::set_level('DEBUG');
+
+=head2 debug
+
+Log DEBUG level message.
+
+=head2 info
+
+Log INFO level message.
+
+=head2 warn
+
+Log WARN level message.
+
+This is the built in warn, but will be treated as debug/info by using
+$SIG{__WARN__} handler.
+
+=head2 die
+
+Log DIE level message.
+
+Same as warn but for die.
+
+=cut
