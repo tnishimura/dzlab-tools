@@ -441,6 +441,27 @@ sub rc_file{
     }
 }
 
+=head2 format_fasta('header', $seq)
+
+format a header and a single seq for printing as a fasta.
+(Doesn't belong in FastaREADER module... but oh well)
+
+=cut 
+sub format_fasta{
+    my ($header, $seq, $width) = @_;
+
+    confess "need a sequence and header" unless ($seq and $header);
+
+    my @buffer;
+    $buffer[0] = ">$header" if defined $header;
+    $width //= 80;
+    my $length = length $seq;
+
+    for (my $position = 0; $position < $length; $position += $width){
+        push @buffer, substr $seq, $position, $width;
+    }
+    return (join "\n", @buffer) . "\n";
+}
 
 no Moose;
 __PACKAGE__->meta->make_immutable;

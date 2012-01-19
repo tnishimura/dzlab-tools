@@ -31,7 +31,7 @@ sub BUILD{
         split /\t/, $line;
         croak unless defined $group && defined $object_start;
 
-        push @{$self->_groups->{$group}}, {
+        unshift @{$self->_groups->{$group}}, {
             object_start     => $object_start,
             object_end       => $object_end,
             object_length    => $type ne 'N' ? $object_end - $object_start + 1 : undef,

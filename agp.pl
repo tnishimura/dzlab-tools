@@ -7,7 +7,8 @@ use autodie;
 use FindBin;
 use List::Util qw/max/;
 use lib "$FindBin::Bin/lib";
-use Fasta qw/slurp_fasta format_fasta/;
+#use Fasta qw/slurp_fasta format_fasta/;
+use FastaReader;
 use Getopt::Euclid qw( :vars<opt_> );
 use Pod::Usage;
 use AGP;
@@ -33,7 +34,8 @@ my $agp = AGP->new(file => $opt_agp);
 # slurp fasta
 
 $logger->info("Slurping Fasta");
-my $contigs = slurp_fasta($opt_fasta);
+my $contigs = FastaReader->new(file => $opt_fasta, slurp => 1);
+#my $contigs = slurp_fasta($opt_fasta);
 
 #$logger->debug("contigs: \n" . join "\n", keys %$contigs);
 
@@ -54,7 +56,8 @@ for my $group ($agp->groups) {
         #$logger->logdie("can't handle minus strand yet") if $component->{orientation} eq '-';
         $logger->trace($component->{component_id});
 
-        my $contig = $contigs->{$component->{component_id}};
+        #my $contig = $contigs->{$component->{component_id}};
+        my $contig = $contigs->get($component->{component_id});
         my $contig_substring = substr $contig, $component->{component_start} - 1, $component->{component_length};
 
         $contig_substring = reverse_complement($contig_substring) if $component->{orientation} eq '-';
@@ -62,16 +65,8 @@ for my $group ($agp->groups) {
         substr $sequence, $component->{object_start}-1, $component->{object_length}, $contig_substring;
     }
 
-    print format_fasta($group, $sequence);
+    print FastaReader::format_fasta($group, $sequence);
 }
-
-=head1 NAME
- 
-agp.pl
- 
-=head1 SYNOPSIS
-
- agp.pl
 
 =head1 OPTIONS
 
