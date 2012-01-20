@@ -8,8 +8,9 @@ use Getopt::Euclid qw( :vars<opt_> );
 use Pod::Usage;
 use FindBin;
 use lib "$FindBin::Bin/lib";
-use FastaOO;
-use Fasta;
+#use FastaOO;
+#use Fasta;
+use FastaReader;
 use AGP;
 use DZUtil qw/reverse_complement/;
 
@@ -28,15 +29,14 @@ my $agp = AGP->new(file => $opt_agp);
 #######################################################################
 # Scaffold
 
-$logger->info("FastaOO");
-my $f = FastaOO->new(file => $opt_scaffold);
-#$logger->debug(Dumper $f->counts);
+$logger->info("Slurping Assembled");
+my $f = FastaReader->new(file => $opt_scaffold, slurp => 1);
 
 #######################################################################
 # Meat
 
-$logger->info("Slurping Fasta");
-my $contigs = slurp_fasta($opt_fasta);
+$logger->info("Slurping Scaffold (the pieces)");
+my $contigs = FastaReader->new(file => $opt_fasta, slurp => 1);
 
 for my $group ($agp->groups()) {
     $logger->info($group);
@@ -53,7 +53,8 @@ for my $group ($agp->groups()) {
             }
         } else{
             #$logger->logdie("can't handle minus strand yet") if $component->{orientation} eq '-';
-            my $contig = $contigs->{$component->{component_id}};
+
+            my $contig = $contigs->get($component->{component_id});
             my $contig_substring = substr $contig, $component->{component_start} - 1, $component->{component_length};
             $contig_substring = reverse_complement($contig_substring) if $component->{orientation} eq '-';
 
