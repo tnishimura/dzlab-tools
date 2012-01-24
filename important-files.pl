@@ -24,7 +24,7 @@ my $result = GetOptions (
 );
 if (!@ARGV || !$result){
     say "usage: ";
-    say "$0 [-s] [-w] [-i] [-d] dir1 dir2 file1 file2 ... | rsync -avnrP --files-from=- . /somewhere";
+    say "$0 [-s] [-w] [-i] [-d] [-c /dest/dir/] dir1 dir2 file1 file2 ...";
     exit 1;
 }
 
