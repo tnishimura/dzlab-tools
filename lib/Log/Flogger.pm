@@ -23,6 +23,8 @@ my %firstletter = (DEBUG => 'D', INFO => 'I', WARN => 'W', FATAL => 'F');
 #my %numeric2name = (3 => 'DEBUG', 2 => 'INFO', 1 => 'WARN', 0 => 'FATAL');
 my $scriptname = basename($0);
 
+our $UPLEVEL = 0;
+
 #######################################################################
 # load configs or initialize
 
@@ -62,10 +64,10 @@ sub set_file{
 #######################################################################
 # _log
 
-sub debug{ _log('DEBUG', 1, @_); }
-sub info { _log('INFO', 1, @_); }
-$SIG{__WARN__} = sub{ _sig_log('WARN', 2, @_); };
-$SIG{__DIE__}  = sub{ _sig_log('FATAL', 2, @_); };
+sub debug{ _log('DEBUG', $UPLEVEL + 1, @_); }
+sub info { _log('INFO', $UPLEVEL + 1, @_); }
+$SIG{__WARN__} = sub{ _sig_log('WARN', $UPLEVEL+2, @_); };
+$SIG{__DIE__}  = sub{ _sig_log('FATAL', $UPLEVEL+2, @_); };
 
 sub _sig_log{
     my ($level, $depth, $msg) = @_;
@@ -97,6 +99,10 @@ sub _log{
     }
     else{
         $function = "_";
+    }
+
+    if ($function eq '(eval)'){
+        return;
     }
 
     #strftime("%H:%M:%S", localtime(time()))
@@ -192,5 +198,17 @@ $SIG{__WARN__} handler.
 Log DIE level message.
 
 Same as warn but for die.
+
+=head2 $UPLEVEL
+
+If info/debug/warn/die are called from a wrapper function, set this to the
+number of wrappers so that file/line/function are reported for that many levels
+up.
+
+ sub launcher{
+    local $Log::Flogger::UPLEVEL = 1;
+    system(@_);
+    warn "no good!" if @$; # file/line/function reported from pov of launcher() caller
+ }
 
 =cut
