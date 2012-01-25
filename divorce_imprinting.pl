@@ -283,8 +283,8 @@ if (! $opt_no_windowing){
         launch("perl -S window_gff.pl -t $opt_locus_tag $gff_sorted_a -g $opt_annotation -k -c sum -o ?? -r", expected => $winanno_a);
         launch("perl -S window_gff.pl -t $opt_locus_tag $gff_filtered_a -g $opt_annotation -k -c sum -o ?? -r", expected => $winanno_filtered_a);
         if ($opt_window_by_fixed){
-            launch("perl -S window_by_fixed.pl -n -w $opt_window_by_fixed -r $opt_reference_a -o ?? -k --count-in-scores $gff_sorted_a", expected => $w50_a);
-            launch("perl -S window_by_fixed.pl -n -w $opt_window_by_fixed -r $opt_reference_a -o ?? -k --count-in-scores $gff_filtered_a", expected => $w50_filtered_a);
+            launch("perl -S window_by_fixed.pl -n -w $opt_window_by_fixed -r $opt_reference_a -o ?? -k $gff_sorted_a", expected => $w50_a);
+            launch("perl -S window_by_fixed.pl -n -w $opt_window_by_fixed -r $opt_reference_a -o ?? -k $gff_filtered_a", expected => $w50_filtered_a);
         }
         $pm->finish();
     }
@@ -292,8 +292,8 @@ if (! $opt_no_windowing){
         launch("perl -S window_gff.pl -t $opt_locus_tag $gff_sorted_b -g $opt_annotation -k -c sum -o ?? -r", expected => $winanno_b);
         launch("perl -S window_gff.pl -t $opt_locus_tag $gff_filtered_b -g $opt_annotation -k -c sum -o ?? -r", expected => $winanno_filtered_b);
         if ($opt_window_by_fixed){
-            launch("perl -S window_by_fixed.pl -n -w $opt_window_by_fixed -r $opt_reference_a -o ?? -k --count-in-scores $gff_sorted_b", expected => $w50_b);
-            launch("perl -S window_by_fixed.pl -n -w $opt_window_by_fixed -r $opt_reference_a -o ?? -k --count-in-scores $gff_filtered_b", expected => $w50_filtered_b);
+            launch("perl -S window_by_fixed.pl -n -w $opt_window_by_fixed -r $opt_reference_a -o ?? -k $gff_sorted_b", expected => $w50_b);
+            launch("perl -S window_by_fixed.pl -n -w $opt_window_by_fixed -r $opt_reference_a -o ?? -k $gff_filtered_b", expected => $w50_filtered_b);
         }
         $pm->finish();
     }
@@ -304,7 +304,7 @@ if (! $opt_no_windowing){
             $window_anno =~ s/\.5\.sorted\./.7.win-anno./;
             $window_50   =~ s/\.5\.sorted\./.7.w$opt_window_by_fixed./;
             launch("perl -S window_gff.pl -t $opt_locus_tag $_ -g $opt_annotation -k -c sum -o ?? -r", expected => $window_anno);
-            launch("perl -S window_by_fixed.pl -n -w $opt_window_by_fixed -r $opt_reference_a -o ?? -k --count-in-scores $_", expected => $window_50);
+            launch("perl -S window_by_fixed.pl -n -w $opt_window_by_fixed -r $opt_reference_a -o ?? -k $_", expected => $window_50);
         }
     }
     $pm->wait_all_children;
