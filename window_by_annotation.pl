@@ -65,8 +65,8 @@ sub add_methylation{
 my $counter = Counter->new();
 
 while (defined(my $gff = $p->next())){
-    my ($seq, $start, $end, $strand, $c, $t) 
-    = ($gff->sequence, $gff->start, $gff->end, $gff->strand, $gff->get_column('c'), $gff->get_column('t'),);
+    my ($seq, $start, $end, $strand, $score, $c, $t, $n) 
+    = ($gff->sequence, $gff->start, $gff->end, $gff->strand, $gff->score(), $gff->get_column('c'), $gff->get_column('t'),$gff->get_column('n'));
     $strand //= '.';
 
     my $gffstring = $gff->to_string;
@@ -87,7 +87,7 @@ while (defined(my $gff = $p->next())){
                 $methylation{$locus}[4]+=$c;
                 $methylation{$locus}[5]+=$t;
             }
-            $methylation{$locus}[6]+=1;
+            $methylation{$locus}[6]+=$opt_count_in_scores ? $score//1 : $n//1;
         }
         else{
             die sprintf("%s does not have an $opt_tag field?", $result->{item}->to_string);
@@ -159,6 +159,12 @@ Locus tag in --gff annotation file. Defaults to 'ID'.
     featurename.default:     'window'
 
 =item  -n | --report-count 
+
+During output, report counts in column 6 as well as of "n=" in col 9.
+
+=item -c | --count-in-scores
+
+During input, read counts from column 6 instead of "n=" in col 9.  (If neither exists, assume 1.)
 
 =item  -k | --no-skip 
 
