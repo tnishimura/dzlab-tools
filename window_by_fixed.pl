@@ -281,11 +281,11 @@ Don't omit windows without any scores.  Currently only works for files with sing
 
 =item  -n | --report-count 
 
-Report 'n' in the scores column instead of c/(c+t).
+For output, report 'n' in the scores column instead of c/(c+t). 
 
-=item --count-in-scores
+=item -c | --count-in-scores
 
-Use the column 6 value instead of "n=#" for count score
+For input, use the column 6 value instead of "n=#" for count score
 
 =item  --debug <sqlite>
 
