@@ -5,13 +5,7 @@ use Data::Dumper;
 use Carp;
 use Getopt::Long;
 use Pod::Usage;
-use Statistics::Descriptive;
-use FindBin;
-use lib "$FindBin::Bin/lib";
-#use DZUtil qw/read_conf/;
 use autodie;
-
-#my %config = read_conf();
 
 my $output      = '-';
 my $scores      = 100;
@@ -42,7 +36,7 @@ if ($output ne '-') {
     select $USER_OUT;
 }
 
-my @stats = map { Statistics::Descriptive::Full->new() } (1 .. $scores);
+my @stats = map { []  } (1 .. $scores);
 
 LOCUS:
 while (<ARGV>) {
@@ -53,7 +47,8 @@ while (<ARGV>) {
         next if $k >= @scores;
         my $s = $scores[$k];
         next if ($s eq 'na');
-        $stats[$k]->add_data($s);
+        push @{$stats[$k]}, $s;
+        #$stats[$k]->add_data($s);
     }
 
 }
@@ -61,21 +56,65 @@ while (<ARGV>) {
 print join ("\t", qw/bin mean std var ste numscores 25% 50% 75%/), "\n";
 
 for my $k (0 .. $scores - 1){
-    my $stat = $stats[$k];
-    printf("%d\t" . ("%s\t" x 4) . "%d\t" . ("%s\t" x 3) . "\n",
-        $k * $bin_width - int ($scores/2) * $bin_width,
-        $stat->count ? $stat->mean() : 'na',
-        $stat->count ? $stat->standard_deviation() : 'na',
-        $stat->count ? $stat->variance() : 'na',
-        $stat->count ? $stat->standard_deviation() / sqrt ($stat->count) : 'na',
-        $stat->count,
-        $stat->count ? quartiles($stat->get_data) : ('na', 'na', 'na')
-    );
+    my $vals = $stats[$k];
+    my $count = @$vals;
+    my $index = $k * $bin_width - int ($scores/2) * $bin_width;
+
+    if ($count){
+        my $mean = smean(@$vals);
+        my $var = svar(@$vals);
+        my $std = sqrt($var);
+        my $ste = $std/sqrt($count);
+        my @quartiles = quartiles(@$vals);
+
+        printf("%d\t" . ("%s\t" x 4) . "%d\t" . ("%s\t" x 3) . "\n",
+            $index, $mean, $std, $var, $ste, $count, @quartiles,
+        );
+    }
+    else{
+        printf("%d\t" . ("%s\t" x 4) . "%d\t" . ("%s\t" x 3) . "\n",
+            $index, 'na', 'na', 'na', 'na', $count, 'na', 'na', 'na',
+        );
+    }
+}
+
+
+#######################################################################
+# math
+
+sub restrict_range{
+    my ($val, $min, $max) = @_;
+    return $val < $min ? $min : 
+           $val > $max ? $max :
+           $val;
 }
 
 sub quartiles{
     my @data = sort { $a<=>$b } @_;
-    return @data[int(@data/4), int (@data/2), int (@data*3/4)];
+    return @data[
+    restrict_range(int(@data/4),0,$#data), 
+    restrict_range(int(@data/2),0,$#data), 
+    restrict_range(int(@data*3/4),0,$#data),
+    ];
+}
+
+sub my_sum{
+    my $total = 0;
+    for (@_){$total += $_;}
+    return $total;
+}
+
+sub smean{
+    return my_sum(@_) / scalar(@_);
+}
+
+sub svar{
+    if (@_ < 2){
+        return 'na';
+    }
+    my $n = scalar @_;
+    my $mean = smean(@_);
+    return (my_sum(map { $_*$_ } @_) - $n * $mean * $mean ) / ($n - 1);
 }
 
 =head1 NAME
