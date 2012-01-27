@@ -288,6 +288,14 @@ Distance from genes to stop from (stop flag 6 only, see Stop Flag section.) Defa
 =for Euclid
     distance.default:     1500
 
+=item  -6 | --trust-column-6 
+
+Trust col 6 for scores instead of using c= and t= in col 9
+
+=item  -n <bins> | --flag-7-num-bins <bins>
+
+Number of bins to use for flag 7.
+
 =back
 
 =head2 Flag options
@@ -312,7 +320,12 @@ upstream of the 5' end.
 The same as stop flag #2, but stopping alignment by the
 user-specified amount before the end of the gene.
 
-=item
+=item -s 7
+
+Made for Yvonne.  Instead of a fixed distance and bin width, for each locus use
+the length of the gene as the distance, and look upstream by that length and
+downstream to the end of the locus.  Overlapping loci have the same effect as
+flag 2.
 
 =back
 
