@@ -37,6 +37,7 @@ my $result = GetOptions(
     'singleton|1'        => \(my $singleton = 0),
     'verbose|v'          => \(my $verbose = 0),
     'trust-column-6|6'   => \(my $trust_column_6 = 0),
+    'flag-7-num-bins|n=i' => \(my $flag_7_numbins),
     #'no-skip'            => \(my $noskip),
     #'quiet|q'            => sub { no warnings; },
     #'help|h'             => sub { pod2usage( -verbose => 1 ); },
@@ -65,6 +66,7 @@ print STDERR <<"LOGMSG" if $verbose;
     \$zero_flag_region = $zero_flag_region
     \$singleton        = $singleton
     \$trust-column-6   = $trust_column_6
+    \$flag_7_numbins   = $flag_7_numbins
 LOGMSG
 
 my $nmc = Ends::NeighborMapCollection::new_cached(
@@ -75,6 +77,7 @@ my $nmc = Ends::NeighborMapCollection::new_cached(
     prime           => $three_prime ? 3 : 5,
     flag_6_distance => $stop_distance,
     binwidth        => $bin_width,
+    numbins         => $flag_7_numbins,
 );
 
 build_table($nmc);
@@ -173,7 +176,12 @@ dump_average(
             map { $table{$_}[$bin] } 
             @id_list;
 
-            say $fh (-$distance + $bin * $binwidth), "\t", safediv(sum(@scores), scalar(@scores));
+            if ($stop_flag == 7){
+                say $fh $bin, "\t", safediv(sum(@scores), scalar(@scores));
+            }
+            else{
+                say $fh (-$distance + $bin * $binwidth), "\t", safediv(sum(@scores), scalar(@scores));
+            }
         }
     }
 }
@@ -303,6 +311,8 @@ upstream of the 5' end.
 
 The same as stop flag #2, but stopping alignment by the
 user-specified amount before the end of the gene.
+
+=item
 
 =back
 

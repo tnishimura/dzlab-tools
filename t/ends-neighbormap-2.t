@@ -11,7 +11,7 @@ use List::Util qw/min max/;
 
 sub confirm{
     my ($nm, $id, $strand, $overlapped, $focus,$minus, $plus) = @_;
-    is_deeply([$nm->neighborhood($id)],  [$focus, $strand, $overlapped, $minus, $plus], $id); 
+    is_deeply([($nm->neighborhood($id))[0..4]],  [$focus, $strand, $overlapped, $minus, $plus], $id); 
 }
 
 #######################################################################
@@ -105,6 +105,38 @@ sub flag_6_prime_3 : Tests {
     confirm($nm, 'target1', '-', 1, 10000, 5000, 10350);
     confirm($nm, 'target2', '-', 0, 9000, 4000, 9999);
     confirm($nm, 'lonely', '-', 0, 100000, 95000, 105000);
+}
+
+#######################################################################
+# Flag 6
+
+sub flag_7_prime_5 : Tests {
+    my $nm = Ends::NeighborMap->new(flag => 7, prime => 5);
+    #$nm->add('target1', '+', 10000, 10500);
+    #$nm->add('d1', '+', 10400, 20000);
+    #$nm->add('target2', '+', 9000, 10149);
+    #$nm->add('target3', '-', 19852, 22000);
+    $nm->add('lonely1','+', 100000, 110000);
+    $nm->add('lonely2','-', 200000, 210000);
+
+    $nm->finalize();
+    #say Dumper $nm;
+
+    #confirm($nm, 'target1', '+', 1, 10000, 5000, 10350);
+    #confirm($nm, 'target2', '+', 0, 9000, 4000, 9999);
+    #confirm($nm, 'target3', '-', 0, 22000, 20002, 27000);
+    confirm($nm, 'lonely1', '+', 0, 100000, 90000, 110000);
+    confirm($nm, 'lonely2', '-', 0, 210000, 200000, 220000);
+
+    #my ($focus, $strand, $overlapped, $minus, $plus) = 
+    #$nm->neighborhood('lonely2');
+    #say Dumper {
+    #    focus      => $focus ,
+    #    strand     => $strand ,
+    #    overlapped => $overlapped ,
+    #    minus      => $minus ,
+    #    plus       => $plus,
+    #};
 }
 
 ends::neighborhood::Test->runtests;

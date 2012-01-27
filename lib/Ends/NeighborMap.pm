@@ -103,8 +103,9 @@ sub neighborhood{
     my $distance = $self->distance;
     my $prime = $self->prime;
     my $flag_distance = $self->flag_6_distance;
+    my $length = $end - $start; # + 1 not necessary
 
-    #say "$strand, $start ,$end, $distance, $prime, $flag_distance";
+    say "$strand, $start ,$end, $distance, $prime, $flag_distance, $length";
 
     #######################################################################
     # Upstream end
@@ -112,8 +113,10 @@ sub neighborhood{
         my $overlapped = $self->overlapped($start);
         my $max_minus = $start - $distance;
         my $max_plus = $start + $distance;
-        my $minus = $self->nearest_upstream_end($start) // $max_minus;
-        my $plus  = $self->nearest_downstream_start($start) // $max_plus;
+        my $nearest_upstream_end = $self->nearest_upstream_end($start);
+        my $nearest_downstream_start = $self->nearest_downstream_start($start);
+        my $minus = $nearest_upstream_end // $max_minus;
+        my $plus  = $nearest_downstream_start // $max_plus;
 
         #say "$max_minus $minus $plus $max_plus ($start, $end)";
 
@@ -133,6 +136,17 @@ sub neighborhood{
                     min($end - $flag_distance, $plus, $max_plus),
                 );
             }
+            when (7){
+                return ($start, $strand, $overlapped,
+                    defined $nearest_upstream_end ? 
+                      max($nearest_upstream_end, $start - $length) : 
+                      $start - $length,
+                    defined $nearest_downstream_start ? 
+                      min($end, $nearest_downstream_start, $start + $length) : 
+                      min($end, $start + $length),
+                    $length,
+                );
+            }
         }
     }
     #######################################################################
@@ -141,8 +155,10 @@ sub neighborhood{
         my $overlapped = $self->overlapped($end);
         my $max_minus = $end - $distance;
         my $max_plus = $end + $distance;
-        my $minus = $self->nearest_upstream_end($end) // $max_minus;
-        my $plus  = $self->nearest_downstream_start($end) // $max_plus;
+        my $nearest_upstream_end = $self->nearest_upstream_end($end);
+        my $nearest_downstream_start = $self->nearest_downstream_start($end);
+        my $minus = $nearest_upstream_end // $max_minus;
+        my $plus  = $nearest_downstream_start // $max_plus;
 
         given ($self->flag){
             when (0){
@@ -158,6 +174,17 @@ sub neighborhood{
                 return ($end, $strand, $overlapped,
                     max($start + $flag_distance, $minus, $max_minus),
                     min($plus, $max_plus),
+                );
+            }
+            when (7){
+                return ($end, $strand, $overlapped,
+                    defined $nearest_upstream_end ? 
+                        max($start, $nearest_upstream_end, $end-$length) : 
+                        max($start, $end-$length), 
+                    defined $nearest_downstream_start ? 
+                        min($nearest_downstream_start, $end + $length) :
+                        $end + $length,
+                    $length,
                 );
             }
         }

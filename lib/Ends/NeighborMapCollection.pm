@@ -14,10 +14,10 @@ use overload '""' => \&stringify;
 has file            => (is => 'ro', required => 1,);
 has tag             => (is => 'ro', required => 1, );
 has flag            => (is  => 'ro', required => 1, );
-has distance        => (is  => 'ro', required => 1, );
+has distance        => (is  => 'ro', required => 0, );
 has prime           => (is  => 'ro', required => 1, );
 has flag_6_distance => (is  => 'ro', required => 1, );
-has binwidth        => (is  => 'ro', required => 1, );
+has binwidth        => (is  => 'ro', required => 0, );
 has numbins         => (is  => 'rw', );
 
 
@@ -84,12 +84,29 @@ sub stringify{
 sub BUILD{
     my ($self) = @_;
 
-    my $binwidth = $self->binwidth;
-    my $distance = $self->distance;
+    my $binwidth = $self->binwidth; # flag 1-6
+    my $distance = $self->distance; # flag 1-6
+    my $numbins = $self->numbins;   # flag 7
     my $flag = $self->flag;
     my $flag_6_distance = $self->flag_6_distance;
     my $prime = $self->prime;
-    $self->numbins(my $numbins = int(($self->distance * 2) / $binwidth));
+
+    if ($flag == 7){
+        if ($numbins){
+            # ok
+        }
+        else{
+            croak "with flag 7, you need to specifiy numbins";
+        }
+    }
+    elsif ($flag != 7){
+        if (! $numbins && $binwidth && $distance){
+            $self->numbins($numbins = int(($self->distance * 2) / $binwidth));
+        }
+        else{
+            croak "with flag $flag, you need to specifiy distance and binwidth";
+        }
+    }
 
     my %neighbormaps;
     my %lookup_trees;
@@ -124,10 +141,15 @@ sub BUILD{
 
         IDLOOP:
         for my $id (@{$id_list{$seq}}) {
-            my ($position, $strand, $overlapped, $flag_upstream, $flag_downstream)
+            my ($position, $strand, $overlapped, $flag_upstream, $flag_downstream, $length)
             = $nm->neighborhood($id);
 
             next IDLOOP if $overlapped;
+
+            if ($flag == 7){
+                $distance = $length;
+                $binwidth = int($length * 2 / $numbins);
+            }
             
             my $binnum = $strand eq '+' ? 0 : $numbins - 1; # 0->99 or 99->0
             my $first_valid_bin = $numbins;
