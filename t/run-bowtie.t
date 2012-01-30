@@ -25,7 +25,7 @@ my $ref = setup_reference() . '.c2t';
 my $output = catfile($dir, "run-bowtie.out");
 
 {
-    my ($processed, $aligned, @loglines) = bowtie(
+    my ($processed, $aligned, $suppressed, $reported, @loglines) = bowtie(
         '-1' => $reads, 
         output => $output, 
         index => $ref,
@@ -34,6 +34,8 @@ my $output = catfile($dir, "run-bowtie.out");
     );
     is($processed, 5100, 'number processed');
     is($aligned, 3589, 'number aligned');
+    is($suppressed, 0, 'number suppressed');
+    is($reported, 3589, 'total reported');
 
     my @expected_lines = (
         '# reads processed: 5100',
@@ -46,3 +48,62 @@ my $output = catfile($dir, "run-bowtie.out");
 }
 
 
+{
+    my ($processed, $aligned, $suppressed, $reported, @loglines) = bowtie(
+        '-1'       => $reads,
+        output     => $output,
+        index      => $ref,
+        #verbose    => 1,
+        seed       => 12345,
+        maxhits    => 10,
+        splice     => [5,25],
+        readlength => 100,
+    );
+    is($processed, 5100, 'number processed');
+    is($aligned, 4907, 'number aligned');
+    is($suppressed, 60, 'number suppressed');
+    is($reported, 6137, 'total reported');
+
+    my @expected_lines = (
+        '# reads processed: 5100',
+        '# reads with at least one reported alignment: 4907 (96.22%)',
+        '# reads that failed to align: 133 (2.61%)',
+        '# reads with alignments suppressed due to -m: 60 (1.18%)',
+        'Reported 6137 alignments to 1 output stream(s)',
+    );
+
+    is_deeply(\@loglines, \@expected_lines, "log lines");
+}
+
+dies_ok(sub{
+    bowtie(
+        '-1'       => $reads,
+        output     => $output,
+        index      => $ref,
+        seed       => 12345,
+        maxhits    => 10,
+        splice     => [5,25],
+    )}, "death: splice without readlength");
+
+dies_ok(sub{
+    bowtie(
+        '-1'       => $reads,
+        output     => $output,
+        index      => $ref,
+        seed       => 12345,
+        maxhits    => 10,
+        splice     => [5,25],
+        readlength => 100,
+        trim5      => 123,
+        trim3      => 543,
+    )}, "death: splice with trims");
+
+dies_ok(sub{
+    bowtie(
+        '-1'    => $reads,
+        output  => $output,
+        index   => $ref,
+        seed    => 12345,
+        maxhits => 10,
+        best    => 1
+    )}, "death: max hits with best");

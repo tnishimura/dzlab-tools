@@ -6,7 +6,7 @@ use 5.010_000;
 use Data::Dumper;
 use Carp;
 use autodie;
-use List::MoreUtils qw/notall/;
+use List::MoreUtils qw/any notall/;
 
 require Exporter;
 our @ISA = qw(Exporter);
@@ -21,17 +21,40 @@ sub _construct_common_args{
     }
     push @args, $opt{index};
 
-    # simpler arguments
+    # maxhits
+    if (exists $opt{maxhits}){
+        if (any {exists $opt{$_}} qw/suppress reportmax strata best/){
+            croak "suppress, reportmax, strata, best are set automatically with maxhits";
+        }
+        push @args, -k => $opt{maxhits}, -m => $opt{maxhits}, '--strata', '--best';
+    }
+    else{
+        push @args, (-k => $opt{reportmax}) if exists $opt{reportmax} && $opt{reportmax} >= 1;
+        push @args, (-m => $opt{suppress})  if exists $opt{suppress} && $opt{suppress} >= 1;
+        push @args, '--strata'              if exists $opt{strata} && $opt{strata} == 1;
+        push @args, '--best'                if exists $opt{best} && $opt{best} == 1;
+    }
+    # splice
+    if (exists $opt{splice}){
+        if (any {exists $opt{$_}} qw/trim5 trim3/){
+            croak "trim5, trim3 are set automatically with splice";
+        }
+        if (! exists $opt{readlength}){
+            croak "splice needs readlength option";
+        }
+        my ($left, $right) = @{$opt{splice}};
+        push @args, (-5 => $left - 1, -3 => $opt{readlength} - $right);
+    }
+    else{
+        push @args, (-5 => $opt{trim5}) if exists $opt{trim5} && $opt{trim5} >= 1;
+        push @args, (-3 => $opt{trim3}) if exists $opt{trim3} && $opt{trim3} >= 1;
+    }
+    
+    push @args, (-B => $opt{base} // 1);
+    push @args, (-v => $opt{mismatches} // 2);
+
     push @args, '--norc'                 if exists $opt{norc} && $opt{norc} == 1;
-    push @args, '--strata'               if exists $opt{strata} && $opt{strata} == 1;
-    push @args, '--best'                 if exists $opt{best} && $opt{best} == 1;
-    push @args, (-B => 1)                if exists $opt{base} && $opt{base} == 1;
-    push @args, (-v => $opt{mismatches}) if exists $opt{mismatches};
-    push @args, (-5 => $opt{trim5})      if exists $opt{trim5} && $opt{trim5} >= 1;
-    push @args, (-3 => $opt{trim3})      if exists $opt{trim3} && $opt{trim3} >= 1;
     push @args, (-p => $opt{threads})    if exists $opt{threads} && $opt{threads} == 1;
-    push @args, (-k => $opt{reportmax})  if exists $opt{reportmax} && $opt{reportmax} >= 1;
-    push @args, (-m => $opt{suppress})   if exists $opt{suppress} && $opt{suppress} >= 1;
     push @args, ('--seed' => $opt{seed}) if exists $opt{seed};
 
     given ($opt{format}){
@@ -45,9 +68,19 @@ sub _construct_common_args{
     return @args;
 }
 
+
 =head2 bowtie
 
-Most basic bowtie invocation.
+Most basic bowtie invocation. Read from file, output to file, log returned
+
+    my ($processed, $aligned, $suppressed, $reported, @loglines) = bowtie(
+        '-1'       => $reads,
+        output     => $output,
+        index      => $ref,
+        maxhits    => 10,
+        splice     => [0,50],
+        readlength => 100,
+    );
 
 =cut
 sub bowtie{
@@ -81,7 +114,7 @@ sub bowtie{
     #######################################################################
     # run 
     
-    say STDERR join " ", 'bowtie', @args if ($verbose);
+    say STDERR join " ", 'bowtie', @args if $verbose;
 
     my $pid = open my $bowtie_process, '-|';
     defined $pid or croak "couldn't fork!";
@@ -90,7 +123,6 @@ sub bowtie{
     if ($pid){ # parent
         while (defined(my $logline = <$bowtie_process>)){
             chomp $logline;
-            # say STDERR $logline if $verbose;
             push @log, $logline;
         }
         {
@@ -99,26 +131,37 @@ sub bowtie{
         }
     } 
     else{
-        # want 
         close STDERR;
         open STDERR, ">&STDOUT";
         exec 'bowtie', @args;
     }
-    return parse_bowtie_log(@log), @log;
+    return _parse_bowtie_log(@log), @log;
 }
 
-sub parse_bowtie_log{
+sub _parse_bowtie_log{
     my @loglines = @_;
     
     my $processed;
     my $aligned;
+    my $reported;
+    my $suppressed;
     if ($loglines[0] =~ /reads\sprocessed:\s(\d+)/){
         $processed = $1;
     }
     if ($loglines[1] =~ /reads\swith\sat\sleast\sone\sreported\salignment:\s(\d+)/){
         $aligned = $1;
     }
-    return ($processed, $aligned);
+    if ($loglines[-2] =~ /reads\swith\salignments\ssuppressed\sdue\sto\s-m:\s(\d+)/){
+        $suppressed = $1;
+    }
+    else{
+        $suppressed = 0;
+    }
+    if ($loglines[-1] =~ /Reported\s(\d+)\salignments\sto\s\d+\soutput\sstream/){
+        $reported = $1;
+    }
+
+    return ($processed, $aligned, $suppressed, $reported);
 }
 
 1;
