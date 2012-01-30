@@ -20,10 +20,11 @@ our $intermediate_dir = 't_intermediate';
 
 sub setup_intermediate_dir{
     make_path $intermediate_dir;
+    return $intermediate_dir;
 }
 
 sub setup_reference{
-    my $test_dir = shift;
+    my $test_dir = shift // $intermediate_dir;
     my $gz = 't/data/TAIR_mini.fas.gz';
     my $ref = catfile($test_dir, basename($gz, '.gz'));
     if (-e $test_dir && ! -d $test_dir){
