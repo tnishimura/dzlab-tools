@@ -23,6 +23,7 @@ Log::Log4perl->easy_init( {
     layout   => '%d{HH:mm:ss} %p> (%L) %M - %m%n',
 } );
 my $logger = get_logger();
+my $debug = 0;
 
 #######################################################################
 # Count and calc ratios and stuff
