@@ -86,7 +86,6 @@ for ( $singlecdir_a, $singlecdir_b, $windowdir_a, $windowdir_b){
     if (! -d $_) {$logger->logdie("can't create $_");}
 }
 
-
 my $basename = $opt_basename;
 if (! defined $basename){
     $basename = $opt_raw;
@@ -101,15 +100,18 @@ $logger->info("basename: $basename");
 #######################################################################
 # BSRC genomes, build bowtie indices
 
-my $bsrc_reference_a = $opt_reference_a . ".bsrc";
-my $bsrc_reference_b = $opt_reference_b . ".bsrc";
+my $bsrc_reference_a = $opt_reference_a . ".c2t";
+my $bsrc_reference_b = $opt_reference_b . ".c2t";
 
-launch("perl -S fasta_bsrc.pl $opt_reference_a > $bsrc_reference_a", expected => $bsrc_reference_a, force => $opt_force >= 2 );
-launch("perl -S fasta_bsrc.pl $opt_reference_b > $bsrc_reference_b", expected => $bsrc_reference_b, force => $opt_force >= 2 );
+#launch("perl -S fasta_bsrc.pl $opt_reference_a > $bsrc_reference_a", expected => $bsrc_reference_a, force => $opt_force >= 2 );
+#launch("perl -S fasta_bsrc.pl $opt_reference_b > $bsrc_reference_b", expected => $bsrc_reference_b, force => $opt_force >= 2 );
 
-for my $ref ($bsrc_reference_a,$bsrc_reference_b) {
-    launch("bowtie-build $ref $ref", expected => ("$ref.1.ebwt"), force => $opt_force >= 2);
-}
+launch("perl -S bs-bowtie-build -c2t $opt_reference_a");
+launch("perl -S bs-bowtie-build -c2t $opt_reference_b");
+
+#for my $ref ($bsrc_reference_a,$bsrc_reference_b) {
+#    launch("bowtie-build $ref $ref", expected => ("$ref.1.ebwt"), force => $opt_force >= 2);
+#}
 
 # raw: fastq -> fasta,  c2t
 $logger->info("converting fastq->fasta, then converting");
@@ -117,7 +119,6 @@ my $rawfas = "$opt_raw.fasta";
 my $rawc2t = "$opt_raw.fasta.c2t";
 launch("perl -S fq_all2std.pl fq2fa $opt_raw > $rawfas", expected => $rawfas, force => $opt_force>=2);
 launch("perl -S convert.pl c2t $rawfas > $rawc2t", expected => $rawc2t, force => $opt_force>=2);
-
 
 #######################################################################
 # Run Bowtie
@@ -142,24 +143,24 @@ my $right_bowtie_b = "$right_basename_b.0.bowtie";
 my $max_hits_arg = $opt_max_hits ? " --strata -k 1 -m $opt_max_hits " : "";
 
 if ($pm->start == 0){
-    launch("bowtie $bsrc_reference_a $max_hits_arg -f -B 1 -v $opt_bowtie_mismatches --norc --best -5 $left_trim5 -3 $left_trim3 $rawc2t $left_bowtie_a",
+    launch("bowtie $bsrc_reference_a $max_hits_arg -f -B 1 -v $opt_bowtie_mismatches --norc --best -5 $left_trim5 -3 $left_trim3 $rawc2t ??",
         also => $bowtie_logname, expected => $left_bowtie_a, force => $opt_force);
     $pm->finish;
 }
 if ($pm->start == 0){
-    launch("bowtie $bsrc_reference_b $max_hits_arg -f -B 1 -v $opt_bowtie_mismatches --norc --best -5 $left_trim5 -3 $left_trim3 $rawc2t $left_bowtie_b",
+    launch("bowtie $bsrc_reference_b $max_hits_arg -f -B 1 -v $opt_bowtie_mismatches --norc --best -5 $left_trim5 -3 $left_trim3 $rawc2t ??",
         also => $bowtie_logname, expected => $left_bowtie_b, force => $opt_force);
     $pm->finish;
 }
 
 if (!$single_sided){
     if ($pm->start == 0){
-        launch("bowtie $bsrc_reference_a $max_hits_arg -f -B 1 -v $opt_bowtie_mismatches --norc --best -5 $right_trim5 -3 $right_trim3 $rawc2t $right_bowtie_a",
+        launch("bowtie $bsrc_reference_a $max_hits_arg -f -B 1 -v $opt_bowtie_mismatches --norc --best -5 $right_trim5 -3 $right_trim3 $rawc2t ??",
             also => $bowtie_logname, expected => $right_bowtie_a, force => $opt_force, );
         $pm->finish;
     }
     if ($pm->start == 0){
-        launch("bowtie $bsrc_reference_b $max_hits_arg -f -B 1 -v $opt_bowtie_mismatches --norc --best -5 $right_trim5 -3 $right_trim3 $rawc2t $right_bowtie_b",
+        launch("bowtie $bsrc_reference_b $max_hits_arg -f -B 1 -v $opt_bowtie_mismatches --norc --best -5 $right_trim5 -3 $right_trim3 $rawc2t ??",
             also => $bowtie_logname, expected => $right_bowtie_b, force => $opt_force, );
         $pm->finish;
     }
@@ -180,23 +181,23 @@ my $right_eland_b = "$right_basename_b.1.eland";
 
 
 if ($pm->start == 0){
-    launch("perl -S parse_bowtie.pl $whole_flag -u $rawfas -s @opt_left_splice{qw/start end/} $left_bowtie_a -o $left_eland_a",
+    launch("perl -S parse_bowtie.pl $whole_flag -u $rawfas -s @opt_left_splice{qw/start end/} $left_bowtie_a -o ??",
         expected => $left_eland_a, force => $opt_force);
     $pm->finish;
 }
 if ($pm->start == 0){
-    launch("perl -S parse_bowtie.pl $whole_flag -u $rawfas -s @opt_left_splice{qw/start end/} $left_bowtie_b -o $left_eland_b",
+    launch("perl -S parse_bowtie.pl $whole_flag -u $rawfas -s @opt_left_splice{qw/start end/} $left_bowtie_b -o ??",
         expected => $left_eland_b, force => $opt_force);
     $pm->finish;
 }
 if (!$single_sided){
     if ($pm->start == 0){
-        launch("perl -S parse_bowtie.pl $whole_flag -u $rawfas -s @opt_right_splice{qw/start end/} $right_bowtie_a -o $right_eland_a",
+        launch("perl -S parse_bowtie.pl $whole_flag -u $rawfas -s @opt_right_splice{qw/start end/} $right_bowtie_a -o ??",
             expected => $right_eland_a, force => $opt_force);
         $pm->finish;
     }
     if ($pm->start == 0){
-        launch("perl -S parse_bowtie.pl $whole_flag -u $rawfas -s @opt_right_splice{qw/start end/} $right_bowtie_b -o $right_eland_b",
+        launch("perl -S parse_bowtie.pl $whole_flag -u $rawfas -s @opt_right_splice{qw/start end/} $right_bowtie_b -o ??",
             expected => $right_eland_b, force => $opt_force);
         $pm->finish;
     }

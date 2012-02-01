@@ -27,7 +27,7 @@ my $logger = get_logger();
 #######################################################################
 # Count and calc ratios and stuff
 
-my $fr = FastaReader->new(file => $opt_reference, normalize => 1);
+my $fr = FastaReader->new(file => $opt_reference);
 my @chromosomes = $fr->sequence_list;
 my @core_chromosomes = grep { $_ !~ /chr(c|m)/i } @chromosomes;
 
@@ -49,7 +49,8 @@ for my $eco ([$opt_ecotype_a, $opt_eland_filtered_a], [$opt_ecotype_b, $opt_elan
     while (defined(my $line = <$fh>)){
         my @split = split /\t/, $line;
         $split[3] =~ /(?:RC_)?(chr.*?):.*?(\d)$/i;
-        my $c = uc $1;
+        #my $c = uc $1;
+        my $c = $1;
         $counts{$ecotype}{$c}{$2}++;
         $counts{$ecotype}{$c}{total}++;
     }

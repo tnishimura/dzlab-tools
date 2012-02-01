@@ -81,7 +81,7 @@ has original_name => (
 );
 
 sub _set_original_name { $_[0]->original_name()->{uc $_[1]} = $_[2]; }
-sub _get_original_name { $_[0]->original_name()->{uc $_[1]}; }
+sub get_original_name { $_[0]->original_name()->{uc $_[1]}; }
 
 sub sequence_list{
     my $self = shift;
