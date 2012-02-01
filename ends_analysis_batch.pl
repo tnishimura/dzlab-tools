@@ -154,7 +154,7 @@ for my $dir (@opt_base_dirs) {
                 if ($opt_all){
                     $consolidated_input = $group_files->[0];
                 }
-                elsif ($opt_all && ! -f $consolidated_input && ! $opt_dry){
+                elsif (! $opt_all && ! -f $consolidated_input && ! $opt_dry){
                     $logger->info("concatenating $group files into $consolidated_input");
                     open my $outfh, '>', $consolidated_input;
                     for my $f (@$group_files) {
