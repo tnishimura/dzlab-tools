@@ -27,12 +27,12 @@ my $logger = get_logger();
 #######################################################################
 # Count and calc ratios and stuff
 
-my $fr = FastaReader->new(file => $opt_reference);
+my $fr = FastaReader->new(file => $opt_reference, slurp => 0);
 my @chromosomes = $fr->sequence_list;
 my @core_chromosomes = grep { $_ !~ /chr(c|m)/i } @chromosomes;
 
-say Dumper \@chromosomes;
-say Dumper \@core_chromosomes;
+say Dumper \@chromosomes if $debug;
+say Dumper \@core_chromosomes if $debug;
 
 my %counts = ($opt_ecotype_a => {}, $opt_ecotype_b => {});
 for my $c (@chromosomes) {
@@ -41,7 +41,8 @@ for my $c (@chromosomes) {
         $counts{$opt_ecotype_b}{$c}{$mm} = 0;
     }
 }
-$logger->debug(Dumper \%counts);
+
+$logger->debug(Dumper \%counts) if $debug;
 
 for my $eco ([$opt_ecotype_a, $opt_eland_filtered_a], [$opt_ecotype_b, $opt_eland_filtered_b]){
     my ($ecotype, $file) = @$eco;
@@ -49,15 +50,14 @@ for my $eco ([$opt_ecotype_a, $opt_eland_filtered_a], [$opt_ecotype_b, $opt_elan
     while (defined(my $line = <$fh>)){
         my @split = split /\t/, $line;
         $split[3] =~ /(?:RC_)?(chr.*?):.*?(\d)$/i;
-        #my $c = uc $1;
-        my $c = $1;
+        my $c = $fr->get_original_name($1);
         $counts{$ecotype}{$c}{$2}++;
         $counts{$ecotype}{$c}{total}++;
     }
     close $fh;
 }
 
-$logger->debug(Dumper \%counts);
+$logger->debug(Dumper \%counts) if $debug;
 
 my $ratio_log = $opt_output || "$opt_label.$opt_ecotype_a-vs-$opt_ecotype_b.log";
 open my $ratiofh, '>', $ratio_log;
