@@ -463,6 +463,61 @@ sub format_fasta{
     return (join "\n", @buffer) . "\n";
 }
 
+our @iupac_bases = qw/A C G T R Y S W K M B D H V N/;
+
+sub base_composition{
+    my $self = shift;
+
+    # this is a hash so we can check existance fast:
+    my %alpha = map { $_ => 0 } @iupac_bases, 'other';
+
+    my $bufsize = 1_000_000;
+    my %seqlens = $self->sequence_lengths;
+
+    my %bases = map { $_ => { map { $_ => 0 } keys %alpha } }  keys %seqlens;
+
+    while (my ($seq,$len) = each %seqlens) {
+        my $position = 0;
+        while ($position < $len) {
+            #say "$seq, $len,  $position";
+            my $subsec = $self->get(
+                $seq, 
+                $position, 
+                $position + $bufsize -1, 
+                lenient => 1, 
+                base => 0,
+            ); 
+            for my $base (split //, $subsec){
+                $base = uc $base;
+                if (exists $alpha{$base}){
+                    $bases{$seq}{$base}++;
+                }
+                else{
+                    $bases{$seq}{other}++;
+                }
+            }
+            $position+= $bufsize;
+        }
+    }
+    return \%bases;
+}
+
+sub base_composition_table{
+    my $self = shift;
+
+    my $base_compo = $self->base_composition();
+
+    my %seqlens = $self->sequence_lengths;
+
+    my @accum;
+    push @accum, join "\t", qw/Seq Length/, @iupac_bases, 'other';
+
+    for my $seq (sort keys %seqlens) {
+        push @accum, join "\t", $seq, $seqlens{$seq}, @{$base_compo->{$seq}}{@iupac_bases, 'other'};
+    }
+    return join "\n", @accum;
+}
+
 no Moose;
 __PACKAGE__->meta->make_immutable;
 
