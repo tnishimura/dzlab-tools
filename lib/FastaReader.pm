@@ -101,7 +101,11 @@ has slurp => (
 
 has header_transform => (
     is => 'ro',
-    default => sub { sub { s/^>// } },
+    # default => sub { sub { s/^>// } },
+    # Get the first work after > only... hopefully this doesn't break anything
+    default => sub { 
+        sub { s/^>\s*([^\s]+)\s.*$/$1/ } 
+    },
     init_arg => 'ht',
     documentation => "sub which messes with header via \$_",
 );
