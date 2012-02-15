@@ -104,7 +104,17 @@ has header_transform => (
     # default => sub { sub { s/^>// } },
     # Get the first work after > only... hopefully this doesn't break anything
     default => sub { 
-        sub { s/^>\s*([^\s]+)\s.*$/$1/ } 
+        sub { 
+            my $orig = $_;
+            s/^>//;
+            my @parts = split ' ', $_;
+            if (@parts == 0){
+                croak "can't parse fasta header $orig";
+            }
+            else{
+                $_ = $parts[0];
+            }
+        } 
     },
     init_arg => 'ht',
     documentation => "sub which messes with header via \$_",
