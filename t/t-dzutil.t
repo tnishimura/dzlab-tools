@@ -6,7 +6,7 @@ use feature 'say';
 use autodie;
 use FindBin;
 use lib "$FindBin::Bin/../lib";
-use DZUtil qw/fastq_read_length overlap common_suffix common_prefix chext split_names base_match/;
+use DZUtil qw/fastq_read_length overlap common_suffix common_prefix chext split_names/;
 use Test::Exception;
 
 
@@ -38,13 +38,6 @@ is_deeply(
     }],
     "split_names 2",
 );
-
-for (['a','D'], ['c','n'], ['c', 'y']){
-    ok(base_match(@$_), 'base_match');
-}
-for (['n', 'a'], ['g','t']){
-    ok(!base_match(@$_), '!base_match');
-}
 
 
 ok(common_prefix( "11234_", "1123_", "112_",) eq "112", 'common_prefix');

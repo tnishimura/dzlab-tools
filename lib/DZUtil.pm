@@ -21,7 +21,7 @@ our @ISA = qw(Exporter);
 
 our @EXPORT_OK = qw(localize reverse_complement common_suffix common_prefix
 mfor basename_prefix fastq_read_length timestamp datestamp overlap chext
-split_names base_match open_maybe_compressed fastq_convert_read_header c2t
+split_names open_maybe_compressed fastq_convert_read_header c2t
 numdiff safediv safemethyl clean_basename open_cached close_cached_all downsample);
 our @EXPORT = qw();
 
@@ -51,11 +51,6 @@ sub clean_basename{
         close $_ for values %cached_filehandles;
         %cached_filehandles = ();
     }
-}
-
-sub c2t{
-    (my $c2t = $_[0]) =~ s/C/T/gi;
-    return $c2t;
 }
 
 sub numdiff{
@@ -122,36 +117,6 @@ sub overlap{
     else {
         return 0;
     }
-}
-
-
-my %iupac = (
-    G => [qw/ G /],
-    A => [qw/ A /],
-    T => [qw/ T /],
-    C => [qw/ C /],
-    R => [qw/ G A /],
-    Y => [qw/ T C /],
-    M => [qw/ A C /],
-    K => [qw/ G T /],
-    S => [qw/ G C /],
-    W => [qw/ A T /],
-    H => [qw/ A C T Y M W /],
-    B => [qw/ G T C Y K S /],
-    V => [qw/ G C A R M S /],
-    D => [qw/ G A T R K W /],
-    N => [qw/ G A T C R Y M K S W H B V D N/],
-);
-
-# base_match - return true if base1 is compatible with base2. 
-
-sub base_match{
-    my ($base1, $base2, $both) = @_;
-
-    $base1 = uc $base1;
-    $base2 = uc $base2;
-
-    return first{ $base1 eq $_ } (@{$iupac{$base2}});
 }
 
 sub timestamp{ return strftime("%Y%m%d-%H%M",localtime); }
@@ -291,13 +256,54 @@ sub mfor {
     }
 }
 
+# Code  Bases  RC  C2T  G2A
+# A     A      T   A    A
+# B     CGT    V   K    H
+# C     C      G   T    C
+# D     AGT    H   D    W
+# G     G      C   G    A
+# H     ACT    D   W    H
+# K     GT     M   K    W
+# M     AC     K   W    M
+# N     ACGT   N   D    H
+# R     AG     Y   R    A
+# S     CG     S   K    M
+# T     T      A   T    T
+# V     ACG    B   D    M
+# W     AT     W   W    W
+# Y     CT     R   T    Y
+# rc: tr/abcdghkmrtvyABCDGHKMRTVY/tvghcdmkyabrTVGHCDMKYABR/
+# c2t: tr/bchmnsvyBCHMNSVY/ktwwdkdtKTWWDKDT/
+# g2a: tr/bdgknrsvBDGKNRSV/hwawhammHWAWHAMM/
 
 sub reverse_complement{
     my $string = shift;
 
     $string = reverse $string;
-    $string =~ tr/acgtACGT/tgcaTGCA/;
+    $string =~ tr/abcdghkmrtvyABCDGHKMRTVY/tvghcdmkyabrTVGHCDMKYABR/;
     return $string;
+}
+
+sub c2t{
+    my $string = shift;
+    $string =~ tr/bchmnsvyBCHMNSVY/ktwwdkdtKTWWDKDT/;
+    return $string;
+}
+
+sub rc_c2t{
+    my $string = shift;
+    return c2t reverse_complement $string;
+}
+
+sub g2a{
+    my $string = shift;
+    $string =~ tr/bdgknrsvBDGKNRSV/hwawhammHWAWHAMM/;
+    return $string;
+}
+
+sub rc_g2a{
+    my $string = shift;
+    return g2a reverse_complement $string;
 }
 
 use LWP::Simple;
