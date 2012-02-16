@@ -1,4 +1,5 @@
 #!/usr/bin/env perl
+# __DEPRECATED__ original attempt at bastard-imprinting
 use strict;
 use warnings;
 use Data::Dumper;
