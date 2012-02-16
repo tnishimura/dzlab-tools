@@ -19,6 +19,8 @@ use WindowSource;
 use File::Temp qw/tempdir/;
 use Devel::Size qw/total_size/;
 
+die "unfinished, don't use please";
+
 Log::Log4perl->easy_init({ 
         level    => $INFO,
         layout   => "%d{HH:mm:ss} %p> (%L) %M - %m%n", 

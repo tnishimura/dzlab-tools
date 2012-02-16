@@ -11,7 +11,7 @@ use autodie;
 require Exporter;
 our @ISA = qw(Exporter);
 our @EXPORT_OK = qw(convert bisulfite_convert);
-our @EXPORT = qw(fasta_subseq slurp_fasta format_fasta count_fasta count_fasta_complete dump_fasta);
+our @EXPORT = qw(fasta_subseq slurp_fasta format_fasta count_fasta dump_fasta);
 
 =head1 EXPORTED FUNCTIONS
 
@@ -162,60 +162,6 @@ sub bisulfite_convert{
         close $fh;
     }
 }
-
-sub fastq2fasta_file {
-    my ($infile,$outfile) = @_;
-    open my $i, '>', $infile;
-    open my $o, '>', $outfile;
-    
-    while (<$i>) {
-        if (/^@(\S+)/) {
-            print $o ">$1\n";
-            $_ = <>; print $i $_;
-            <>; <>;
-        }
-    }
-    close $i;
-    close $o;
-}
-
-sub count_fasta_complete {
-    my ($file) = @_;
-    return {} unless $file;
-
-    my %accum = ();
-
-    open my $fh, '<', $file or croak "Can't open $file: $?";
-
-    my $current;
-    while (defined(my $line = <$fh>)) {
-        $line =~ tr/\r\n//d;
-        if ($line =~ /^>(\w+)/){
-            $current = lc $1;
-        } 
-        else{
-            my ($len, $bp) = (length $line, $line =~ tr/acgtACGT//);
-            $accum{$current}{length} += $len;
-            $accum{$current}{bp}     += $bp;
-            $accum{$current}{nonbp}  += $len-$bp;
-        }
-    }
-    close $fh;
-
-    return \%accum;
-}
-
-=head2 count_fasta('file')
-
-Return hash of {seqid => count}.
-
-=cut
-sub count_fasta {
-    my ($file) = @_;
-    my $counts = count_fasta_complete($file);
-    return {map { $_ => $counts->{$_}{length} } keys %$counts};
-}
-
 
 =head2 format_fasta('header', $seq)
 
