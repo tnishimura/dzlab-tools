@@ -6,6 +6,10 @@ use 5.010_000;
 use Moose;
 use Carp;
 use autodie;    
+use FindBin;
+use lib "$FindBin::Bin/lib";
+use DZUtil qw/reverse_complement/;
+
 
 has filename => (
     is => 'ro',
@@ -300,8 +304,9 @@ sub get{
     if (! defined $start && ! defined $end ){
         my $whole = $self->slurp() ? $self->_get_sequence($seqid) : $self->get($seqid, 1, $totlen);
         if ($rc){
-            $whole =~ tr/acgtACGT/tgcaTGCA/;
-            $whole = reverse $whole;
+            $whole = reverse_complement($whole);
+            #$whole =~ tr/acgtACGT/tgcaTGCA/;
+            #$whole = reverse $whole;
         }
         return $whole;
     }
@@ -352,8 +357,9 @@ sub get{
         #warn $retrieved;
 
         if ($rc){
-            $retrieved =~ tr/acgtACGT/tgcaTGCA/;
-            $retrieved = reverse $retrieved;
+            $retrieved = reverse_complement($retrieved);
+            #$retrieved =~ tr/acgtACGT/tgcaTGCA/;
+            #$retrieved = reverse $retrieved;
         }
         return $retrieved;
     }
