@@ -8,7 +8,7 @@ use Carp;
 use autodie;    
 use FindBin;
 use lib "$FindBin::Bin/lib";
-use DZUtil qw/reverse_complement/;
+use DZUtil qw/reverse_complement c2t g2a/;
 
 
 has filename => (
@@ -291,23 +291,28 @@ sub get_context_raw{
 # coord = 'f' if coords rel to 5', 'r' if 3'
 # base  = 1 or 0
 # rc    = whether to rc chunk
+# bs    = c2t, g2a
 sub get{
     my ($self, $seqid, $start, $end, %opt) = @_;
     my $coord     = defined $opt{coord} ? lc($opt{coord}) : 'f';
     my $rc        = $opt{rc} // ($coord eq 'r');
+    my $bs        = $opt{bs};
     my $base      = $opt{base} // 1;
     $seqid = uc $seqid;
+
+    if (defined $bs && $bs ne 'c2t' && $bs ne 'g2a'){
+        croak "bs, if given, should be c2t or g2a";
+    }
 
     my $totlen = $self->get_length($seqid);
     my $lastindex = $totlen - 1;
 
     if (! defined $start && ! defined $end ){
         my $whole = $self->slurp() ? $self->_get_sequence($seqid) : $self->get($seqid, 1, $totlen);
-        if ($rc){
-            $whole = reverse_complement($whole);
-            #$whole =~ tr/acgtACGT/tgcaTGCA/;
-            #$whole = reverse $whole;
-        }
+
+        $whole = reverse_complement($whole) if $rc;
+        $whole = c2t $whole if defined $bs && $bs eq 'c2t';
+        $whole = g2a $whole if defined $bs && $bs eq 'g2a';
         return $whole;
     }
     elsif (! defined $end){
@@ -356,11 +361,9 @@ sub get{
         #my $retrieved = substr $self->_get_sequence($seqid), $left, $right-$left +1;
         #warn $retrieved;
 
-        if ($rc){
-            $retrieved = reverse_complement($retrieved);
-            #$retrieved =~ tr/acgtACGT/tgcaTGCA/;
-            #$retrieved = reverse $retrieved;
-        }
+        $retrieved = reverse_complement($retrieved) if $rc;
+        $retrieved = c2t $retrieved if defined $bs && $bs eq 'c2t';
+        $retrieved = g2a $retrieved if defined $bs && $bs eq 'g2a';
         return $retrieved;
     }
     else{
@@ -430,10 +433,11 @@ sub get{
         }
 
         my $sub = join '', @accum;
-        if ($rc){
-            $sub =~ tr/acgtACGT/tgcaTGCA/;
-            $sub = reverse $sub;
-        }
+
+        $sub = reverse_complement($sub) if $rc;
+        $sub = c2t $sub if defined $bs && $bs eq 'c2t';
+        $sub = g2a $sub if defined $bs && $bs eq 'g2a';
+
         return $sub;
     }
 }
@@ -459,6 +463,10 @@ sub rc_file{
     if (! ref $out eq 'GLOB'){
         close $outfh;
     }
+}
+
+sub bsrc_file{
+
 }
 
 =head2 format_fasta('header', $seq)

@@ -124,8 +124,22 @@ for my $slurp (0, 1) {
         is($f->get_context_raw('chr4', 1, rc => 1),'C', "context_raw edge case 1");
     }
     
-}
+    #######################################################################
+    # bs
 
+    #      >chr5 1-20 forward   reverse
+    # raw: TATACCATGTACCCTCAACC GGTTGAGGGTACATGGTATA rc
+    # c2t: TATATTATGTATTTTTAATT GGTTGAGGGTATATGGTATA
+    # g2a: TATACCATATACCCTCAACC AATTAAAAATACATAATATA
+
+    is($f->get('CHR5' , 1  , 20 , rc => 0, base => 1) , 'TATACCATGTACCCTCAACC' , "pre-BS forward (slurp=$slurp)");
+    is($f->get('CHR5' , 1  , 20 , rc => 1, base => 1) , 'GGTTGAGGGTACATGGTATA' , "pre-BS reverse (slurp=$slurp)");
+    
+    is($f->get('CHR5' , 1  , 20 , rc => 0, base => 1, bs => 'c2t') , 'TATATTATGTATTTTTAATT' , "c2t forward (slurp=$slurp)");
+    is($f->get('CHR5' , 1  , 20 , rc => 0, base => 1, bs => 'g2a') , 'TATACCATATACCCTCAACC' , "g2a forward (slurp=$slurp)");
+    is($f->get('CHR5' , 1  , 20 , rc => 1, base => 1, bs => 'c2t') , 'GGTTGAGGGTATATGGTATA' , "c2t reverse (slurp=$slurp)");
+    is($f->get('CHR5' , 1  , 20 , rc => 1, base => 1, bs => 'g2a') , 'AATTAAAAATACATAATATA' , "g2a reverse (slurp=$slurp)");
+}
 
 
 __DATA__

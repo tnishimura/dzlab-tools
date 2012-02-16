@@ -21,7 +21,7 @@ our @ISA = qw(Exporter);
 
 our @EXPORT_OK = qw(localize reverse_complement common_suffix common_prefix
 mfor basename_prefix fastq_read_length timestamp datestamp overlap chext
-split_names open_maybe_compressed fastq_convert_read_header c2t
+split_names open_maybe_compressed fastq_convert_read_header c2t g2a
 numdiff safediv safemethyl clean_basename open_cached close_cached_all downsample);
 our @EXPORT = qw();
 
