@@ -10,7 +10,7 @@ use autodie;
 
 require Exporter;
 our @ISA = qw(Exporter);
-our @EXPORT_OK = qw(convert_file convert bisulfite_convert);
+our @EXPORT_OK = qw(convert bisulfite_convert);
 our @EXPORT = qw(fasta_subseq slurp_fasta format_fasta count_fasta count_fasta_complete dump_fasta);
 
 =head1 EXPORTED FUNCTIONS
@@ -128,29 +128,6 @@ sub convert{
     }
 }
 
-=head2 convert_file('in.fasta', 'out.fasta', '[c2t|g2a|rc]'
-
-=cut
-
-sub convert_file{
-    my ($infile,$outfile,$pattern) = @_;
-    open my $in, '<', $infile;
-    open my $out, '>', $outfile;
-
-    while(my $line = <$in>) {
-        if($line =~ m/^[ACGTN]+/i) {
-            $line =~ tr/Cc/Tt/ if $pattern eq 'c2t';
-            $line =~ tr/Gg/Aa/ if $pattern eq 'g2a';
-            if ($pattern eq 'rc'){
-                $line =~ tr/acgtACGT/tgcaTGCA/;
-                $line = reverse $line;
-            }
-        }
-        print $out $line;
-    }
-    close($in);
-    close($out);
-}
 
 # bisulfite convert
 # c2t of forward strand + c2t of original reverse complemented
