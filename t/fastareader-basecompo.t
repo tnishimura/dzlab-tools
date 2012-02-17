@@ -29,16 +29,17 @@ my $file = "t/data/test.fasta";
 
 {
     my $fr = FastaReader->new(file => $file, slurp => 0);
-    my $mc2 = base_composition($file, 2);
+    my $mc3 = base_composition($file, 3);
     my $bc = $fr->base_composition();
 
     for my $seq ($fr->sequence_list()) {
+        my @contexts = keys %{$mc3->{$seq}};
         for my $x (qw/A C G T/) {
-            is_deeply($mc2->{$seq}{$x}, $bc->{$seq}{$x}, "single base composition $seq $x");
+            is_deeply($mc3->{$seq}{$x}, $bc->{$seq}{$x}, "single base composition $seq $x");
         }
 
-        for my $x (qw/AC AG AT CA CG CT GA GC GT TA TC TG/) {
-            is_deeply($mc2->{$seq}{$x}, scalar(()=$fr->get($seq)=~m/$x/g), "dual base compo $seq $x");
+        for my $x (grep { !($_ ~~ [qw/A C G T CHG CHH/]) } @contexts){
+            is_deeply($mc3->{$seq}{$x}, scalar(()=$fr->get($seq)=~m/(?=$x)/g), "dual base compo $seq $x");
         }
     }
 }
