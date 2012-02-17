@@ -445,7 +445,6 @@ sub get{
 #######################################################################
 # Utilities
 
-
 sub rc_file{
     my ($in, $out) = @_;
     my $f = FastaReader->new(file => $in, slurp => 0);
@@ -466,7 +465,26 @@ sub rc_file{
 }
 
 sub bsrc_file{
+    my ($in, $out, $bs) = @_;
+    my $f = FastaReader->new(file => $in, slurp => 0);
+    my $outfh;
+    if (ref $out eq 'GLOB'){
+        $outfh = $out;
+    }
+    else {
+        open $outfh, '>', $out;
+    }
 
+    for my $seq ($f->sequence_list()) {
+        say $outfh ">$seq";
+        print $outfh $f->get($seq,undef, undef, bs => $bs);
+
+        say $outfh ">RC_$seq";
+        print $outfh $f->get($seq,undef, undef, rc => 1, bs => $bs);
+    }
+    if (! ref $out eq 'GLOB'){
+        close $outfh;
+    }
 }
 
 =head2 format_fasta('header', $seq)
@@ -493,6 +511,8 @@ sub format_fasta{
 
 our @iupac_bases = qw/A C G T R Y S W K M B D H V N/;
 
+
+# deprecated by Fasta::BaseComposition, but keep for testing purposes
 sub base_composition{
     my $self = shift;
 

@@ -13,7 +13,7 @@ use Tie::IxHash;
 require Exporter;
 our @ISA = qw(Exporter);
 our @EXPORT_OK = qw();
-our @EXPORT = qw(base_composition motif_report);
+our @EXPORT = qw(base_composition methylation_context);
 
 sub make_iterator{
     my ($fr, $seq, $motif_length) = @_;
@@ -39,7 +39,7 @@ sub make_iterator{
 }
 
 sub base_composition{
-    my ($file, $motif_length, $full) = @_;
+    my ($file, $motif_length) = @_;
     my $fr = FastaReader->new(file => $file, slurp => 0);
 
     my %score;
@@ -63,23 +63,47 @@ sub base_composition{
         }
     }
     return \%score;
-
-
-    #my %ordered; tie %ordered, "Tie::IxHash";
-    #for my $m (reverse sort { $score{$a} <=> $score{$b} } keys %score){
-    #    $ordered{$m} = $score{$m};
-    #}
-    #return \%ordered;
 }
 
-sub motif_report{
-    my ($file, $motif_length, $count) = @_;
-    my $motifs = motif_count $file, $motif_length;
-    my $i = 1;
+use List::Util qw/sum/;
 
-    while (my ($m,$c) = each %$motifs) {
-        say "$m\t$c";
-        last if defined $count && ++$i > $count;
+sub methylation_context{
+    my ($file,$bc3) = @_;
+    $bc3 //= base_composition $file, 3;
+
+    my %scores;
+
+    my $fr = FastaReader->new(file => $file, slurp => 0);
+    for my $seq ($fr->sequence_list()) {
+        $scores{$seq}{CHG} = sum map { $bc3->{$seq}{$_} } qw/CAG CCG CTG CGG/;
+        $scores{$seq}{CHH} = sum map { $bc3->{$seq}{$_} } qw/CAA CCA CTA CGA CAC CCC CTC CGC CAT CCT CTT CGT/;
+    }
+    return \%scores;
+}
+
+
+sub report{
+    my ($file, $max) = @_;
+
+    my @bc;
+    $bc[0] = base_composition $file, 1;
+    $bc[1] = base_composition $file, 2;
+    $bc[2] = base_composition $file, 3;
+    for (4 .. $max){
+        $bc[$_ - 1] = base_composition $file, $_;
+    }
+
+    my $meth = methylation_context($file, $bc[2]);
+
+    say Dumper \@bc;
+    my @seq_list = sort keys %{$bc[0]};
+
+    say join "\t", "Context", @seq_list;
+
+    for my $scores ($bc[0], $meth, @bc[1 .. $max]){
+        for my $context (sort keys %{$scores->{$seq_list[0]}}){
+            say join "\t", $context, map { $scores->{$_}{$context} } (@seq_list);
+        }
     }
 }
 
@@ -112,6 +136,11 @@ sub _base_iterator{
         return if ($counter >= $base ** $wraparound_digits);
         return _convert_base($counter++, $base, $wraparound_digits);
     }
+}
+
+sub bc_table{
+    
+
 }
 
 1;
