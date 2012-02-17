@@ -9,6 +9,7 @@ use Getopt::Long;
 use FindBin;
 use lib "$FindBin::Bin/lib";
 use FastaReader;
+use FastaReader::BaseComposition;
 
 END {close STDOUT}
 $| = 1;
@@ -31,11 +32,18 @@ Get a subsection of the fasta file:
   $0 get --sequence chr1 data.fasta      # output chr1 from data.fasta
   $0 get -s chr1 -r 21 30 data.fasta     # output chr1 base 21 to 30 
   $0 get -s chr1 -r 21 30 -rc data.fasta # output chr1 base 21 to 30 rc'd
+  $0 get -s chr1 -rc -c2t data.fasta     # bsrc chr1
+  $0 get -s chr1 -rc -g2a data.fasta     # bsrc chr1
+  $0 get data.fasta                      # do... nothing, just print 
 
-Get single-nucleotide base-composition (bc) of fasta file:
+Get base-composition (bc) of fasta file:
 
-  $0 base-composition data.fasta  
-  $0 bc data.fasta               # short form
+  $0 base-composition -m 1 data.fasta # single nucleotide counts
+  $0 bc -m 1 data.fasta               # short form
+  $0 bc -m 1 -v data.fasta            # be verbose (show progress)
+  $0 bc -m 3 data.fasta               # all contexts up to 3 nucleotides
+  $0 bc data.fasta                    # same as above (3 is default)
+  $0 bc -c CG,CHG,CHH data.fasta      # only report methyl contexts
 END
 
     exit 1;
@@ -73,9 +81,16 @@ given ($cmd){
         }
     }
     when ([qw/base-composition bc/]){
+        my $result = GetOptions (
+            "max|m=i"      => \(my $max = 3),
+            "contexts|c=s" => \(my $contexts),
+            "verbose|v"    => \$FastaReader::BaseComposition::VERBOSE,
+        );
+        usage() if ! $result;
+        my @wanted = defined $contexts ? split /,/, $contexts : ();
+
         my $fasta = shift || usage();
-        my $r = FastaReader->new(file => $fasta, slurp => 0);
-        say $r->base_composition_table();
+        FastaReader::BaseComposition::report($fasta, $max, @wanted);
     }
     when ([qw/get/]){
         my @range;
@@ -84,26 +99,31 @@ given ($cmd){
             "range|r=i{2}"   => \@range,
             "coordinate|c=s" => \(my $coordinate = 'f'),
             "base|b=i"       => \(my $base = 1),
+            "c2t"            => \(my $c2t),
+            "g2a"            => \(my $g2a),
             "reverse-complement|rc" => \(my $reverse_complement),
         );
         usage() if (
-            !$result || 
-            ! $sequence || 
+            ! $result || 
+            ! $sequence ||
             (@range != 0 && @range != 2) ||
             ($coordinate ne 'f' && $coordinate ne 'r') ||
-            ($base != 0 && $base != 1)
+            ($base != 0 && $base != 1) || 
+            ($c2t && $g2a)
         );  
 
         my $fasta = shift || usage();
         my $r = FastaReader->new(file => $fasta, slurp => 0);
+        my @bsarg = ($c2t ? (bs => 'c2t') : $g2a ? (bs => 'g2a') : ());
 
         if (0 == @range){
             print $r->get_pretty(
-                $sequence, 
+                $sequence, # label
                 $sequence, 
                 undef, 
                 undef, 
-                rc    => $reverse_complement
+                rc    => $reverse_complement,
+                @bsarg,
             );
         }
         else{
@@ -112,9 +132,13 @@ given ($cmd){
                 $sequence, @range,
                 coord => $coordinate,
                 rc    => $reverse_complement,
-                base  => $base
+                base  => $base,
+                @bsarg,
             );
         }
+    }
+    when (qw/bsrc/){
+
     }
     default{
         usage();

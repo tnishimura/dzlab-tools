@@ -8,19 +8,21 @@ use Carp;
 use autodie;
 use FastaReader;
 use Tie::IxHash;
-
+use List::Util qw/sum/;
 
 require Exporter;
 our @ISA = qw(Exporter);
 our @EXPORT_OK = qw();
-our @EXPORT = qw(base_composition methylation_context);
+our @EXPORT = qw(base_composition);
+
+our $VERBOSE = 0;
 
 sub make_iterator{
     my ($fr, $seq, $motif_length) = @_;
     my @buffer;
     my $position = 0;
     my $seqlen = $fr->get_length($seq);
-    my $bufsize = 1000;
+    my $bufsize = 50000;
 
     return sub {
         if (@buffer < $motif_length){
@@ -28,11 +30,11 @@ sub make_iterator{
                 push @buffer, split //, $fr->get($seq, $position, $position + $bufsize - 1, base => 0, lenient => 1);
                 $position += $bufsize;
             }
-            else{
-                return;
-            }
         }
-        my @motif = @buffer[0 .. $motif_length - 1];
+        if (@buffer == 0){
+            return;
+        }
+        my @motif = @buffer[($motif_length <= @buffer) ? (0  .. $motif_length - 1) : (0 .. $#buffer)];
         shift @buffer;
         return \@motif
     };
@@ -40,69 +42,63 @@ sub make_iterator{
 
 sub base_composition{
     my ($file, $motif_length) = @_;
-    my $fr = FastaReader->new(file => $file, slurp => 0);
+    my $size = [stat($file)]->[7];
+    my $fr = FastaReader->new(file => $file, slurp => $size < 2**30);
 
     my %score;
 
-    # prepopulate, so that 0 counts are not omitted
-    my $base_iterator = _base_iterator(4, $motif_length);
+    # prepopulate, so that 0 counts are not omitted. A C G T AA AC AG AT .. TG TT ..
     my @bases = qw/A C T G/;
-    while (defined(my $n = $base_iterator->())){
-        for my $seq ($fr->sequence_list()) {
-            $score{$seq}{join "", map { $bases[$_] } @$n} = 0;
+    for (1 .. $motif_length){
+        my $base_iterator = _base_iterator(4, $_);
+        while (defined(my $n = $base_iterator->())){
+            for my $seq ($fr->sequence_list()) {
+                $score{$seq}{join "", map { $bases[$_] } @$n} = 0;
+            }
         }
     }
 
     for my $seq ($fr->sequence_list()) {
         my $iter = make_iterator($fr, $seq, $motif_length);
+        my $counter = 0;
+
         while (defined(my $motif = $iter->())){
-            my $joined = uc join "", @$motif;
-            if ($joined =~ /^[ACGT]+$/){
-                ++$score{$seq}{join "", @$motif};
+            for (0 .. scalar(@$motif) -1){
+                my $joined = uc join "", @{$motif}[0 .. $_];
+                if ($joined =~ /^[ACGT]+$/){
+                    ++$score{$seq}{join "", $joined};
+                }
             }
+            say STDERR "$seq $counter/" . $fr->get_length($seq) if ++$counter % 100_000 == 0 && $VERBOSE;
+        }
+
+        # methylation count if >=3
+        if ($motif_length >= 3){
+            $score{$seq}{CHG} = sum map { $score{$seq}{$_} } qw/CAG CCG CTG CGG/;
+            $score{$seq}{CHH} = sum map { $score{$seq}{$_} } qw/CAA CCA CTA CGA CAC CCC CTC CGC CAT CCT CTT CGT/;
         }
     }
+
     return \%score;
-}
-
-use List::Util qw/sum/;
-
-sub methylation_context{
-    my ($file,$bc3) = @_;
-    $bc3 //= base_composition $file, 3;
-
-    my %scores;
-
-    my $fr = FastaReader->new(file => $file, slurp => 0);
-    for my $seq ($fr->sequence_list()) {
-        $scores{$seq}{CHG} = sum map { $bc3->{$seq}{$_} } qw/CAG CCG CTG CGG/;
-        $scores{$seq}{CHH} = sum map { $bc3->{$seq}{$_} } qw/CAA CCA CTA CGA CAC CCC CTC CGC CAT CCT CTT CGT/;
-    }
-    return \%scores;
 }
 
 
 sub report{
-    my ($file, $max) = @_;
+    my ($file, $max, @contexts_wanted) = @_;
 
-    my @bc;
-    $bc[0] = base_composition $file, 1;
-    $bc[1] = base_composition $file, 2;
-    $bc[2] = base_composition $file, 3;
-    for (4 .. $max){
-        $bc[$_ - 1] = base_composition $file, $_;
+    my $score    = base_composition $file, $max;
+    my @seq_list = sort keys %$score;
+    my @contexts = sort keys %{$score->{$seq_list[0]}};
+
+    if (@contexts_wanted == 0){
+        @contexts_wanted = @contexts;
     }
-
-    my $meth = methylation_context($file, $bc[2]);
-
-    say Dumper \@bc;
-    my @seq_list = sort keys %{$bc[0]};
 
     say join "\t", "Context", @seq_list;
 
-    for my $scores ($bc[0], $meth, @bc[1 .. $max]){
-        for my $context (sort keys %{$scores->{$seq_list[0]}}){
-            say join "\t", $context, map { $scores->{$_}{$context} } (@seq_list);
+    for my $l (1 .. $max) {
+        for my $context ( grep { length($_) == $l } @contexts_wanted){
+            say join "\t", $context, map { $score->{$_}{$context} } @seq_list;
         }
     }
 }
@@ -136,11 +132,6 @@ sub _base_iterator{
         return if ($counter >= $base ** $wraparound_digits);
         return _convert_base($counter++, $base, $wraparound_digits);
     }
-}
-
-sub bc_table{
-    
-
 }
 
 1;
