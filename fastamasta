@@ -36,14 +36,25 @@ Get a subsection of the fasta file:
   $0 get -s chr1 -rc -g2a data.fasta     # bsrc chr1
   $0 get data.fasta                      # do... nothing, just print 
 
-Get base-composition (bc) of fasta file:
+Get base composition (bc) of fasta file:
 
   $0 base-composition -m 1 data.fasta # single nucleotide counts
   $0 bc -m 1 data.fasta               # short form
   $0 bc -m 1 -v data.fasta            # be verbose (show progress)
   $0 bc -m 3 data.fasta               # all contexts up to 3 nucleotides
   $0 bc data.fasta                    # same as above (3 is default)
-  $0 bc -c CG,CHG,CHH data.fasta      # only report methyl contexts
+
+  Note: this only counts the forward strand, since 
+
+Get methyl context composition (mc) of fasta file:
+
+  $0 methylation-context data.fasta   # 
+  $0 mc data.fasta                    # 
+
+  Note: this counts both strands, b/c CHG/CHH is not symmetric. CG 
+        should be double the number given by the bc command, since that
+        one only counts one strand.
+
 END
 
     exit 1;
@@ -83,14 +94,22 @@ given ($cmd){
     when ([qw/base-composition bc/]){
         my $result = GetOptions (
             "max|m=i"      => \(my $max = 3),
-            "contexts|c=s" => \(my $contexts),
             "verbose|v"    => \$FastaReader::BaseComposition::VERBOSE,
         );
         usage() if ! $result;
-        my @wanted = defined $contexts ? split /,/, $contexts : ();
 
         my $fasta = shift || usage();
-        FastaReader::BaseComposition::report($fasta, $max, @wanted);
+        FastaReader::BaseComposition::report($fasta, $max);
+    }
+    when ([qw/methylation-contexts mc/]){
+        my $result = GetOptions (
+            "max|m=i"      => \(my $max = 3),
+            "verbose|v"    => \$FastaReader::BaseComposition::VERBOSE,
+        );
+        usage() if ! $result;
+
+        my $fasta = shift || usage();
+        FastaReader::BaseComposition::report($fasta, 3, 1);
     }
     when ([qw/get/]){
         my @range;
@@ -136,6 +155,9 @@ given ($cmd){
                 @bsarg,
             );
         }
+    }
+    when (qw/split/){
+
     }
     when (qw/bsrc/){
 

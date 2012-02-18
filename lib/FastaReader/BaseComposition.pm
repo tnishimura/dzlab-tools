@@ -9,6 +9,7 @@ use autodie;
 use FastaReader;
 use Tie::IxHash;
 use List::Util qw/sum/;
+use DZUtil qw/reverse_complement/;
 
 require Exporter;
 our @ISA = qw(Exporter);
@@ -41,11 +42,17 @@ sub make_iterator{
 }
 
 sub base_composition{
-    my ($file, $motif_length) = @_;
+    my ($file, $motif_length, $methyl) = @_;
     my $size = [stat($file)]->[7];
     my $fr = FastaReader->new(file => $file, slurp => $size < 2**30);
 
-    my %score;
+    croak "if you want to do methylation scores, length needs to be at least 3"
+    if $methyl && $motif_length < 3;
+
+    my %composite_score;        # everything
+    my %rc_score;
+    my %single_score; # slightly redundant... 
+
 
     # prepopulate, so that 0 counts are not omitted. A C G T AA AC AG AT .. TG TT ..
     my @bases = qw/A C T G/;
@@ -53,10 +60,22 @@ sub base_composition{
         my $base_iterator = _base_iterator(4, $_);
         while (defined(my $n = $base_iterator->())){
             for my $seq ($fr->sequence_list()) {
-                $score{$seq}{join "", map { $bases[$_] } @$n} = 0;
+                my $context = join "", map { $bases[$_] } @$n;
+
+                if (length $context == 1){
+                    $single_score{$seq}{$context} = 0;
+                }
+                else{
+                    $composite_score{$seq}{$context} = 0;
+                    # for CHG, CHH, we need to record both strands
+                    if ($methyl && ($context eq 'CG' || $context =~ /^C..$/)){
+                        $rc_score{$seq}{$context} = 0;
+                    }
+                }
             }
         }
     }
+    #die Dumper \%score, \%rc_score;
 
     for my $seq ($fr->sequence_list()) {
         my $iter = make_iterator($fr, $seq, $motif_length);
@@ -66,39 +85,53 @@ sub base_composition{
             for (0 .. scalar(@$motif) -1){
                 my $joined = uc join "", @{$motif}[0 .. $_];
                 if ($joined =~ /^[ACGT]+$/){
-                    ++$score{$seq}{join "", $joined};
+                    if (length $joined == 1){
+                        ++$single_score{$seq}{$joined};
+                    }
+                    else{
+                        ++$composite_score{$seq}{$joined};
+                        $joined = reverse_complement $joined;
+                        if ($methyl && ($joined eq 'CG' || $joined =~ /^C..$/)){
+                            ++$rc_score{$seq}{$joined};
+                        }
+                    }
+
                 }
             }
             say STDERR "$seq $counter/" . $fr->get_length($seq) if ++$counter % 100_000 == 0 && $VERBOSE;
         }
 
-        # methylation count if >=3
-        if ($motif_length >= 3){
-            $score{$seq}{CHG} = sum map { $score{$seq}{$_} } qw/CAG CCG CTG CGG/;
-            $score{$seq}{CHH} = sum map { $score{$seq}{$_} } qw/CAA CCA CTA CGA CAC CCC CTC CGC CAT CCT CTT CGT/;
+        # methylation count if >=3 
+        if ($methyl){
+            $composite_score{$seq} = {
+                CG => ($composite_score{$seq}{CG} + $rc_score{$seq}{CG}),
+                CHG => (sum map { $composite_score{$seq}{$_} + $rc_score{$seq}{$_} } qw/CAG CCG CTG/),
+                CHH => (sum map { $composite_score{$seq}{$_} + $rc_score{$seq}{$_} } qw/CAA CAC CAT CCA CCC CCT CTA CTC CTT/),
+            };
         }
     }
 
-    return \%score;
+    return (\%single_score, \%composite_score);
 }
 
 
 sub report{
-    my ($file, $max, @contexts_wanted) = @_;
+    my ($file, $max, $methylation) = @_;
 
-    my $score    = base_composition $file, $max;
-    my @seq_list = sort keys %$score;
-    my @contexts = sort keys %{$score->{$seq_list[0]}};
+    my ($single, $compo) = base_composition $file, $max, $methylation;
+    my @seq_list = sort keys %$single;
 
-    if (@contexts_wanted == 0){
-        @contexts_wanted = @contexts;
-    }
-
+    #say Dumper $score;
     say join "\t", "Context", @seq_list;
 
+    for my $context (qw/A C G T/){
+        say join "\t", $context, map { $single->{$_}{$context} } @seq_list;
+    }
+
+    my @contexts = sort keys %{$compo->{$seq_list[0]}};
     for my $l (1 .. $max) {
-        for my $context ( grep { length($_) == $l } @contexts_wanted){
-            say join "\t", $context, map { $score->{$_}{$context} } @seq_list;
+        for my $context ( grep { length($_) == $l } @contexts){
+            say join "\t", $context, map { $compo->{$_}{$context} } @seq_list;
         }
     }
 }
