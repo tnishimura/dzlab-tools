@@ -85,8 +85,8 @@ sub parse_locus{
     }
 }
 
-my %cols = map { $_ => 1 } qw/sequence source feature start end score strand frame attribute_string/;
-
+my @default_colnames = qw/sequence source feature start end score strand frame attribute_string/;
+my %cols = map { $_ => 1 } @default_colnames;
 
 sub get_column{
     my ($self, $colname) = @_;
@@ -151,6 +151,11 @@ sub stringify{
     $self->strand // '.',
     $self->frame // '.',
     $self->attribute_string // '.',
+}
+
+sub slice{
+    my $self = shift;
+    return map { $self->get_column($_) } @default_colnames[map {$_ - 1} @_];
 }
 
 no Moose;
