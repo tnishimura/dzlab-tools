@@ -13,7 +13,6 @@ use lib "$FindBin::Bin/lib";
 use DZUtil qw/safemethyl/;
 use List::Util qw/min/;
 
-
 sub new {
     my ($class, %opt) = @_;
     #my ($class, $sequence, $sequence_length, $feature, $window_size, $filename) = @_;
@@ -34,7 +33,7 @@ sub new {
     my $filename = $opt{filename};
 
     # file 
-    if ($filename && -f $filename){
+    if (defined $filename){
         open my $fh, '>', $filename;
         $self->{fh} = $fh;
     }
@@ -121,26 +120,101 @@ use warnings FATAL => "all";
 use 5.010_000;
 use Data::Dumper;
 use autodie;
+use Getopt::Euclid qw( :vars<opt_> );
+use Pod::Usage;
+use FindBin;
+use lib "$FindBin::Bin/lib";
+use FastaReader;
+use GFF::Parser;
+use Launch;
+use File::Temp qw/tempdir/;
 
 END {close STDOUT}
 $| = 1;
 
-my $sw = My::SequenceWindower->new(
-    sequence => 'chr1', 
-    sequence_length => 59, 
-    feature => 'CHH', 
-    window_size => 20, 
-    filename => undef,
-    no_skip => 0,
-);
+pod2usage(-verbose => 99,-sections => [qw/NAME SYNOPSIS OPTIONS/]) 
+if $opt_help || @opt_files == 0;
 
-#$sw->fill_until(301);
-$sw->add_gff(3, 10, 20, 2);
-$sw->add_gff(6, 10, 20, 2);
-$sw->add_gff(7, 1, 7, 3);
-$sw->add_gff(32, 1, 7, 3);
-#, $position, $c, $t, $n) = @_;
-$sw->fill_tail();
+my %length;
+my $no_skip = defined $opt_reference;
+if ($no_skip){
+    %length= do {
+        my $fr = FastaReader->new(file => $opt_reference, normalize => 1); 
+        %{$fr->length};
+    };
+}
+
+my %sequence_windower = ();
+my @tmp_output_files;
+
+for my $input_file (@opt_files) {
+    my $counter = 0;
+    if (! $opt_assume_sorted){
+        launch("sort -k1,1 -k4,4n -i $input_file -o ??", expected => $input_file);
+    }
+    my $parser = GFF::Parser->new(file => $input_file,normalize => 0);
+    while (defined(my $gff = $parser->next())){
+        say STDERR $counter if $counter++ % 50000 == 0;
+
+        my ($seq,$feature,$start,$c,$t,$n) = 
+        ($gff->sequence(), $gff->feature(), $gff->start(), $gff->get_column('c'), $gff->get_column('t'), $gff->get_column('n'));
+
+        next if ! defined $seq;
+        if (! exists($sequence_windower{$seq})){
+            my $tmpout = tmpout($seq);
+            push @tmp_output_files, $tmpout;
+            $sequence_windower{$seq} = My::SequenceWindower->new(
+                sequence => $seq,
+                sequence_length => $no_skip ? $length{uc $seq} : 0,
+                feature => $gff->feature,
+                window_size => $opt_window_size,
+                filename => $tmpout,
+                no_skip => $no_skip,
+            );
+        }
+
+        $sequence_windower{$seq}->add_gff($start, $c, $t, $n);
+    }
+}
+
+if ($no_skip){
+    while (my ($seq,$windower) = each %sequence_windower) {
+        $windower->fil_tail();
+    }
+}
+
+if ($opt_output ne '-'){
+    open my $fh, '>', $opt_output;
+    select $fh;
+}
+for my $tmpout (@tmp_output_files) {
+    open my $fh, '<', $tmpout;
+    while (defined(my $line = <$fh>)){
+        chomp $line;
+        say $line;
+    }
+    close $fh;
+}
+
+##$sw->fill_until(301);
+#$sw->add_gff(3, 10, 20, 2);
+#$sw->add_gff(6, 10, 20, 2);
+#$sw->add_gff(7, 1, 7, 3);
+#$sw->add_gff(32, 1, 7, 3);
+##, $position, $c, $t, $n) = @_;
+#$sw->fill_tail();
+
+# temporary output files. 
+sub tmpout{
+    my $seq = shift;
+    if (defined $opt_output){
+        return "$opt_output.$seq";
+    }
+    else{
+        my (undef, $tempfile) = tempfile(UNLINK => 1);
+        return $tempfile;
+    }
+}
 
 
 =head1 NAME
@@ -157,6 +231,8 @@ window_by_fixed_2.pl - even better window_by_fixed.pl
 
 =item  -w <size> | --window-size <size>
 
+Window size. Default to 1.
+
 =for Euclid
     size.default:     1
     size.type:        int, size >= 1 
@@ -164,11 +240,22 @@ window_by_fixed_2.pl - even better window_by_fixed.pl
 
 =item  -r <fasta> | --reference <fasta>
 
-Reference fasta file.  If --no-skip/-k is used, for empty windows between the last window and the end of the
-sequences will also be outputted.
+If reference fasta file is given with this option, all empty windows will also
+be printed.  There is no longer a separate --no-skip option since the only
+reason you would give a reference file is if you wanted no skipping.
 
 =for Euclid
     fasta.type:        readable
+
+=item  -s | --assume-sorted 
+
+By default, this script will need to sort all input gff files by sequence and
+start coordinate.  If you pass -s, the input gff's will be assumed sorted and
+the script will not do it again.  However, it will die a horrible and painful
+death if you lie to it and it turns out to be unsorted.  "merged" single-c
+files produced by bs-sequel, for example and already sorted. You can manually
+sort with the command 'sort -k1,1 -k4,4n -i input.gff -o sorted.gff'
+beforehand.
 
 =item -o <file> | --output <file>
 
