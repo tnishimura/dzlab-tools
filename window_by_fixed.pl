@@ -133,18 +133,26 @@ for my $file (@opt_files) {
             next PLOOP;
         }
 
-        # round up to the nearest window (101-150 to 150, 151-200 to 200, etc for w50)
-        my $windowed_position = ($start - 1) + ($opt_window_size - ($start - 1) % $opt_window_size);
+        my @positions = $opt_explode ? ($start .. $end) : ($start);
+        my $score = $gff->score//1;
+        my $n = $gff->get_column('n')//1;
+        my $c = $gff->get_column('c')//0;
+        my $t = $gff->get_column('t')//0;
 
-        my $new_n = $opt_count_in_scores ? $gff->score//1 : $gff->get_column('n')//1;
+        for my $position (@positions) {
+            # round up to the nearest window (101-150 to 150, 151-200 to 200, etc for w50)
+            my $windowed_position = ($position - 1) + ($opt_window_size - ($position - 1) % $opt_window_size);
 
-        if ($opt_report_count){
-            record($gff->sequence, $windowed_position, 0, 0, $new_n);
+            my $new_n = $opt_count_in_scores ? $score : $n ;
+
+            if ($opt_report_count){
+                record($gff->sequence, $windowed_position, 0, 0, $new_n);
+            }
+            else{
+                record($gff->sequence, $windowed_position, $c, $t, $new_n);
+            }
+            #$insert_sth->execute($gff->sequence, $windowed_position, ($gff->get_column('c')//0), ($gff->get_column('t')//0));
         }
-        else{
-            record($gff->sequence, $windowed_position, ($gff->get_column('c')//0), ($gff->get_column('t')//0), $new_n);
-        }
-        #$insert_sth->execute($gff->sequence, $windowed_position, ($gff->get_column('c')//0), ($gff->get_column('t')//0));
     }
 }
 
@@ -295,6 +303,10 @@ For input, use the column 6 value instead of "n=#" for count score
 =item  -m | --memory 
 
 =item  --keep-intermediate
+
+=item  -x <type> | --explode <type>
+
+'distribute' or 'even'
 
 =back
 
