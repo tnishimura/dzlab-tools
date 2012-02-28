@@ -28,6 +28,7 @@ while (defined(my $gff = $p->next())){
     my ($seq, $start, $end) = ($gff->sequence, $gff->start, $gff->end);
     my @results = $gt->search_overlap($seq,$start,$end);
     my $gffstring = $gff->to_string;
+    my @gff18 = map { $_ // '.' } $gff->slice(1 .. 8);
 
     if (@results){
         for my $result (@results){
@@ -38,21 +39,21 @@ while (defined(my $gff = $p->next())){
                  $overlap / $gff->length() >= $opt_proportion_threshold
              ){
                 if (defined $opt_tag && defined(my $locus = $result->{item}->get_column($opt_tag))){
-                    say "$gffstring;$opt_tag=$locus";
+                    say $opt_tag_only ? join("\t", map { $_//'.'} $gff->slice(1 .. 8), $locus) : "$gffstring;$opt_tag=$locus";
                 }
                 else{
-                    say "$gffstring;" . $result->{item}->attribute_string;
+                    say $opt_tag_only ? join("\t", map { $_//'.'} $gff->slice(1 .. 8), '.') : "$gffstring;" . $result->{item}->attribute_string;
                 }
             }
             elsif ($opt_no_skip){
                 $gff->score(undef);
-                say $gff->to_string;
+                say $opt_tag_only ? join("\t", map { $_//'.'} $gff->slice(1 .. 8), '.') : $gff->to_string;
             }
         }
     }
     elsif ($opt_no_skip){
         $gff->score(undef);
-        say $gff->to_string;
+        say $opt_tag_only ? join("\t", map { $_//'.'} $gff->slice(1 .. 8), '.') : $gff->to_string;
     }
 }
 
@@ -114,6 +115,10 @@ reported with a null score). Default to 0, mean any overlap is enough.
     thresh.default:     0
     thresh.type:        number, thresh >= 0 && thresh <= 1
     thresh.type.error:  <thresh> must be between 0 and 1
+
+=item  -to  | --tag-only 
+
+Output only tag in column 9, instead of original col 9 + tag.
 
 =item --help | -h
 
