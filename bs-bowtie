@@ -44,7 +44,7 @@ say STDERR "splice: $splice[0] $splice[1] (trims $trim5, $trim3)";
 # Convert genome and bowtie build if necessary
 
 my $conversion = $opt_g2a ? 'g2a' : 'c2t';
-launch("perl -S bs-bowtie-build -c2t $opt_reference");
+launch("perl -S bs-bowtie-build -$conversion $opt_reference");
 
 #######################################################################
 # Launch bowtie
@@ -53,8 +53,8 @@ my $mh_args = $opt_max_hits ? " --strata  -k $opt_max_hits -m $opt_max_hits " : 
 
 launch(join(" | ", 
             "perl -S fq2fa.pl $opt_reads", 
-            "perl -S convert.pl c2t -",
-            "bowtie $opt_reference.c2t -f -B 1 -v $opt_mismatches -5 $trim5 -3 $trim3 --best $mh_args --norc - ",
+            "perl -S convert.pl $conversion -",
+            "bowtie $opt_reference.$conversion -f -B 1 -v $opt_mismatches -5 $trim5 -3 $trim3 --best $mh_args --norc - ",
             "perl -S parse_bowtie.pl -u $opt_reads -s @splice -o $opt_output", 
         ),
         dryrun => $opt_dry_run, 

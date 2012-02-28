@@ -92,7 +92,7 @@ elsif (! $opt_single_ends && !defined $opt_library_size){
 # downsample
 
 my $read_size = fastq_read_length($opt_left_read);
-if (defined($opt_right_read) && $read_size =~ fastq_read_length($opt_right_read)){
+if (defined($opt_right_read) && $read_size != fastq_read_length($opt_right_read)){
     $logger->logdie("$opt_right_read and $opt_left_read not same read lengths?");
 }
 
@@ -181,7 +181,7 @@ if (! -d $windows_dir) { mkpath ( $windows_dir,  {verbose => 1} ); }
 if (! -d $single_c_dir){ mkpath ( $single_c_dir, {verbose => 1} ); }
 
 my $basename_left  = catfile($opt_out_directory, basename($opt_left_read));
-my $basename_right = catfile($opt_out_directory, basename($opt_left_read));
+my $basename_right = catfile($opt_out_directory, basename($opt_right_read));
 my $basename       = catfile($opt_out_directory, $opt_base_name);
 
 #######################################################################
@@ -223,7 +223,7 @@ if ($pm->start == 0){
                 expected => $eland_right_post, dryrun => $dry, also => $bowtie_logname);
         }
         else {
-            launch("perl -S bs-bowtie -r $opt_right_read -f $opt_reference -s @right_splice -n $opt_mismatches -mh $opt_max_hits -o ??",
+            launch("perl -S bs-bowtie -g2a -r $opt_right_read -f $opt_reference -s @right_splice -n $opt_mismatches -mh $opt_max_hits -o ??",
                 expected => $eland_right_post, dryrun => $dry, also => $bowtie_logname);
         }
     }
