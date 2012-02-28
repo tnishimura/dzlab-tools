@@ -27,33 +27,34 @@ my $p = GFF::Parser->new(file => $opt_input);
 while (defined(my $gff = $p->next())){
     my ($seq, $start, $end) = ($gff->sequence, $gff->start, $gff->end);
     my @results = $gt->search_overlap($seq,$start,$end);
-    my $gffstring = $gff->to_string;
-    my @gff18 = map { $_ // '.' } $gff->slice(1 .. 8);
+    my $outputted;
 
-    if (@results){
-        for my $result (@results){
-            my $overlap = $result->{overlap};
-            #say $gff->start . " $overlap ". $overlap/$gff->length();
-            if ($opt_proportion_threshold == 0 || 
-                ($opt_proportion_threshold == 1 && $overlap == $gff->length) || 
-                 $overlap / $gff->length() >= $opt_proportion_threshold
-             ){
-                if (defined $opt_tag && defined(my $locus = $result->{item}->get_column($opt_tag))){
-                    say $opt_tag_only ? join("\t", map { $_//'.'} $gff->slice(1 .. 8), $locus) : "$gffstring;$opt_tag=$locus";
+    for my $result (@results){
+        my $overlap = $result->{overlap};
+        if ($opt_proportion_threshold == 0 || 
+            ($opt_proportion_threshold == 1 && $overlap == $gff->length) || 
+            $overlap / $gff->length() >= $opt_proportion_threshold
+        ){
+            if (defined $opt_tag && defined(my $locus = $result->{item}->get_column($opt_tag))){
+                if ($opt_tag_only){
+                    $gff->attribute_string($locus);
+                    say $gff;
                 }
                 else{
-                    say $opt_tag_only ? join("\t", map { $_//'.'} $gff->slice(1 .. 8), '.') : "$gffstring;" . $result->{item}->attribute_string;
+                    say "$gff;$opt_tag=$locus";
                 }
+                $outputted = 1;
             }
-            elsif ($opt_no_skip){
-                $gff->score(undef);
-                say $opt_tag_only ? join("\t", map { $_//'.'} $gff->slice(1 .. 8), '.') : $gff->to_string;
+            else{
+                say STDERR "Warning: overlapping but no $opt_tag for " . $result->{item}; 
             }
         }
     }
-    elsif ($opt_no_skip){
+
+    if (! $outputted && $opt_no_skip){
         $gff->score(undef);
-        say $opt_tag_only ? join("\t", map { $_//'.'} $gff->slice(1 .. 8), '.') : $gff->to_string;
+        $gff->attribute_string(undef) if $opt_tag_only;
+        say $gff;
     }
 }
 
