@@ -138,6 +138,53 @@ sub bowtie{
     return _parse_bowtie_log(@log), @log;
 }
 
+sub bowtie_pipe{
+
+    croak "bowtie: argument error, uneven" if (@_ % 2 != 0);
+
+    my %opt = @_;
+    my @args = _construct_common_args(%opt);
+
+    my $verbose = exists $opt{verbose} && $opt{verbose} >= 1;
+
+    if (any {exists $opt{$_}} qw/-1 -2/){
+        croak "can't specify input files with bowtie_pipe";
+    }
+    push @args, '-';
+
+    if (! exists $opt{output}){
+        croak "need output";
+    }
+    push @args, $opt{output};
+    
+    #######################################################################
+    # run 
+    
+    say STDERR join " ", 'bowtie', @args if $verbose;
+
+    my $pid = open my $bowtie_process, '|-';
+    defined $pid or croak "couldn't fork!";
+
+    my @log;
+    if ($pid){ # parent
+        while (defined(my $logline = <$bowtie_process>)){
+            chomp $logline;
+            push @log, $logline;
+        }
+        {
+            no autodie qw/close/;
+            close $bowtie_process || croak "bowtie ended prematurely?";
+        }
+    } 
+    else{
+        close STDERR;
+        open STDERR, ">&STDOUT";
+        exec 'bowtie', @args;
+    }
+    return _parse_bowtie_log(@log), @log;
+}
+
+
 sub _parse_bowtie_log{
     my @loglines = @_;
     
