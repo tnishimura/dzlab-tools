@@ -12,7 +12,6 @@ use File::Find;
 use File::Path qw/make_path remove_tree/;
 use File::Spec::Functions qw/rel2abs canonpath catdir catfile updir/;
 use File::Temp qw/tempdir/;
-use FindBin;
 use Getopt::Long;
 use Git::Repository;
 use Pod::Usage;
@@ -20,7 +19,6 @@ use POSIX qw/strftime/;
 use Scalar::Util qw/looks_like_number/;
 use Template;
 use YAML qw/Load DumpFile LoadFile/;
-
 
 $0 = basename($0);
 
@@ -46,11 +44,10 @@ die "releasedir in $config_file not a directory?" if (! -d $releasedir);
 die "earliest in $config_file not a number?" if (! looks_like_number($earliest));
 
 #######################################################################
+# read DATA section
 
 my ($ignore_dirs, $installer_nsi_template, $dzlab_check_pl_template) = 
 @{Load(do {local $/; scalar <DATA>})}{qw/ignore_dirs installer_nsi_template dzlab_check_pl_template/};
-
-#die Dumper $ignore_dirs, $installer_nsi_template, $dzlab_check_pl_template;
 
 #######################################################################
 
@@ -92,7 +89,7 @@ sub should_ignore_dir{
 
 sub should_ignore_file{
     my $file = shift;
-    return 1 if $file =~ /^\./ || $file eq $0;
+    return 1 if $file =~ /^\./ || $file eq $0 || $file =~ /\.in$/;
 }
 
 sub dump_version_file{
@@ -102,7 +99,6 @@ sub dump_version_file{
             committime => strftime("%Y/%m/%d %H:%M:%S %Z", localtime(tagdate($tag))),
             version => $tag,
         });
-
 }
 
 sub build_linux{
