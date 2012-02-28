@@ -21,8 +21,7 @@ if ($opt_output ne '-'){
 }
 
 my $gt = GFF::Tree->new(file => $opt_gff);
-
-my $p = GFF::Parser->new(file => $opt_input);
+my $p  = GFF::Parser->new(file => $opt_input);
 
 while (defined(my $gff = $p->next())){
     my ($seq, $start, $end) = ($gff->sequence, $gff->start, $gff->end);
@@ -61,7 +60,8 @@ while (defined(my $gff = $p->next())){
 
 =head1 NAME
 
-overlaps_gff.pl 
+overlaps_gff.pl - for each input gff line, if it overlaps with an entry in the annotation, 
+print the gff line with additional annotation information.  
 
 =head1 SYNOPSIS
 
@@ -69,16 +69,9 @@ Usage examples:
 
  overlaps_gff.pl -g annotation.gff -k -t 'ID' -o output.gff input.gff
 
-=head1 REQUIRED ARGUMENTS
-
-=over
-
-=back
-
 =head1 OPTIONS
 
 =over
-
 
 =item  -g <file> | --gff <file>
 
