@@ -16,7 +16,7 @@ use DZUtil qw/open_maybe_compressed/;
 END {close STDOUT}
 $| = 1;
 
-my $fasta = shift || (die "usage: $0 fasta";
+my $fasta = shift || die "usage: $0 fasta";
 my $basename = basename $fasta, qw/.fa .fasta .FA .FASTA/;
 
 my $fh = open_maybe_compressed $fasta;
