@@ -48,6 +48,9 @@ while (defined(my $gff = $p->next())){
                 say STDERR "Warning: overlapping but no $opt_tag for " . $result->{item}; 
             }
         }
+        if ($outputted && $opt_one_each){
+            last;
+        }
     }
 
     if (! $outputted && $opt_no_skip){
@@ -112,7 +115,9 @@ reported with a null score). Default to 0, mean any overlap is enough.
 
 =item  -to  | --tag-only 
 
-Output only tag in column 9, instead of original col 9 + tag.
+=item  --one-each
+
+Only print one entry for multiply overlapping input.
 
 =item --help | -h
 
