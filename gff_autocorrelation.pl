@@ -24,19 +24,23 @@ if $opt_help || !$opt_gff || !$opt_input;
 my $opt_overlaps_file = basename($opt_input) . ".overlaps-vs-" . basename($opt_gff, '.gff');
 my $sorted = "$opt_overlaps_file.sorted";
 
-### output
-$opt_output //= $opt_overlaps_file . ".acf";
-open my $fh, '>', $opt_output;
 
 say STDERR "\$opt_overlaps_file = $opt_overlaps_file";
-say STDERR "\$opt_output        = $opt_output";
-
 launch("overlaps_gff.pl -t $opt_tag -to -g $opt_gff -o ?? $opt_input", expected => $opt_overlaps_file);
 launch("sort -k9,9 $opt_overlaps_file -o ??", expected => $sorted);
 
 say STDERR "making position map";
 my $posmap = make_position_map($opt_gff);
 say STDERR "done making position map";
+
+exit 0 if $opt_overlaps_only;
+
+#######################################################################
+# output
+$opt_output //= $opt_overlaps_file . ".acf";
+open my $fh, '>', $opt_output;
+
+say STDERR "\$opt_output        = $opt_output";
 
 my $parser = GFF::Parser->new(file => $sorted);
 
@@ -209,6 +213,8 @@ attribute string (col 9) from the annotation.
 =for Euclid
     length.default:     2000
     length.type:        int, length >= 1 && length <= 10000
+
+=item  -oo | --overlaps-only 
 
 =back
 
