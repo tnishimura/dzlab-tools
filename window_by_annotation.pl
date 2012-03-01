@@ -26,7 +26,7 @@ if ($opt_output ne '-'){
 }
 
 $logger->info("reading $opt_gff into GFF::Tree...");
-my $gt = GFF::Tree->new(file => $opt_gff,normalize => 1);
+my $gt = GFF::Tree->new(file => $opt_gff,normalize => 1, lenient => 1);
 $logger->info("done");
 
 my $p = GFF::Parser->new(file => $opt_input,normalize => 1);
