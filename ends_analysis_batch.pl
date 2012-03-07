@@ -121,7 +121,7 @@ for my $dir (@opt_base_dirs) {
                     if ($opt_all && /^all\.cg/i){ push @{$files{cg}}, $File::Find::name; }
                     elsif ($opt_all && /^all\.chg/i){ push @{$files{chg}}, $File::Find::name; }
                     elsif ($opt_all && /^all\.chh/i){ push @{$files{chh}}, $File::Find::name; }
-                    elsif (!$opt_all && ! /_all_/){ # '_all_' are the completed ones... avoid nesting
+                    elsif (!$opt_all && ! /_all_/ && ! /\ball\b/){ # '_all_' are the completed ones... avoid nesting
                         if    (/CG.$extension$/i)     { push @{$files{cg}}, $File::Find::name; }
                         elsif (/CHG.$extension$/i) { push @{$files{chg}}, $File::Find::name; }
                         elsif (/CHH.$extension$/i) { push @{$files{chh}}, $File::Find::name; }
@@ -208,13 +208,13 @@ sub find_single_c{
 
 =head1 NAME
 
-batch_ends_analysis.pl - ...
+batch_ends_analysis.pl - run ends_analysis.pl in batch on bsseq or bastard outputs.
 
 =head1 SYNOPSIS
 
 Usage examples:
 
- ends_analysis_batch.pl [-b basename] [--dry|-n] [--force|-f] --conf ends.conf [--threads 4] -d basedir1 basedir2 
+ ends_analysis_batch.pl [--dry|-n] [--force|-f] [--parallel 4] --conf ends.conf -d basedir1 basedir2 
 
 =head1 OPTIONS
 
