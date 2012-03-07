@@ -181,7 +181,13 @@ if (! -d $windows_dir) { mkpath ( $windows_dir,  {verbose => 1} ); }
 if (! -d $single_c_dir){ mkpath ( $single_c_dir, {verbose => 1} ); }
 
 my $basename_left  = catfile($opt_out_directory, basename($opt_left_read));
-my $basename_right = catfile($opt_out_directory, basename($opt_right_read));
+
+my $basename_right = $do_right && $opt_right_read ? 
+                     catfile($opt_out_directory, basename($opt_right_read)) :
+                     $do_right && ! $opt_right_read ? 
+                     catfile($opt_out_directory, basename($opt_left_read)) :
+                     "";
+
 my $basename       = catfile($opt_out_directory, $opt_base_name);
 
 #######################################################################
@@ -194,7 +200,11 @@ unless (@contexts) {
 }
 
 my $eland_left_post  = "${basename_left}_$left_splice[0]-$left_splice[1].eland3.post";
-my $eland_right_post = $do_right ? "${basename_right}_$right_splice[0]-$right_splice[1].eland3.post" : "";
+my $eland_right_post = $do_right && ! $opt_single_ends ? 
+                       "${basename_right}_$right_splice[0]-$right_splice[1].eland3.post" : 
+                       $do_right && $opt_single_ends ? 
+                       "${basename_left}_$right_splice[0]-$right_splice[1].eland3.post" : 
+                       "";
 
 #######################################################################
 # convert genomes & build bowtie indices
