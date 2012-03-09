@@ -209,7 +209,8 @@ Usage:
 
 This script looks at two gff files line by line, and for each common base
 (meaning the sequence and start position are the same), performs the arithmetic
-expression, and prints a combined line.
+expression, and prints a combined line. Any lines which are in one but not the
+other are output as-is.
 
 For example, say file1.gff contains:
 
