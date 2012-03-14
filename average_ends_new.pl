@@ -53,60 +53,31 @@ while (<ARGV>) {
 
 }
 
-#######################################################################
-# output
+print join ("\t", qw/bin mean std var ste numscores 25% 50% 75%/), "\n";
 
-print join ("\t", qw/bin mean std var ste numscores 25% 50% 75% autocorrelation/), "\n";
-
-my %table = map { $_ => [] } qw/bin mean std var ste numscores lqr median uqr autoc/;
-
-my $no_nulls = 1;
 for my $k (0 .. $scores - 1){
     my $vals = $stats[$k];
     my $count = @$vals;
     my $index = $k * $bin_width - int ($scores/2) * $bin_width;
 
-    push @{$table{bin}}, $index;
-    push @{$table{count}}, $count;
-
     if ($count){
+        my $mean = smean(@$vals);
         my $var = svar(@$vals);
-        push @{$table{mean}}, smean(@$vals);
-        push @{$table{var}}, $var;
-        push @{$table{std}}, sqrt($var);
-        push @{$table{ste}}, sqrt($var)/sqrt($count);
-        my ($lqr, $median, $uqr) = quartiles(@$vals);
-        push @{$table{lqr}}, $lqr;
-        push @{$table{median}}, $median;
-        push @{$table{uqr}}, $uqr;
+        my $std = sqrt($var);
+        my $ste = $std/sqrt($count);
+        my @quartiles = quartiles(@$vals);
+
+        printf("%d\t" . ("%s\t" x 4) . "%d\t" . ("%s\t" x 3) . "\n",
+            $index, $mean, $std, $var, $ste, $count, @quartiles,
+        );
     }
     else{
-        my $no_nulls = 0;
-        push @{$table{mean}}, 'na';
-        push @{$table{var}}, 'na';
-        push @{$table{std}}, 'na';
-        push @{$table{ste}}, 'na';
-        push @{$table{lqr}}, 'na';
-        push @{$table{median}}, 'na';
-        push @{$table{uqr}}, 'na';
+        printf("%d\t" . ("%s\t" x 4) . "%d\t" . ("%s\t" x 3) . "\n",
+            $index, 'na', 'na', 'na', 'na', $count, 'na', 'na', 'na',
+        );
     }
 }
 
-if ($no_nulls){
-    $table{autoc} = autocorrelation($table{mean});
-}
-else{
-    $table{autoc} = [('na') x $scores];
-}
-
-for my $k (0 .. $scores - 1){
-    my      ($index, $mean, $std, $var, $ste, $count, $lqr, $median, $uqr, $autoc) = 
-    map { $table{$_}[$k] } qw/bin     mean   std   var   ste   count   lqr   median   uqr   autoc/;
-
-    printf("%d\t" . ("%s\t" x 4) . "%d\t" . ("%s\t" x 4) . "\n",
-        $index, $mean, $std, $var, $ste, $count, $lqr, $median, $uqr, $autoc
-    );
-}
 
 #######################################################################
 # math
@@ -144,31 +115,6 @@ sub svar{
     my $n = scalar @_;
     my $mean = smean(@_);
     return (my_sum(map { $_*$_ } @_) - $n * $mean * $mean ) / ($n - 1);
-}
-
-sub autocorrelation{
-    my $points = shift;
-    my $N = scalar @$points;
-    my $mean = 1.0 / $N * my_sum @$points;
-    my $max_lag = $N - 1;
-    my @accum;
-
-    for my $lag (0 .. $max_lag) {
-        my $numerator = 0;
-        my $denom = 0;
-
-        for my $i (0 .. $N - $lag - 1) {
-            $numerator += ($points->[$i] - $mean) * ($points->[$i + $lag] - $mean);
-        }
-
-        for my $i (0 .. $N - 1) {
-            $denom += ($points->[$i] - $mean) * ($points->[$i] - $mean);
-        }
-
-        push @accum, $numerator/$denom;
-    }
-
-    return \@accum;
 }
 
 =head1 NAME
