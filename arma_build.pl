@@ -14,6 +14,9 @@ use List::MoreUtils qw/all/;
 use Pod::Usage;
 use Getopt::Long;
 
+END {close STDOUT}
+$| = 1;
+
 my $result = GetOptions(
     'gff-annotation|g=s' => \my $gff_annotation,
     'bin-width|b=i'      => \(my $bin_width = 100),
@@ -23,6 +26,7 @@ my $result = GetOptions(
     'three-prime|3'      => \(my $three_prime = 0),
     'five-prime|5'       => \(my $five_prime = 0),
     'extract-id|x=s'     => \(my $attribute_id = 'ID'),
+    'flag-7-num-bins|n=i' => \(my $flag_7_numbins),
 );
 if (! $result 
     || ! $gff_annotation
@@ -32,6 +36,18 @@ if (! $result
     pod2usage(-verbose => 99);
 }
 
+print STDERR <<"LOGMSG";
+    \$gff_annotation   = $gff_annotation  
+    \$bin_width        = $bin_width
+    \$distance         = $distance
+    \$stop_flag        = $stop_flag
+    \$stop_distance    = $stop_distance
+    \$three_prime      = $three_prime
+    \$five_prime       = $five_prime
+    \$attribute_id     = $attribute_id
+LOGMSG
+print STDERR "    \$flag_7_numbins   = $flag_7_numbins" if $flag_7_numbins;
+
 my $nmc = Ends::NeighborMapCollection::new_cached(
     file            => $gff_annotation,
     tag             => $attribute_id,
@@ -40,30 +56,14 @@ my $nmc = Ends::NeighborMapCollection::new_cached(
     prime           => $three_prime ? 3 : 5,
     flag_6_distance => $stop_distance,
     binwidth        => $bin_width,
+    numbins         => $flag_7_numbins,
 );
 
-=head1 USAGE
+=head1 NAME
 
-=head1 OPTIONS
+ arma_build.pl -g anno.gff [-5 | -3] -b 100 -d 5000 -x ID -s [0 | 2 | 6 | 7] 
 
-=over
-
-=item -g <annotation_gff> | --gff-annotation <annotation_gff>
-
-=item -5 | --five-prime
-
-=item -3 | --three-prime
-
-=item  -b <width> | --bin-width <width>
-
-=item  -d <distance> | --distance <distance>
-
-=item  -x <id_tag> | --extract-id <id_tag>
-
-=item -s | --stop-flag
-
-=item  -k <distance> | --stop-distance <distance>
-
-=back
+ Only Flag 6: -k 1500
+ Only Flag 7: -n 100
 
 =cut
