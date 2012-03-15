@@ -15,28 +15,41 @@ use Getopt::Long;
 my $result = GetOptions (
     "strip-suffix|s" => \(my $strip_suffix),
     "strip-prefix|p" => \(my $strip_prefix),
+    "nicknames|n" => \(my $nicknames),
 );
 usage() if (!$result);  
 
 END {close STDOUT}
 $| = 1;
 
-usage() if ! @ARGV;
-my $prefix = common_prefix map { basename($_) } @ARGV;
-my $suffix = common_suffix map { basename($_) } @ARGV;
+usage() if (! @ARGV || ($nicknames && scalar(@ARGV) % 2 != 0));
+
+my %nicks2files;
+use Tie::IxHash;
+tie %nicks2files, 'Tie::IxHash';
+if ($nicknames){
+    %nicks2files = (@ARGV);
+}
+else{
+    my $prefix = common_prefix map { basename($_) } @ARGV;
+    my $suffix = common_suffix map { basename($_) } @ARGV;
+    for my $file (@ARGV) {
+        my $nick = basename($file);
+        $nick =~ s/^\Q$prefix\E// if $strip_prefix;
+        $nick =~ s/\Q$suffix\E$// if $strip_suffix;
+        $nicks2files{$nick} = $file;
+    }
+}
+#die Dumper \%nicks2files;
 
 my %accum;
 tie %accum, "Tie::IxHash";
 
-for my $file (@ARGV) {
-    my $key = basename($file);
-    $key =~ s/^\Q$prefix\E// if $strip_prefix;
-    $key =~ s/\Q$suffix\E$// if $strip_suffix;
-
-    if (exists $accum{key}){
+while (my ($nick,$file) = each %nicks2files) {
+    if (exists $accum{$nick}){
         die "duplicate column names";
     }
-    $accum{$key} = slurp_avg($file)
+    $accum{$nick} = slurp_avg($file)
 }
 
 my @lens = map { scalar @{$accum{$_}} } keys %accum;
