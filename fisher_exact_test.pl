@@ -38,6 +38,7 @@ my $result = GetOptions (
     "sep|s=s"       => \$sep,
     "super-exact|x" => \$exact,
     "skip-header|h" => \$skip_header,
+    "header|n=s"    => \(my $header_name),
     "help"          => \$help,
     "decimal"       => \$decimal,
     "sci-not"       => \$scinot,
@@ -114,7 +115,7 @@ open my $fh, '<', $input;
 if ($skip_header){
     my $header = scalar(<$fh>);
     chomp $header;
-    say $outfh "$header$sep"."p-val";
+    say $outfh "$header$sep".($header_name // "p-val");
 }
 
 my $counter = 1;
@@ -191,6 +192,7 @@ you would launch:
                      (default -200).
  --super-exact   -x  Don't use logarithms for calculating factorials. 
  --skip-header   -h  Skip first line
+ --header-name   -n  Header name
 
 Output format (default is to use shortest): 
 
