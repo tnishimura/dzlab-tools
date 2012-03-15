@@ -105,7 +105,7 @@ sub neighborhood{
     my $flag_distance = $self->flag_6_distance;
     my $length = $end - $start; # + 1 not necessary
 
-    say "$strand, $start ,$end, $distance, $prime, $flag_distance, $length";
+    #say "$strand, $start ,$end, $distance, $prime, $flag_distance, $length";
 
     #######################################################################
     # Upstream end
