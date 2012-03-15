@@ -21,6 +21,13 @@ if !$opt_file || !$opt_output_prefix || !$opt_reference;
 #######################################################################
 # Database 
 
+=head2 Internals
+
+Create a database of sequence, coordinate, context, c, t. Sequence and coordinate make up the record.
+
+
+=cut
+
 {
     my $counter = 0;
     my $increment = 10000;
@@ -52,6 +59,7 @@ if !$opt_file || !$opt_output_prefix || !$opt_reference;
         return $row->[0] ? $row->[1] : 0;
     }
 
+    # insert new or update existing position. error when reported context does not match existing context.
     sub record_methylation{
         my ($seq, $coord, $context) = @_;
         $context = lc $context;
@@ -82,7 +90,7 @@ if !$opt_file || !$opt_output_prefix || !$opt_reference;
 
     sub record_output{
         # prefix-$seq.single-c-$context.gff.merged
-        my $prefix = shift;
+        my $file_prefix = shift;
 
         $dbh->commit();
 
@@ -99,7 +107,7 @@ if !$opt_file || !$opt_output_prefix || !$opt_reference;
 
             my $key = $context;
             if (! exists $filehandles{$key}){
-                my $file = "$prefix.single-c.$context.gff.merged";
+                my $file = "$file_prefix.single-c.$context.gff.merged";
                 my $tmpfile = mktemp($file . ".tmp.XXXX");
                 open my $writer, q{>}, $tmpfile;
                 $filehandles{$key} = $writer;
@@ -144,6 +152,10 @@ if !$opt_file || !$opt_output_prefix || !$opt_reference;
         }
 
         return ($total/length $read_str) < 0.25 ? 1 : 0;
+    }
+
+    sub parse_line{
+        my $gff_line = shift;
     }
 
     sub count_methylation{
@@ -192,11 +204,13 @@ if !$opt_file || !$opt_output_prefix || !$opt_reference;
         if ($split[8] =~ /target=([A-Z]+)$/){
             $target_seq = $1;
         }
+
         if (!  defined $read_seq || ! defined $target_seq){
             warn("couldn't parse $gff_line ?");
             return;
         }
-        die "can't find read or target seq"  unless (defined $read_seq && defined $target_seq);
+        # redundant
+        # die "can't find read or target seq"  unless (defined $read_seq && defined $target_seq);
 
         my @target_bases = split //,$target_seq;
         my @read_bases = (q{.}, q{.}, split(//, $read_seq), q{.}, q{.});
