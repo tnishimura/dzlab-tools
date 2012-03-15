@@ -66,8 +66,9 @@ print STDERR <<"LOGMSG" if $verbose;
     \$zero_flag_region = $zero_flag_region
     \$singleton        = $singleton
     \$trust-column-6   = $trust_column_6
-    \$flag_7_numbins   = $flag_7_numbins
 LOGMSG
+
+say "    \$flag_7_numbins   = $flag_7_numbins" if $flag_7_numbins && $verbose;
 
 my $nmc = Ends::NeighborMapCollection::new_cached(
     file            => $gff_annotation,
