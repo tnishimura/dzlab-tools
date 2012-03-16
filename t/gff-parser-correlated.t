@@ -19,13 +19,12 @@ isa_ok($parser, 'GFF::Parser::Correlated');
     my $corr = $parser->next();
     ok(defined $corr, "first read");
 
-    my ($seq, $start, $end, $filtered, $reverse, $read_seq, $target_seq) = @$corr;
+    my ($seq, $start, $end, $reverse, $read_seq, $target_seq) = @$corr;
     is($seq, 'chr3', "seq");
     is($read_seq, "TTTTATGATGTGGTAATTTATTATTGGATGGGAAGTTTGAT", "read");
     is($target_seq, "TGTCCCATGACGTGGCAACCTATTACTGGATGGGAAGTTCGACCG", "target");
     is($start, 1567476, "start");	
     is($end, 1567516, "end");	
-    is($filtered, 0, "filtered");	
     is($reverse, 0, "reverse");	
 }
 
@@ -33,13 +32,12 @@ isa_ok($parser, 'GFF::Parser::Correlated');
     my $corr = $parser->next();
     ok(defined $corr, "second read");
 
-    my ($seq, $start, $end, $filtered, $reverse, $read_seq, $target_seq) = @$corr;
+    my ($seq, $start, $end, $reverse, $read_seq, $target_seq) = @$corr;
     is($seq, 'chr1', "seq");
     is($read_seq, "TGGATTGTAAGAAATAGAGAAGAAGTTAATTAGTGATTGAA", "read");
     is($target_seq, "TGTGGACTGCAAGAAATAGAGAAGAAGCTAATTAGTGACTGAATA", "target");
     is($start, 17479814, "start");	
     is($end, 17479854, "end");	
-    is($filtered, 0, "filtered");	
     is($reverse, 1, "reverse");	
 }
 
@@ -52,13 +50,12 @@ $parser->next();
     ok(defined $corr, "fifth read skipped correctly");
     is($parser->no_match_counter(), 1, "unmatched reads counter incremented");
 
-    my ($seq, $start, $end, $filtered, $reverse, $read_seq, $target_seq) = @$corr;
+    my ($seq, $start, $end, $reverse, $read_seq, $target_seq) = @$corr;
     is($seq, 'chr5', "seq");
     #is($read_seq, "TGGATTGTAAGAAATAGAGAAGAAGTTAATTAGTGATTGAA", "read");
     #is($target_seq, "TGTGGACTGCAAGAAATAGAGAAGAAGCTAATTAGTGACTGAATA", "target");
     #is($start, 17479814, "start");	
     #is($end, 17479854, "end");	
-    #is($filtered, 0, "filtered");	
     #is($reverse, 1, "reverse");	
 }
 
@@ -67,13 +64,12 @@ $parser->next();
     ok(defined $corr, "fifth read skipped correctly");
     is($parser->no_match_counter(), 1, "unmatched reads counter incremented");
 
-    my ($seq, $start, $end, $filtered, $reverse, $read_seq, $target_seq) = @$corr;
+    my ($seq, $start, $end, $reverse, $read_seq, $target_seq) = @$corr;
     is($seq, 'chrc', "seq");
     #is($read_seq, "TGGATTGTAAGAAATAGAGAAGAAGTTAATTAGTGATTGAA", "read");
     #is($target_seq, "TGTGGACTGCAAGAAATAGAGAAGAAGCTAATTAGTGACTGAATA", "target");
     #is($start, 17479814, "start");	
     #is($end, 17479854, "end");	
-    is($filtered, 0, "filtered");	
     #is($reverse, 1, "reverse");	
 }
 

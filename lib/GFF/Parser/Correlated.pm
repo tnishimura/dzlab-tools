@@ -41,7 +41,7 @@ around 'next' => sub{
         # body...
         my ($seq, undef, $col3, $start,$end,undef, $strand, undef, $col9) = @{$gff->as_array()};
 
-        my $filtered = (defined $col9 && $col9 =~ s/\*$//) ? 1 : 0;
+        #my $filtered = (defined $col9 && $col9 =~ s/\*$//) ? 1 : 0;
 
         if (!defined $seq){
             $self->inc_no_match_counter();
@@ -71,7 +71,7 @@ around 'next' => sub{
 
         my $reverse = $strand eq '+' ? 0 : $strand eq '-' ? 1 : croak "strand should be + or -";
 
-        return [$seq, $start, $end, $filtered, $reverse, $read_seq, $target_seq];
+        return [$seq, $start, $end, $reverse, $read_seq, $target_seq];
     }
     return;
 
