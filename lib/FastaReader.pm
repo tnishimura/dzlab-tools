@@ -246,8 +246,12 @@ sub get_pretty{
 
 # if undef_on_nonct => 1 and non-ct position, return undef
 #   (otherwise croak)
-# return CHH when triplet falls off edge
-# otherwise return context CG, CHG, CHH
+# for trinuc (default):
+#   return CHH when triplet falls off edge
+#   otherwise return context CG, CHG, CHH
+# for dinuc
+#   return CH when triplet falls off edge
+#   otherwise, CG, CA, CT, CC, or CH (when not ACGT).
 sub get_context{
     my ($self, $seqid, $position, %opt) = @_;
 
@@ -255,9 +259,10 @@ sub get_context{
 
     # extract options
     $seqid = uc $seqid;
-    my $rc        = $opt{rc} // 0;
-    my $base      = $opt{base} // 1;
+    my $rc             = $opt{rc} // 0;
+    my $base           = $opt{base} // 1;
     my $undef_on_nonct = $opt{undef_on_nonct} // 0;
+    my $dinucleotide   = $opt{dinuc} // 0;
     $opt{lenient} = 1;
 
     my @split = split //, $raw;
@@ -271,10 +276,20 @@ sub get_context{
         }
     }
 
-    if (@split >= 2 && $split[1] eq 'G'){ return 'CG'; }
-    elsif (@split == 3 && $split[2] eq 'G'){ return 'CHG'; }
-    elsif (@split == 3){ return 'CHH'; }
-    else { return 'CHH'; }
+    if ($dinucleotide){
+        if (@split < 2){ return 'CH'; }
+        elsif ($split[1] eq 'A'){ return 'CA'; }
+        elsif ($split[1] eq 'C'){ return 'CC'; }
+        elsif ($split[1] eq 'G'){ return 'CG'; }
+        elsif ($split[1] eq 'T'){ return 'CT'; }
+        else{ return 'CH'; }
+    }
+    else{
+        if (@split >= 2 && $split[1] eq 'G'){ return 'CG'; }
+        elsif (@split == 3 && $split[2] eq 'G'){ return 'CHG'; }
+        elsif (@split == 3){ return 'CHH'; }
+        else { return 'CHH'; }
+    }
 }
 
 sub get_context_raw{
