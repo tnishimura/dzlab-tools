@@ -115,6 +115,10 @@ for my $slurp (0, 1) {
         is($f->get_context_raw('chr1', 7+$base, base => $base, rc => 0), 'CCC', "context_raw 2 base $base");
         is($f->get_context_raw('chr1', 160+$base, base => $base, rc => 0), 'CGT', "context_raw 4 base $base");
 
+        is($f->get_context('chr1', 2+$base, base => $base, dinuc => 1, rc => 0), 'CT', "context_raw 1 base $base");
+        is($f->get_context('chr1', 7+$base, base => $base, dinuc => 1, rc => 0), 'CC', "context_raw 2 base $base");
+        is($f->get_context('chr1', 160+$base, base => $base, dinuc => 1, rc => 0), 'CG', "context_raw 4 base $base");
+
         # out of bounds should return CHH
         is($f->get_context('chr4', 1, rc => 1),'CHH', "context edge case 1");
         is($f->get_context('chr4', 2, rc => 1),'CHH', "context edge case 2");
@@ -122,6 +126,9 @@ for my $slurp (0, 1) {
         is($f->get_context('chr4', $chr4len, rc => 0),'CHH', "context edge case 4");
 
         is($f->get_context_raw('chr4', 1, rc => 1),'C', "context_raw edge case 1");
+
+        is($f->get_context('chr4', 1, rc => 1),'CHH', "context_raw edge case 1");
+        is($f->get_context('chr4', 1, dinuc => 1, rc => 1),'CH', "context_raw edge case 1");
     }
     
     #######################################################################
