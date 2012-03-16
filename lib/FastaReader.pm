@@ -244,7 +244,8 @@ sub get_pretty{
 #######################################################################
 # get_context
 
-# croak on non-c/non-t position
+# if undef_on_nonct => 1 and non-ct position, return undef
+#   (otherwise croak)
 # return CHH when triplet falls off edge
 # otherwise return context CG, CHG, CHH
 sub get_context{
@@ -256,20 +257,24 @@ sub get_context{
     $seqid = uc $seqid;
     my $rc        = $opt{rc} // 0;
     my $base      = $opt{base} // 1;
+    my $undef_on_nonct = $opt{undef_on_nonct} // 0;
     $opt{lenient} = 1;
 
     my @split = split //, $raw;
 
     if ($split[0] ne 'C' && $split[0] ne 'T'){
-        croak "get_context called on non-C/non-T position: " . join("", @split) . " (rc = $rc, base = $base, pos = $position, seq = $seqid)";
+        if ($undef_on_nonct){
+            return;
+        }
+        else{
+            croak "get_context called on non-C/non-T position: " . join("", @split) . " (rc = $rc, base = $base, pos = $position, seq = $seqid)";
+        }
     }
 
-    given (\@split){
-        when (@split >= 2 && $_->[1] eq 'G'){ return 'CG'; }
-        when (@split == 3 && $_->[2] eq 'G'){ return 'CHG'; }
-        when (@split == 3){ return 'CHH'; }
-        default { return 'CHH'; }
-    }
+    if (@split >= 2 && $split[1] eq 'G'){ return 'CG'; }
+    elsif (@split == 3 && $split[2] eq 'G'){ return 'CHG'; }
+    elsif (@split == 3){ return 'CHH'; }
+    else { return 'CHH'; }
 }
 
 sub get_context_raw{
