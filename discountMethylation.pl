@@ -7,6 +7,7 @@ use autodie;
 use FindBin;
 use lib "$FindBin::Bin/lib";
 use FastaReader;
+use GFF::Parser::Correlated;
 use DBI;
 use List::Util qw/max/;
 use List::MoreUtils qw/all/;
@@ -18,13 +19,14 @@ use File::Temp qw/mktemp tempfile/;
 pod2usage(-verbose => 99,-sections => [qw/NAME SYNOPSIS OPTIONS/]) 
 if !$opt_file || !$opt_output_prefix || !$opt_reference;
 
+my $reference_genome = FastaReader->new(slurp => 1, file => $opt_reference, normalize => 0);
+
 #######################################################################
 # Database 
 
 =head2 Internals
 
 Create a database of sequence, coordinate, context, c, t. Sequence and coordinate make up the record.
-
 
 =cut
 
@@ -36,52 +38,41 @@ Create a database of sequence, coordinate, context, c, t. Sequence and coordinat
     my $dbh = DBI->connect("dbi:SQLite:dbname=$filename","","", {RaiseError => 1, AutoCommit => 0});
     $dbh->do("PRAGMA journal_mode = OFF");
     $dbh->do("PRAGMA cache_size = 80000");
-    $dbh->do("create table methyl (seq, coord integer, context, c integer default 0, t integer default 0)");
+    $dbh->do("create table methyl (seq, coord integer, c integer default 0, t integer default 0)");
     $dbh->do("create index idx on methyl (seq,coord)");
 
-    my $checker = $dbh->prepare("select count(seq),context from methyl where seq=? and coord=?");
+    my $checker = $dbh->prepare("select count(seq) from methyl where seq=? and coord=?");
 
     my %updater = map {
         $_ => $dbh->prepare("update methyl set $_=(select $_ from methyl where seq=? and coord=?)+1 where seq=? and coord=?"),
     } qw/c t/;
 
 	my %inserter = map {
-        $_ => $dbh->prepare("insert into methyl(seq, coord, context, $_) values (?,?,?,1)")
+        $_ => $dbh->prepare("insert into methyl(seq, coord, $_) values (?,?,1)")
     } qw/c t/;
 
     sub disconnect { $dbh->disconnect }
 
-    # if record exists, return context
-    sub record_exists{
+    sub does_record_exist{
         my ($seq, $coord) = @_;
         $checker->execute($seq,$coord);
         my $row = $checker->fetch();
-        return $row->[0] ? $row->[1] : 0;
+        return $row->[0];
     }
 
-    # insert new or update existing position. error when reported context does not match existing context.
+    # insert new or update existing position. 
     sub record_methylation{
-        my ($seq, $coord, $context) = @_;
-        $context = lc $context;
-        my $base;
+        my ($seq, $coord, $base) = @_;
 
-        # normalize tg/thg/thh => cg/chg/chh, but record the first base
-        if ($context =~ s/^(c|t)/c/){
-            $base = $1;
-        }
-        else {
-            die "$context not c/t?";
-        }
+        $base = lc $base;
 
-        #say STDERR join ",", @_;
-        if (my $existing_context = record_exists($seq,$coord)){
+        if (my $existing_context = does_record_exist($seq,$coord)){
             #say STDERR "record exists";
-            die "incompatible context ($existing_context, $context) at same coord? bug!" if $existing_context ne $context;
             $updater{$base}->execute($seq,$coord,$seq,$coord);
         }
         else{
             #say STDERR "record d.n.exists";
-            $inserter{$base}->execute($seq, $coord, $context);
+            $inserter{$base}->execute($seq, $coord);
         }
         if (++$counter % $increment == 0){
             $dbh->commit();
@@ -94,29 +85,59 @@ Create a database of sequence, coordinate, context, c, t. Sequence and coordinat
 
         $dbh->commit();
 
-        my $sth = $dbh->prepare('select seq, coord, context, c, t from methyl order by seq, coord');
+        my $sth = $dbh->prepare('select seq, coord, c, t from methyl order by seq, coord');
         $sth->execute();
 
         my %filehandles;
         my %temp2real;
 
+        my %stats;
+
+        POSITION:
         while (defined(my $row = $sth->fetch)){
             #say join "|", @$row;
-            my ($seq, $coord, $context, $c, $t) = @$row;
+            my ($seq, $coord, $c, $t) = @$row;
+            $seq = $reference_genome->get_original_name($seq);
+            if (! exists $stats{$seq}){
+                if ($opt_dinucleotide){
+                    $stats{$seq} = {
+                        unfiltered => { map {$_ => 0} qw/C CG CC CA CT T TG TC TA TT/ },
+                        filtered   => { map {$_ => 0} qw/C CG CC CA CT T TG TC TA TT/ },
+                    };
+                }
+                else{
+                    $stats{$seq} = {
+                        unfiltered => { map {$_ => 0} qw/C CG CHH CHG T TG THH THG/ },
+                        filtered   => { map {$_ => 0} qw/C CG CHH CHG T TG THH THG/ },
+                    };
+                }
+            }
+
+            my $context = $reference_genome->get_context($seq, $coord, dinuc => 0, rc => 0, undef_on_nonct => 1);
+            next POSITION if ! defined $context; # means was not a C/T position
             $context = uc $context;
 
-            my $key = $context;
-            if (! exists $filehandles{$key}){
+            if (! exists $filehandles{$context}){
                 my $file = "$file_prefix.single-c.$context.gff.merged";
                 my $tmpfile = mktemp($file . ".tmp.XXXX");
                 open my $writer, q{>}, $tmpfile;
-                $filehandles{$key} = $writer;
+                $filehandles{$context} = $writer;
                 $temp2real{$tmpfile} = $file;
             }
+
             die "why is \$c + \$t == 0? bug, dying" if $c + $t == 0;
+            my $filtered = $c + $t > 20 ? '*' : '';
 
             my $score = sprintf("%.4f", $c/($c+$t));
-            say {$filehandles{$key}} join "\t", $seq, q{.}, $context, $coord, $coord, $score, q{.}, q{.}, "c=$c;t=$t";
+            say {$filehandles{$context}} join "\t", $seq, q{.}, $context, $coord, $coord, $score, q{.}, q{.}, "c=$c;t=$t$filtered";
+
+            my $type = $filtered ? 'filtered' : 'unfiltered';
+
+            $stats{$seq}{$type}{C} += $c;
+            $stats{$seq}{$type}{T} += $t;
+            $stats{$seq}{$type}{$context} += $c; # CG, CHG, CHH
+            substr($context, 0, 1) = 'T';
+            $stats{$seq}{$type}{$context} += $t; # TG, THG, THH
         }
 
         close $_ for values %filehandles;
@@ -124,297 +145,170 @@ Create a database of sequence, coordinate, context, c, t. Sequence and coordinat
         while (my ($tmp,$real) = each %temp2real) {
             rename $tmp, $real;
         }
+        return \%stats;
     }
 }
 
 #######################################################################
 
+sub rat{
+    my ($x,$y) = @_;
+    if ($x+$y != 0){
+        return sprintf("%.6f", $x/($x+$y));
+    }
+    else {
+        return "0.000000";
+    }
+}
 
-{
-    my %stats;
-    my $error=0;
+sub count_methylation{
+    my ($gff, $bps) = @_;
 
-    # VERY temporary kludgely hack to avoid errors in correlation.gff...
-    sub only_c2t_changes{
-        my ($read_str, $target_str) = @_;
-        $read_str =~ tr/C/T/;
-        $target_str =~ tr/C/T/;
-        my @read = split //, $read_str;
-        my @target = split //, $target_str;
+    my ($seq, $start, $end, $reverse, $read_seq, $target_seq) = @$gff;
+    $seq = $reference_genome->get_original_name($seq);
+    my $filtered = 0;
 
-        my $total = 0;
-        for my $index (0 .. $#read) {
-            my ($r, $t) = ($read[$index], $target[2+$index]);
-            if ($r ne $t){
-                $total++;
-                $error++;
-            }
+    $bps->{$seq} += length($read_seq);
+
+    my @target_bases = split //,$target_seq;
+    my @read_bases = (q{.}, q{.}, split(//, $read_seq), q{.}, q{.});
+
+    READ:
+    for (my $strand_coord = $start; $strand_coord <= $end; ++$strand_coord){
+        my $i = $strand_coord - $start + 2;
+        my $abs_coord = $reverse ? $reference_genome->get_length($seq) - $strand_coord + 1 : $strand_coord;
+        my $context;
+
+        my $rbase = $read_bases[$i];
+        if ($target_bases[$i] eq 'C' && ($rbase eq 'C' || $rbase eq 'T')){
+            record_methylation($seq,$abs_coord,$rbase);
         }
+        next READ;
+    }
+}
 
-        return ($total/length $read_str) < 0.25 ? 1 : 0;
+
+# this thing looks ridiculous...
+sub print_freq{
+    my $prefix = shift;
+    my $error = shift;
+    my %stats = @_;
+
+    open my $out, '>', "$prefix.freq";
+
+    my @output;
+
+    if ($opt_dinucleotide){
+        push @output, [qw/seq bp overlaps 
+        C CG CT CA CC 
+        T TG TT TA TC
+        C_ratio CG_ratio CT_ratio CA_ratio CC_ratio 
+
+        filtered_C filtered_CG filtered_CT filtered_CA filtered_CC 
+        filtered_T filtered_TG filtered_TT filtered_TA filtered_TC
+
+        filtered_C_ratio filtered_CG_ratio filtered_CT_ratio filtered_CA_ratio filtered_CC_ratio 
+        /];
+    }
+    else{
+        push @output, [qw/seq bp overlaps 
+        C CG CHG CHH 
+        T TG THG THH 
+        C_ratio CG_ratio CHG_ratio CHH_ratio 
+        filtered_C filtered_CG filtered_CHG filtered_CHH 
+        filtered_T filtered_TG filtered_THG filtered_THH 
+        filtered_C_ratio filtered_CG_ratio filtered_CHG_ratio filtered_CHH_ratio 
+        /];
     }
 
-    sub parse_line{
-        my $gff_line = shift;
-    }
-
-    sub count_methylation{
-        my ($gff_line, $fr) = @_;
-        #die "$gff_line\n" . Dumper $sequence_lengths;
-
-        my $filtered = $gff_line =~ s/\*$//;
-
-        my @split = split /\t/, $gff_line;
-
-        die "gff should be 9 columed..." if @split != 9;
-
-        my ($seq, $start,$end,$strand) = @split[0,3,4,6];
-
-        # sequence - create entry in stats if necessary.
-
-        return if ($seq eq '.');
-        if (! exists $stats{$seq}){
-            if ($opt_dinucleotide){
-                $stats{$seq} = {
-                    bp         => 0,
-                    unfiltered => { map {$_ => 0} qw/c cg cc ca ct t tg tc ta tt/ },
-                    filtered   => { map {$_ => 0} qw/c cg cc ca ct t tg tc ta tt/ },
-                };
-            }
-            else{
-                $stats{$seq} = {
-                    bp         => 0,
-                    unfiltered => { map {$_ => 0} qw/c cg chh chg t tg thh thg/ },
-                    filtered   => { map {$_ => 0} qw/c cg chh chg t tg thh thg/ },
-                };
-            }
-        }
-
-        my $unfiltered_count = $stats{$seq}{unfiltered}; # deref them here, once, for speed
-        my $filtered_count   = $stats{$seq}{filtered};
-
-        # Grab sequences
-
-        my ($read_seq, $target_seq);
-        #if ($split[2] =~ /([ATCGN]+)$/){
-        if ($split[2] =~ /([A-Z]+)$/){
-            $read_seq= $1;
-        }
-        #if ($split[8] =~ /target=([ATCGN]+)$/){
-        if ($split[8] =~ /target=([A-Z]+)$/){
-            $target_seq = $1;
-        }
-
-        if (!  defined $read_seq || ! defined $target_seq){
-            warn("couldn't parse $gff_line ?");
-            return;
-        }
-        # redundant
-        # die "can't find read or target seq"  unless (defined $read_seq && defined $target_seq);
-
-        my @target_bases = split //,$target_seq;
-        my @read_bases = (q{.}, q{.}, split(//, $read_seq), q{.}, q{.});
-
-        # check length
-
-        if (length($read_seq) != ($end-$start+1) || length $target_seq != 4 + length $read_seq){
-            die "read size mismatch\n$read_seq\n$target_seq";
-        }
-        else{
-            $stats{$seq}{bp} += length($read_seq);
-        }
-
-        if (! only_c2t_changes($read_seq, $target_seq)){
-            return;
-        }
-
-
-        my $reverse = $strand eq '+' ? 0 : $strand eq '-' ? 1 : die "strand should be + or -";
-
-        READ:
-        for (my $strand_coord = $start; $strand_coord <= $end; ++$strand_coord){
-            my $i = $strand_coord - $start + 2;
-            my $abs_coord = $reverse ? $fr->get_length($split[0]) - $strand_coord + 1 : $strand_coord;
-            my $context;
-
-            # first position
-            my $methylation;
-            if ($target_bases[$i] eq 'C'){
-                given ($read_bases[$i]){
-                    when ('C'){ $methylation = 1; }
-                    when ('T'){ $methylation = 0; }
-                    default { next READ; }
-                }
-            }
-            else{
-                next READ;
-            }
-
-            # second/third position
-
-            if ($opt_dinucleotide){
-                given ($target_bases[$i+1]){
-                    when ('G'){ $context = $methylation ? 'cg' : 'tg'; }
-                    when ('A'){ $context = $methylation ? 'ca' : 'ta'; }
-                    when ('C'){ $context = $methylation ? 'cc' : 'tc'; }
-                    when ('T'){ $context = $methylation ? 'ct' : 'tt'; }
-                    default { next READ; }
-                }
-            }
-            else{
-                if ($target_bases[$i + 1] eq 'G'){
-                    $context = $methylation ? 'cg' : 'tg';
-                }
-                elsif ($target_bases[$i + 2] eq 'G'){
-                    $context = $methylation ? 'chg' : 'thg';
-                }
-                else {
-                    $context = $methylation ? 'chh' : 'thh';
-                }
-            }
-
-            if ($filtered){
-                ++$filtered_count->{$context};
-                ++$filtered_count->{$methylation ? 'c' : 't'};
-            } else{
-                ++$unfiltered_count->{$context};
-                ++$unfiltered_count->{$methylation ? 'c' : 't'};
-            }
-
-            record_methylation($seq,$abs_coord,$context);
-        }
-    }
-
-    sub rat{
-        my ($x,$y) = @_;
-        if ($x+$y != 0){
-            return sprintf("%.6f", $x/($x+$y));
-        }
-        else {
-            return "0.000000";
-        }
-    }
-
-    # this thing looks ridiculous...
-    sub print_freq{
-        my $prefix = shift;
-
-        open my $out, '>', "$prefix.freq";
-
-        my @output;
-
+    for my $seq (sort keys %stats){
         if ($opt_dinucleotide){
-            push @output, [qw/seq bp overlaps 
-            C CG CT CA CC 
-            T TG TT TA TC
-            C_ratio CG_ratio CT_ratio CA_ratio CC_ratio 
+            push @output, [
+            $seq, $stats{$seq}{bp}, 0,
 
-            filtered_C filtered_CG filtered_CT filtered_CA filtered_CC 
-            filtered_T filtered_TG filtered_TT filtered_TA filtered_TC
+            $stats{$seq}{unfiltered}{C}, $stats{$seq}{unfiltered}{CG}, $stats{$seq}{unfiltered}{CT},$stats{$seq}{unfiltered}{CA}, $stats{$seq}{unfiltered}{CC}, 
+            $stats{$seq}{unfiltered}{T}, $stats{$seq}{unfiltered}{TG}, $stats{$seq}{unfiltered}{TT},$stats{$seq}{unfiltered}{TA}, $stats{$seq}{unfiltered}{TC}, 
 
-            filtered_C_ratio filtered_CG_ratio filtered_CT_ratio filtered_CA_ratio filtered_CC_ratio 
-            /];
+            rat($stats{$seq}{unfiltered}{C}  ,$stats{$seq}{unfiltered}{T} ),
+            rat($stats{$seq}{unfiltered}{CG} ,$stats{$seq}{unfiltered}{TG} ),
+            rat($stats{$seq}{unfiltered}{CT} ,$stats{$seq}{unfiltered}{TT} ),
+            rat($stats{$seq}{unfiltered}{CA} ,$stats{$seq}{unfiltered}{TA} ),
+            rat($stats{$seq}{unfiltered}{CC} ,$stats{$seq}{unfiltered}{TC} ),
+
+            $stats{$seq}{filtered}{C}, $stats{$seq}{filtered}{CG}, $stats{$seq}{filtered}{CT},$stats{$seq}{filtered}{CA}, $stats{$seq}{filtered}{CC}, 
+            $stats{$seq}{filtered}{T}, $stats{$seq}{filtered}{TG}, $stats{$seq}{filtered}{TT},$stats{$seq}{filtered}{TA}, $stats{$seq}{filtered}{TC}, 
+
+            rat($stats{$seq}{filtered}{C}  ,$stats{$seq}{filtered}{T} ),
+            rat($stats{$seq}{filtered}{CG} ,$stats{$seq}{filtered}{TG} ),
+            rat($stats{$seq}{filtered}{CT} ,$stats{$seq}{filtered}{TT} ),
+            rat($stats{$seq}{filtered}{CA} ,$stats{$seq}{filtered}{TA} ),
+            rat($stats{$seq}{filtered}{CC} ,$stats{$seq}{filtered}{TC} ),
+            ]
         }
         else{
-            push @output, [qw/seq bp overlaps 
-            C CG CHG CHH 
-            T TG THG THH 
-            C_ratio CG_ratio CHG_ratio CHH_ratio 
-            filtered_C filtered_CG filtered_CHG filtered_CHH 
-            filtered_T filtered_TG filtered_THG filtered_THH 
-            filtered_C_ratio filtered_CG_ratio filtered_CHG_ratio filtered_CHH_ratio 
-            /];
+            push @output, [
+            $seq, $stats{$seq}{bp}, 0,
+
+            $stats{$seq}{unfiltered}{C}, $stats{$seq}{unfiltered}{CG}, $stats{$seq}{unfiltered}{CHG}, $stats{$seq}{unfiltered}{CHH},
+            $stats{$seq}{unfiltered}{T}, $stats{$seq}{unfiltered}{TG}, $stats{$seq}{unfiltered}{THG}, $stats{$seq}{unfiltered}{THH},
+
+            rat($stats{$seq}{unfiltered}{C}  ,$stats{$seq}{unfiltered}{T} ),
+            rat($stats{$seq}{unfiltered}{CG} ,$stats{$seq}{unfiltered}{TG} ),
+            rat($stats{$seq}{unfiltered}{CHG},$stats{$seq}{unfiltered}{THG} ),
+            rat($stats{$seq}{unfiltered}{CHH},$stats{$seq}{unfiltered}{THH} ),
+
+            $stats{$seq}{filtered}{C}, $stats{$seq}{filtered}{CG}, $stats{$seq}{filtered}{CHG}, $stats{$seq}{filtered}{CHH},
+            $stats{$seq}{filtered}{T}, $stats{$seq}{filtered}{TG}, $stats{$seq}{filtered}{THG}, $stats{$seq}{filtered}{THH},
+
+            rat($stats{$seq}{filtered}{C}  , $stats{$seq}{filtered}{T} ),
+            rat($stats{$seq}{filtered}{CG} , $stats{$seq}{filtered}{TG} ),
+            rat($stats{$seq}{filtered}{CHG}, $stats{$seq}{filtered}{THG} ),
+            rat($stats{$seq}{filtered}{CHH}, $stats{$seq}{filtered}{THH} ),
+            ]
         }
-        
-        for my $seq (sort keys %stats){
-            if ($opt_dinucleotide){
-                push @output, [
-                $seq, $stats{$seq}{bp}, 0,
-
-                $stats{$seq}{unfiltered}{c}, $stats{$seq}{unfiltered}{cg}, $stats{$seq}{unfiltered}{ct},$stats{$seq}{unfiltered}{ca}, $stats{$seq}{unfiltered}{cc}, 
-                $stats{$seq}{unfiltered}{t}, $stats{$seq}{unfiltered}{tg}, $stats{$seq}{unfiltered}{tt},$stats{$seq}{unfiltered}{ta}, $stats{$seq}{unfiltered}{tc}, 
-
-                rat($stats{$seq}{unfiltered}{c}  ,$stats{$seq}{unfiltered}{t} ),
-                rat($stats{$seq}{unfiltered}{cg} ,$stats{$seq}{unfiltered}{tg} ),
-                rat($stats{$seq}{unfiltered}{ct} ,$stats{$seq}{unfiltered}{tt} ),
-                rat($stats{$seq}{unfiltered}{ca} ,$stats{$seq}{unfiltered}{ta} ),
-                rat($stats{$seq}{unfiltered}{cc} ,$stats{$seq}{unfiltered}{tc} ),
-
-                $stats{$seq}{filtered}{c}, $stats{$seq}{filtered}{cg}, $stats{$seq}{filtered}{ct},$stats{$seq}{filtered}{ca}, $stats{$seq}{filtered}{cc}, 
-                $stats{$seq}{filtered}{t}, $stats{$seq}{filtered}{tg}, $stats{$seq}{filtered}{tt},$stats{$seq}{filtered}{ta}, $stats{$seq}{filtered}{tc}, 
-
-                rat($stats{$seq}{filtered}{c}  ,$stats{$seq}{filtered}{t} ),
-                rat($stats{$seq}{filtered}{cg} ,$stats{$seq}{filtered}{tg} ),
-                rat($stats{$seq}{filtered}{ct} ,$stats{$seq}{filtered}{tt} ),
-                rat($stats{$seq}{filtered}{ca} ,$stats{$seq}{filtered}{ta} ),
-                rat($stats{$seq}{filtered}{cc} ,$stats{$seq}{filtered}{tc} ),
-                ]
-            }
-            else{
-                push @output, [
-                $seq, $stats{$seq}{bp}, 0,
-
-                $stats{$seq}{unfiltered}{c}, $stats{$seq}{unfiltered}{cg}, $stats{$seq}{unfiltered}{chg}, $stats{$seq}{unfiltered}{chh},
-                $stats{$seq}{unfiltered}{t}, $stats{$seq}{unfiltered}{tg}, $stats{$seq}{unfiltered}{thg}, $stats{$seq}{unfiltered}{thh},
-
-                rat($stats{$seq}{unfiltered}{c}  ,$stats{$seq}{unfiltered}{t} ),
-                rat($stats{$seq}{unfiltered}{cg} ,$stats{$seq}{unfiltered}{tg} ),
-                rat($stats{$seq}{unfiltered}{chg},$stats{$seq}{unfiltered}{thg} ),
-                rat($stats{$seq}{unfiltered}{chh},$stats{$seq}{unfiltered}{thh} ),
-
-                $stats{$seq}{filtered}{c}, $stats{$seq}{filtered}{cg}, $stats{$seq}{filtered}{chg}, $stats{$seq}{filtered}{chh},
-                $stats{$seq}{filtered}{t}, $stats{$seq}{filtered}{tg}, $stats{$seq}{filtered}{thg}, $stats{$seq}{filtered}{thh},
-
-                rat($stats{$seq}{filtered}{c}  , $stats{$seq}{filtered}{t} ),
-                rat($stats{$seq}{filtered}{cg} , $stats{$seq}{filtered}{tg} ),
-                rat($stats{$seq}{filtered}{chg}, $stats{$seq}{filtered}{thg} ),
-                rat($stats{$seq}{filtered}{chh}, $stats{$seq}{filtered}{thh} ),
-                ]
-            }
-        }
-
-        #say scalar(@$_) for @output;
-        my $numcols = $opt_dinucleotide ? 33 : 27;
-
-        #die "uneven number of lines in freq? dying" unless all { $numcols == scalar @$_ } @output;
-
-        for my $i (0..$numcols-1) {
-            my $line = join "\t", map { $_->[$i] } @output;
-            say STDERR $line;
-            say $out $line;
-        }
-        say STDERR "error\t$error";
-        say $out "error\t$error";
-        close $out;
     }
 
+    #say scalar(@$_) for @output;
+    my $numcols = $opt_dinucleotide ? 33 : 27;
+
+    #die "uneven number of lines in freq? dying" unless all { $numcols == scalar @$_ } @output;
+
+    for my $i (0..$numcols-1) {
+        my $line = join "\t", map { $_->[$i] } @output;
+        say STDERR $line;
+        say $out $line;
+    }
+    say STDERR "error\t$error";
+    say $out "error\t$error";
+    close $out;
+
+    #say Dumper \%stats;
 }
 
 #######################################################################
 # Main body
 
-my $fr = FastaReader->new(file => $opt_reference, normalize => 0);
-
-open my $in, '<', $opt_file;
+my $parser = GFF::Parser::Correlated->new(file => $opt_file, normalize => 0);
+my %bps;
 
 my $counter_increment = 10000; 
 
-while (defined(my $line = <$in>)){
-    #chomp $line;
-    $line =~ tr/\n\r//d;
-    count_methylation($line, $fr);
+while (defined(my $corr = $parser->next())){
+    count_methylation($corr, \%bps);
 
     if ($opt_verbose && $. % $counter_increment == 0){
         say STDERR $.;
     }
 }
-close $in;
-
 
 say STDERR "Done processing! creating single-c and freq file";
 
-record_output($opt_output_prefix);
-print_freq($opt_output_prefix);
+my $stats = record_output($opt_output_prefix);
+while (my ($seq,$len) = each %bps) {
+    $stats->{$seq}{bp} = $len;
+}
+
+print_freq($opt_output_prefix, $parser->no_match_counter() + $parser->error_counter(), %$stats);
 #disconnect;
 
 #######################################################################
