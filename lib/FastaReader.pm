@@ -244,36 +244,47 @@ sub get_pretty{
 #######################################################################
 # get_context
 
-# if undef_on_nonct => 1 and non-ct position, return undef
-#   (otherwise croak)
-# for trinuc (default):
-#   return CHH when triplet falls off edge
-#   otherwise return context CG, CHG, CHH
-# for dinuc
-#   return CH when triplet falls off edge
-#   otherwise, CG, CA, CT, CC, or CH (when not ACGT).
+=head2 get_context
+
+allowable options:
+  base          => 1
+  undef_on_nonc => 0 # return undef on non c/g position (instead of croaking)
+  dinucleotide  => 0 # return C{A,C,G,T,H}
+  
+for trinuc (default): 
+  otherwise return context CG, CHG, CHH
+
+for dinuc:
+  return CH when triplet falls off edge
+  otherwise, CG, CA, CT, CC, or CH (when not ACGT).
+
+Automatically determine the strand, since this method only makes sense when 
+first position is C.
+
+=cut
 sub get_context{
     my ($self, $seqid, $position, %opt) = @_;
 
-    my $raw = $self->get_context_raw($seqid, $position, %opt);
+    my $base          = delete $opt{base} // 1;
+    my $undef_on_nonc = delete $opt{undef_on_nonc} // 0;
+    my $dinucleotide  = delete $opt{dinuc} // 0;
 
-    # extract options
-    $seqid = uc $seqid;
-    my $rc             = $opt{rc} // 0;
-    my $base           = $opt{base} // 1;
-    my $undef_on_nonct = $opt{undef_on_nonct} // 0;
-    my $dinucleotide   = $opt{dinuc} // 0;
-    $opt{lenient} = 1;
+    croak "get_context only takes options base, undef_on_nonc, dinucleotide" if keys %opt;
 
-    my @split = split //, $raw;
+    my @split = split //, $self->get_context_raw( $seqid, $position, base => $base, rc => 0);
 
-    if ($split[0] ne 'C' && $split[0] ne 'T'){
-        if ($undef_on_nonct){
-            return;
-        }
-        else{
-            croak "get_context called on non-C/non-T position: " . join("", @split) . " (rc = $rc, base = $base, pos = $position, seq = $seqid)";
-        }
+    if ($split[0] eq 'C'){
+        # do nothing
+    }
+    elsif ($split[0] eq 'G'){ 
+        @split = split //, $self->get_context_raw( $seqid, $position, base => $base, rc => 1);
+    }
+    elsif ($undef_on_nonc){
+        return;
+    }
+    else{
+        croak "get_context called on non-C position: " 
+        . join("", @split) . " (base = $base, pos = $position, seq = $seqid)";
     }
 
     if ($dinucleotide){
@@ -292,6 +303,8 @@ sub get_context{
     }
 }
 
+# return (up to) 3 bases from position. Not sure if this has utility
+# except for get_context.
 sub get_context_raw{
     my ($self, $seqid, $position, %opt) = @_;
 
@@ -303,7 +316,6 @@ sub get_context_raw{
 
     my ($start, $end) = $rc ? ($position - 2, $position) : ($position, $position + 2);
     return uc $self->get($seqid, $start, $end, %opt);
-
 }
 #######################################################################
 # get - main sequence retrieval function

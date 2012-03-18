@@ -106,29 +106,33 @@ for my $slurp (0, 1) {
     #is($f->get('CHR1' , 0  , 0 , coord => 'f' , base => 1, lenient => 1) , 'CCCTAAACCC' , "lenient base 1 forward 1-10 (slurp=$slurp)");
     
     for my $base (0,1){
-        is($f->get_context('chr1', 2+$base, base => $base, rc => 0), 'CHH', "context 1 base $base");
-        is($f->get_context('chr1', 7+$base, base => $base, rc => 0), 'CHH', "context 2 base $base");
-        is($f->get_context('chr2', 474+$base, base => $base, rc => 0), 'CG', "context 3 base $base");
-        is($f->get_context('chr1', 160+$base, base => $base, rc => 0), 'CG', "context 4 base $base");
+        my @b = (base => $base);
+        is($f->get_context('chr1', 2+$base, @b), 'CHH', "get_context 1 b$base");
+        is($f->get_context('chr1', 7+$base, @b), 'CHH', "get_context 2 b$base");
+        is($f->get_context('chr2', 0+$base, @b), 'CHG', "get_context 3 b$base CG");
+        is($f->get_context('chr2', 2+$base, @b), 'CHG', "get_context 4 b$base CHG rc");
+        is($f->get_context('chr2', 77+$base, @b), 'CG', "get_context 5 b$base CG");
+        is($f->get_context('chr2', 78+$base, @b), 'CG', "get_context 6 b$base CG rc");
+        is($f->get_context('chr1', 160+$base, @b), 'CG', "get_context 7 b$base");
+        #is($f->get_context('chr2', 474+$base), 'CG', "context 3 base $base");
 
-        is($f->get_context_raw('chr1', 2+$base, base => $base, rc => 0), 'CTA', "context_raw 1 base $base");
-        is($f->get_context_raw('chr1', 7+$base, base => $base, rc => 0), 'CCC', "context_raw 2 base $base");
-        is($f->get_context_raw('chr1', 160+$base, base => $base, rc => 0), 'CGT', "context_raw 4 base $base");
-
-        is($f->get_context('chr1', 2+$base, base => $base, dinuc => 1, rc => 0), 'CT', "context_raw 1 base $base");
-        is($f->get_context('chr1', 7+$base, base => $base, dinuc => 1, rc => 0), 'CC', "context_raw 2 base $base");
-        is($f->get_context('chr1', 160+$base, base => $base, dinuc => 1, rc => 0), 'CG', "context_raw 4 base $base");
+        is($f->get_context('chr1', 2+$base, @b, dinuc => 1), 'CT', "get_context 8 b$base");
+        is($f->get_context('chr1', 7+$base, @b, dinuc => 1), 'CC', "get_context 9 b$base");
+        is($f->get_context('chr1', 160+$base, @b, dinuc => 1), 'CG', "get_context 10 b$base");
 
         # out of bounds should return CHH
-        is($f->get_context('chr4', 1, rc => 1),'CHH', "context edge case 1");
-        is($f->get_context('chr4', 2, rc => 1),'CHH', "context edge case 2");
-        is($f->get_context('chr1', $chr1len, rc => 0),'CHH', "context edge case 3");
-        is($f->get_context('chr4', $chr4len, rc => 0),'CHH', "context edge case 4");
+        is($f->get_context('chr4', 0+$base, @b),'CHH', "get_context edge case 1 b$base");
+        is($f->get_context('chr4', 1+$base, @b),'CHH', "get_context edge case 2 b$base");
+        is($f->get_context('chr1', $chr1len - 2 + $base, @b),'CHH', "get_context edge case 3 b$base (rc)");
+        is($f->get_context('chr4', $chr4len - 1 + $base, @b),'CHH', "get_context edge case 4 b$base");
 
-        is($f->get_context_raw('chr4', 1, rc => 1),'C', "context_raw edge case 1");
+        is($f->get_context('chr4', 0+$base, @b),'CHH', "get_context edge case 5 b$base");
+        is($f->get_context('chr4', 0+$base, @b, dinuc => 1),'CH', "get_context edge case 6 b$base");
 
-        is($f->get_context('chr4', 1, rc => 1),'CHH', "context_raw edge case 1");
-        is($f->get_context('chr4', 1, dinuc => 1, rc => 1),'CH', "context_raw edge case 1");
+        #is($f->get_context_raw('chr4', 1, rc => 1),'C', "context_raw edge case 1 b$base");
+        #is($f->get_context_raw('chr1', 2+$base, base => $base, rc => 0), 'CTA', "context_raw 1 base $base");
+        #is($f->get_context_raw('chr1', 7+$base, base => $base, rc => 0), 'CCC', "context_raw 2 base $base");
+        #is($f->get_context_raw('chr1', 160+$base, base => $base, rc => 0), 'CGT', "context_raw 4 base $base");
     }
     
     #######################################################################
@@ -162,13 +166,13 @@ TAGTTGTAGGGATGAAGTCTTTCTTCGTTGTTGTTACGCTTGTCATCTCATCTCTCAATGATATGGGATGGTCCTTTAG
 CATTTATTCTGAAGTTCTTCTGCTTGATGATTTTATCCTTAGCCAAAAGGATTGGTGGTTTGAAGACACATCATATCAA
 AAAAGCTATCGCCTCGACGATGCTCTATTTCTATCCTTGTAGCACACATTTTGGCACTCAAAAAAGTATTTTTAGATGT
 >chr2
-CTGAAATAAGAGGAGTTCTTCCAGAATCGCGTCATGGCCTCGAAGACAGAGTCAAGCTTGGTGAAAAGCAGATCGTTCG
-AGGAGCTCTGACCACGGCCGGCTACGAGATAGACCACCACGAACCGTCTTGGTCACACTGTTGACAAATGCATGGACGG
-TTGGAGGTTGTGATTCCACCACATCAGTTACAATCGGAGGCTGATCCGGACTTGGCTGTTGCGGTGGTGGAAATCGGAA
-GCACAGGGGGATTTGTGGACACCATTCGATTTTGTTCTTTAGGGATTTCAAGATTGGAAAATTTTAGGAGACGATTGAT
-TTGGAAGTCGGTGAAGTTTCGGTAGTGTTATGTATTTATTTTTTTTGTCATAAGCGGTAGCGTTATGTATTTGTAAGAT
-CACATTAAGCGTCTTTCAACTTTGATTATACGCATTGCTTCATCTGATATCTAATCCATATTTTGATCAAAGTGACATT
-TGATAAAATAAAATAAAACTAACCTATTAATATTATAACTGAGGTTATTTTTTTAGAAAAAAGATAGCTAGCTACACGA
+CTGAAATAAGAGGAGTTCTTCCAGAATCGCGTCATGGCCTCGAAGACAGAGTCAAGCTTGGTGAAAAGCAGATCGTTCG 1
+AGGAGCTCTGACCACGGCCGGCTACGAGATAGACCACCACGAACCGTCTTGGTCACACTGTTGACAAATGCATGGACGG 80
+TTGGAGGTTGTGATTCCACCACATCAGTTACAATCGGAGGCTGATCCGGACTTGGCTGTTGCGGTGGTGGAAATCGGAA 159
+GCACAGGGGGATTTGTGGACACCATTCGATTTTGTTCTTTAGGGATTTCAAGATTGGAAAATTTTAGGAGACGATTGAT 238
+TTGGAAGTCGGTGAAGTTTCGGTAGTGTTATGTATTTATTTTTTTTGTCATAAGCGGTAGCGTTATGTATTTGTAAGAT 317
+CACATTAAGCGTCTTTCAACTTTGATTATACGCATTGCTTCATCTGATATCTAATCCATATTTTGATCAAAGTGACATT 396
+TG2TAAAATAAAATAAAACTAACCTATTAATATTATAACTGAGGTTATTTTTTTAGAAAAAAGATAGCTAGCTACACGA 475
 ATTATACGAGAATACATGGTCACATGCCAAGTATATTATTGTATCCTTAACTACACGAAATTTATGTATTGCATGGCCA
 CATATATGAACTATACTACGTCATGTGGCTAACATCATAGACATATAATTCCGGTATATCGACTGGTTGACTCTGGCTT
 TGACTAACATTGACCGGCGTTGACCAACAAAAAATTTCAGAAAAAAACTTTAAAATAGTTTTTAATATTAAAAAATAAG
