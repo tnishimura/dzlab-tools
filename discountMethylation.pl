@@ -15,6 +15,7 @@ use DBI;
 use Getopt::Euclid qw( :vars<opt_> );
 use Pod::Usage;
 use File::Temp qw/mktemp tempfile/;
+use DZUtil qw/approximate_line_count/;
 
 pod2usage(-verbose => 99,-sections => [qw/NAME SYNOPSIS OPTIONS/]) 
 if !$opt_file || !$opt_output_prefix || !$opt_reference;
@@ -293,11 +294,13 @@ my %bps;
 
 my $counter_increment = 10000; 
 
+my $line_count = approximate_line_count($opt_file, 10000);
+
 while (defined(my $corr = $parser->next())){
     count_methylation($corr, \%bps);
 
     if ($opt_verbose && $. % $counter_increment == 0){
-        say STDERR $.;
+        printf(STDERR "%d (%.4f)\n", $., $. / $line_count * 100);
     }
 }
 

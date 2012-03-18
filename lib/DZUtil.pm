@@ -10,11 +10,11 @@ use File::Spec::Functions;
 use File::Basename;
 use File::Temp qw/tempdir tempfile/;
 use List::MoreUtils qw/all/;
-#use Config::General qw(ParseConfig);
 use POSIX qw/strftime/;
 use IO::Uncompress::Gunzip qw(gunzip $GunzipError) ;
 use IO::Uncompress::Bunzip2 qw(bunzip2 $Bunzip2Error) ;
 use Scalar::Util qw/looks_like_number/;
+use List::Util qw//;
 
 require Exporter;
 our @ISA = qw(Exporter);
@@ -22,7 +22,8 @@ our @ISA = qw(Exporter);
 our @EXPORT_OK = qw(localize reverse_complement common_suffix common_prefix
 mfor basename_prefix fastq_read_length timestamp datestamp overlap chext
 split_names open_maybe_compressed fastq_convert_read_header c2t g2a
-numdiff safediv safemethyl clean_basename open_cached close_cached_all downsample);
+numdiff safediv safemethyl clean_basename open_cached close_cached_all downsample
+approximate_line_count);
 our @EXPORT = qw();
 
 sub clean_basename{
@@ -392,6 +393,25 @@ sub downsample{
     else{
         return $tempfile;
     }
+}
+
+
+sub approximate_line_count{
+    my ($file, $max) = @_;
+    my $size = [stat($file)]->[7];
+    $max //= 100_000;
+
+    my @lengths;
+    my $count = 0;
+    open my $in, '<', $file;
+    while (defined(my $line = <$in>) && ++$count <= $max){
+        chomp $line;
+        push @lengths, length $line;
+    }
+    close $in;
+    my $mean = List::Util::sum(@lengths)/scalar(@lengths);
+
+    return int $size/$mean;
 }
 
 1;
