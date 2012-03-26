@@ -4,11 +4,9 @@ use warnings;
 use Data::Dumper;
 use autodie;
 use Tree::Range;
+use Tree::Range::TestUtils;
 use Test::More qw(no_plan);
 use List::Util qw/first/;
-use FindBin;
-use lib "$FindBin::Bin";
-use testutils;
 
 my $datatr = Tree::Range->new();
 while (<DATA>){

@@ -1,4 +1,4 @@
-package testutils;
+package Tree::Range::TestUtils;
 use version; our $VERSION = qv('0.0.1');
 use strict;
 use warnings;

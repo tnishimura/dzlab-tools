@@ -4,11 +4,9 @@ use warnings;
 use Data::Dumper;
 use autodie;
 use Test::More tests => 10;
-use Tree::Range;
 use List::Util qw/min max/;
-use FindBin;
-use lib "$FindBin::Bin";
-use testutils;
+use Tree::Range;
+use Tree::Range::TestUtils;
 
 for (1..10){
     my @range = randrange();
