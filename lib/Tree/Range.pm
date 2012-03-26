@@ -10,6 +10,29 @@ use Carp;
 use autodie;    
 use Scalar::Util qw/looks_like_number/;
 use 5.010;
+use FindBin;
+use lib "$ENV{HOME}/dzlab-tools/lib";
+
+
+BEGIN {
+    eval 'require Inline::C';
+
+    my $pkg;
+    if ($@) {
+        require Tree::Range::Overlap_PP;
+        $pkg = "Tree::Range::Overlap_PP";
+    }
+    else {
+        require Tree::Range::Overlap_XS;
+        $pkg = "Tree::Range::Overlap_XS";
+    }
+    no strict 'refs';
+    my $class = __PACKAGE__;
+    *{"$class\::_overlap"} = *{"$pkg\::_overlap"};
+}
+
+sub _min{ return ($_[0] < $_[1] ? $_[0] : $_[1]); }
+sub _max{ return ($_[0] > $_[1] ? $_[0] : $_[1]); }
 
 # Internals
 # Leaf: [start, end, midpoint, 1, item]
@@ -37,8 +60,6 @@ has finalized => (
     default => 0,
 );
 
-sub _min{ return ($_[0] < $_[1] ? $_[0] : $_[1]); }
-sub _max{ return ($_[0] > $_[1] ? $_[0] : $_[1]); }
 
 sub _create_leaf{
     my ($start, $end, $item) = @_;
@@ -68,32 +89,6 @@ sub _create_internal{
     return [$start, $end, ($start + $end)/2, 0, $left, $right];
 }
 
-
-#sub _overlap{
-#    my ($start1, $end1, $start2, $end2) = @_;
-#
-#    if ($end1 >= $start2 && $end2 >= $start1){
-#        return _min($end1, $end2) - _max($start1, $start2)  + 1;
-#    }
-#    else {
-#        return 0;
-#    }
-#}
-
-#C version is 10x faster... but will it run on windows?
-#use Inline Config => DIRECTORY => '/tmp/Inline', ENABLE => 'UNTAINT';
-use Inline Config =>  ENABLE => 'UNTAINT';
-
-use Inline C => <<'END_C';
-    int _overlap(int s1,int e1,int s2, int e2) {
-        if (e1 >= s2 && e2 >= s1){
-            return (e1 < e2 ? e1 : e2) - (s1 > s2 ? s1 : s2) + 1;
-        }
-        else {
-            return 0;
-        }
-    }
-END_C
 
 sub add{
     my ($self,$start,$end,$item) = @_;
@@ -186,8 +181,6 @@ sub search_overlap{
 
     return @accum;
 }
-
-
 
 sub _search_overlap_iter{
     my ($node, $start, $end, $accum) = @_;
