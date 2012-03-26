@@ -22,6 +22,7 @@ pod2usage(-verbose => 99,-sections => [qw/NAME SYNOPSIS OPTIONS/])
 if !$opt_file || !$opt_output_prefix || !$opt_reference;
 
 my $reference_genome = FastaReader->new(slurp => 1, file => $opt_reference, normalize => 0);
+say STDERR "Genome read!" if $opt_verbose;
 
 #######################################################################
 # Database 
@@ -129,16 +130,6 @@ Create counters for c/t for each sequence.
 
 #######################################################################
 
-sub rat{
-    my ($x,$y) = @_;
-    if ($x+$y != 0){
-        return sprintf("%.6f", $x/($x+$y));
-    }
-    else {
-        return "0.000000";
-    }
-}
-
 sub count_methylation{
     my ($gff, $bps) = @_;
 
@@ -165,6 +156,18 @@ sub count_methylation{
     }
 }
 
+
+### {{{ print_freq
+
+sub rat{
+    my ($x,$y) = @_;
+    if ($x+$y != 0){
+        return sprintf("%.6f", $x/($x+$y));
+    }
+    else {
+        return "0.000000";
+    }
+}
 
 # this thing looks ridiculous...
 sub print_freq{
@@ -264,6 +267,7 @@ sub print_freq{
 
     #say Dumper \%stats;
 }
+# }}}
 
 #######################################################################
 # Main body
