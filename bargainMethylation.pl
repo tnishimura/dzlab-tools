@@ -16,49 +16,32 @@ use Getopt::Euclid qw( :vars<opt_> );
 use Pod::Usage;
 use File::Temp qw/mktemp tempfile/;
 use DZUtil qw/approximate_line_count/;
+use YAML qw/DumpFile/;
 
 pod2usage(-verbose => 99,-sections => [qw/NAME SYNOPSIS OPTIONS/]) 
 if !$opt_file || !$opt_output_prefix || !$opt_reference;
 
 my $reference_genome = FastaReader->new(slurp => 1, file => $opt_reference, normalize => 0);
+say STDERR "Genome read!" if $opt_verbose;
 
 #######################################################################
 # Database 
 
 =head2 Internals
 
-Create a database of sequence, coordinate, context, c, t. Sequence and coordinate make up the record.
+Create counters for c/t for each sequence.
 
 =cut
 
 {
-    my $counter = 0;
-    my $increment = 10000;
-    my $filename = $opt_memory ? ':memory:' : (tempfile("$opt_output_prefix.tmp.XXXXX", UNLINK => 1))[1];
-    unlink $filename if -f $filename;
-    my $dbh = DBI->connect("dbi:SQLite:dbname=$filename","","", {RaiseError => 1, AutoCommit => 0});
-    $dbh->do("PRAGMA journal_mode = OFF");
-    $dbh->do("PRAGMA cache_size = 80000");
-    $dbh->do("create table methyl (seq, coord integer, c integer default 0, t integer default 0)");
-    $dbh->do("create index idx on methyl (seq,coord)");
+    my $integer_width = 4;
 
-    my $checker = $dbh->prepare("select count(seq) from methyl where seq=? and coord=?");
-
-    my %updater = map {
-        $_ => $dbh->prepare("update methyl set $_=(select $_ from methyl where seq=? and coord=?)+1 where seq=? and coord=?"),
-    } qw/c t/;
-
-	my %inserter = map {
-        $_ => $dbh->prepare("insert into methyl(seq, coord, $_) values (?,?,1)")
-    } qw/c t/;
-
-    sub disconnect { $dbh->disconnect }
-
-    sub does_record_exist{
-        my ($seq, $coord) = @_;
-        $checker->execute($seq,$coord);
-        my $row = $checker->fetch();
-        return $row->[0];
+    my %c_counter;
+    my %t_counter;
+    my %seqlen = $reference_genome->sequence_lengths();
+    while (my ($seq,$len) = each %seqlen) {
+        $c_counter{$seq} = "\0" x ($len * $integer_width);
+        $t_counter{$seq} = "\0" x ($len * $integer_width);
     }
 
     # insert new or update existing position. 
@@ -67,16 +50,11 @@ Create a database of sequence, coordinate, context, c, t. Sequence and coordinat
 
         $base = lc $base;
 
-        if (my $existing_context = does_record_exist($seq,$coord)){
-            #say STDERR "record exists";
-            $updater{$base}->execute($seq,$coord,$seq,$coord);
+        if ($base eq 'c'){
+            ++vec($c_counter{$seq}, $coord - 1, $integer_width * 8);
         }
-        else{
-            #say STDERR "record d.n.exists";
-            $inserter{$base}->execute($seq, $coord);
-        }
-        if (++$counter % $increment == 0){
-            $dbh->commit();
+        elsif ($base eq 't'){
+            ++vec($t_counter{$seq}, $coord - 1, $integer_width * 8);
         }
     }
 
@@ -84,65 +62,65 @@ Create a database of sequence, coordinate, context, c, t. Sequence and coordinat
         # prefix-$seq.single-c-$context.gff.merged
         my $file_prefix = shift;
 
-        $dbh->commit();
 
-        my $sth = $dbh->prepare('select seq, coord, c, t from methyl order by seq, coord');
-        $sth->execute();
-
-        my %filehandles;
-        my %temp2real;
-
+        # initialize statistics hash
         my %stats;
-
-        POSITION:
-        while (defined(my $row = $sth->fetch)){
-            #say join "|", @$row;
-            my ($seq, $coord, $c, $t) = @$row;
-            $seq = $reference_genome->get_original_name($seq);
-            if (! exists $stats{$seq}){
-                if ($opt_dinucleotide){
-                    $stats{$seq} = {
-                        unfiltered => { map {$_ => 0} qw/C CG CC CA CT T TG TC TA TT/ },
-                        filtered   => { map {$_ => 0} qw/C CG CC CA CT T TG TC TA TT/ },
-                    };
-                }
-                else{
-                    $stats{$seq} = {
-                        unfiltered => { map {$_ => 0} qw/C CG CHH CHG T TG THH THG/ },
-                        filtered   => { map {$_ => 0} qw/C CG CHH CHG T TG THH THG/ },
-                    };
-                }
+        for my $seq (sort keys %seqlen) {
+            if ($opt_dinucleotide){
+                $stats{$seq} = {
+                    unfiltered => { map {$_ => 0} qw/C CG CC CA CT T TG TC TA TT/ },
+                    filtered   => { map {$_ => 0} qw/C CG CC CA CT T TG TC TA TT/ },
+                };
             }
-
-            my $context = $reference_genome->get_context($seq, $coord, dinuc => 0, undef_on_nonc => 1);
-            next POSITION if ! defined $context; # means was not a C/G position
-            $context = uc $context;
-
-            if (! exists $filehandles{$context}){
-                my $file = "$file_prefix.single-c.$context.gff.merged";
-                my $tmpfile = mktemp($file . ".tmp.XXXX");
-                open my $writer, q{>}, $tmpfile;
-                $filehandles{$context} = $writer;
-                $temp2real{$tmpfile} = $file;
+            else{
+                $stats{$seq} = {
+                    unfiltered => { map {$_ => 0} qw/C CG CHH CHG T TG THH THG/ },
+                    filtered   => { map {$_ => 0} qw/C CG CHH CHG T TG THH THG/ },
+                };
             }
-
-            die "why is \$c + \$t == 0? bug, dying" if $c + $t == 0;
-            my $filtered = $c + $t > 20 ? '*' : '';
-
-            my $score = sprintf("%.4f", $c/($c+$t));
-            say {$filehandles{$context}} join "\t", $seq, q{.}, $context, $coord, $coord, $score, q{.}, q{.}, "c=$c;t=$t$filtered";
-
-            my $type = $filtered ? 'filtered' : 'unfiltered';
-
-            $stats{$seq}{$type}{C} += $c;
-            $stats{$seq}{$type}{T} += $t;
-            $stats{$seq}{$type}{$context} += $c; # CG, CHG, CHH
-            substr($context, 0, 1) = 'T';
-            $stats{$seq}{$type}{$context} += $t; # TG, THG, THH
         }
 
-        close $_ for values %filehandles;
+        # create temp files
+        my %filehandles; # write fh to temp files
+        my %temp2real;   # temp file to final file map
+        for my $context (@{$opt_dinucleotide ? [qw/CA CC CG CT CH/] : [qw/CG CHG CHH/]}){
+            my $file = "$file_prefix.single-c.$context.gff.merged";
+            my $tmpfile = mktemp($file . ".tmp.XXXX");
+            open my $writer, q{>}, $tmpfile;
+            $filehandles{$context} = $writer;
+            $temp2real{$tmpfile} = $file;
+        }
 
+        for my $seq (sort keys %seqlen) {
+            INDEX:
+            for my $index (0 .. $seqlen{$seq} - 1) {
+                my $coord = $index + 1;
+                my $c = vec($c_counter{$seq}, $index, $integer_width * 8);
+                my $t = vec($t_counter{$seq}, $index, $integer_width * 8);
+
+                next INDEX if $c + $t == 0;
+
+                my $context = $reference_genome->get_context($seq, $coord, dinuc => 0, undef_on_nonc => 1);
+                next INDEX if ! defined $context; # means was not a C/G position
+                $context = uc $context;
+
+                my $filtered = $c + $t > 20 ? '*' : '';
+
+                my $score = sprintf("%.4f", $c/($c+$t));
+                say {$filehandles{$context}} join "\t", $seq, q{.}, $context, $coord, $coord, $score, q{.}, q{.}, "c=$c;t=$t$filtered";
+
+                my $type = $filtered ? 'filtered' : 'unfiltered';
+
+                $stats{$seq}{$type}{C} += $c;
+                $stats{$seq}{$type}{T} += $t;
+                $stats{$seq}{$type}{$context} += $c; # CG, CHG, CHH
+                substr($context, 0, 1) = 'T';
+                $stats{$seq}{$type}{$context} += $t; # TG, THG, THH
+            }
+
+
+        }
+        close $_ for values %filehandles;
         while (my ($tmp,$real) = each %temp2real) {
             rename $tmp, $real;
         }
@@ -151,16 +129,6 @@ Create a database of sequence, coordinate, context, c, t. Sequence and coordinat
 }
 
 #######################################################################
-
-sub rat{
-    my ($x,$y) = @_;
-    if ($x+$y != 0){
-        return sprintf("%.6f", $x/($x+$y));
-    }
-    else {
-        return "0.000000";
-    }
-}
 
 sub count_methylation{
     my ($gff, $bps) = @_;
@@ -189,11 +157,25 @@ sub count_methylation{
 }
 
 
+### {{{ print_freq
+
+sub rat{
+    my ($x,$y) = @_;
+    if ($x+$y != 0){
+        return sprintf("%.6f", $x/($x+$y));
+    }
+    else {
+        return "0.000000";
+    }
+}
+
 # this thing looks ridiculous...
 sub print_freq{
     my $prefix = shift;
     my $error = shift;
     my %stats = @_;
+    #DumpFile("$prefix.freq", \%stats);
+    #return;
 
     open my $out, '>', "$prefix.freq";
 
@@ -275,7 +257,7 @@ sub print_freq{
     #die "uneven number of lines in freq? dying" unless all { $numcols == scalar @$_ } @output;
 
     for my $i (0..$numcols-1) {
-        my $line = join "\t", map { $_->[$i] } @output;
+        my $line = join "\t", sprintf("%18s", $output[0][$i]), map { $_->[$i] } @output[1 .. $#output];
         say STDERR $line;
         say $out $line;
     }
@@ -285,6 +267,7 @@ sub print_freq{
 
     #say Dumper \%stats;
 }
+# }}}
 
 #######################################################################
 # Main body
@@ -300,7 +283,7 @@ while (defined(my $corr = $parser->next())){
     count_methylation($corr, \%bps);
 
     if ($opt_verbose && $. % $counter_increment == 0){
-        printf(STDERR "%d (%.4f)\n", $., $. / $line_count * 100);
+        printf(STDERR "%d (%.4f%%)\n", $., $. / $line_count * 100);
     }
 }
 
@@ -319,27 +302,17 @@ print_freq($opt_output_prefix, $parser->no_match_counter() + $parser->error_coun
 
 =head1 NAME
 
-discountMethylation.pl - ...
+bargainMethylation.pl - third generation of countMethylation. current --new-cm in bs-sequel
 
 =head1 SYNOPSIS
 
-Usage examples:
-
- discountMethylation.pl [options]...
+ bargainMethylation.pl -o file_prefix -r ref.fasta [-d] [-v] input.gff
 
 =head1 OPTIONS
 
 =over
 
 =item  -o <prefix> | --output-prefix <prefix>
-
-=for Euclid
-    prefix.default:     '-'
-
-=item  <file> 
-
-=for Euclid
-    file.type:        readable
 
 =item  -r <fasta> | --reference <fasta>
 
@@ -348,11 +321,12 @@ Usage examples:
 
 =item  -d | --dinucleotide 
 
-=item --help | -h
-
 =item --verbose | -v
 
-=item  -m | --memory 
+=item  <file> 
+
+=for Euclid
+    file.type:        readable
 
 =back
 

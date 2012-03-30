@@ -10,6 +10,29 @@ use Carp;
 use autodie;    
 use Scalar::Util qw/looks_like_number/;
 use 5.010;
+use FindBin;
+use lib "$ENV{HOME}/dzlab-tools/lib";
+
+
+BEGIN {
+    eval 'require Inline::C';
+
+    my $pkg;
+    if ($@) {
+        require Tree::Range::Overlap_PP;
+        $pkg = "Tree::Range::Overlap_PP";
+    }
+    else {
+        require Tree::Range::Overlap_XS;
+        $pkg = "Tree::Range::Overlap_XS";
+    }
+    no strict 'refs';
+    my $class = __PACKAGE__;
+    *{"$class\::_overlap"} = *{"$pkg\::_overlap"};
+}
+
+sub _min{ return ($_[0] < $_[1] ? $_[0] : $_[1]); }
+sub _max{ return ($_[0] > $_[1] ? $_[0] : $_[1]); }
 
 # Internals
 # Leaf: [start, end, midpoint, 1, item]
@@ -37,8 +60,6 @@ has finalized => (
     default => 0,
 );
 
-sub _min{ return ($_[0] < $_[1] ? $_[0] : $_[1]); }
-sub _max{ return ($_[0] > $_[1] ? $_[0] : $_[1]); }
 
 sub _create_leaf{
     my ($start, $end, $item) = @_;
@@ -68,31 +89,6 @@ sub _create_internal{
     return [$start, $end, ($start + $end)/2, 0, $left, $right];
 }
 
-
-sub _overlap{
-    my ($start1, $end1, $start2, $end2) = @_;
-
-    if ($end1 >= $start2 && $end2 >= $start1){
-        return _min($end1, $end2) - _max($start1, $start2)  + 1;
-    }
-    else {
-        return 0;
-    }
-}
-
-# C version is 10x faster... but will it run on windows?
-# use Inline Config => DIRECTORY => '/tmp/Inline', ENABLE => 'UNTAINT';
-# 
-# use Inline C => <<'END_C';
-#     int _overlap2(int s1,int e1,int s2, int e2) {
-#         if (e1 >= s2 && e2 >= s1){
-#             return (e1 < e2 ? e1 : e2) - (s1 > s2 ? s1 : s2) + 1;
-#         }
-#         else {
-#             return 0;
-#         }
-#     }
-# END_C
 
 sub add{
     my ($self,$start,$end,$item) = @_;
@@ -186,8 +182,6 @@ sub search_overlap{
     return @accum;
 }
 
-
-
 sub _search_overlap_iter{
     my ($node, $start, $end, $accum) = @_;
 
@@ -195,13 +189,18 @@ sub _search_overlap_iter{
 
     while (@search_queue){
         my $node = pop @search_queue;
+        # Leaf: [start, end, midpoint, 1, item]
+        # Internal Node: [start, end, midpoint, 0, left, right]
+        my ($node_start, $node_end, $is_leaf, $left_or_item, $right) = @{$node}[0,1,3,4,5];
+
         #if (my $o = _overlap2($node->[0],$node->[1],$start,$end)){
-        if (my $o = _overlap($node->[0],$node->[1],$start,$end)){
-            if ($node->[3]){
-                push @$accum, {item => $node->[4], overlap => $o};
+        #if (my $o = _overlap($node->[0],$node->[1],$start,$end)){
+        if (my $o = _overlap($node_start, $node_end,$start,$end)){
+            if ($is_leaf){
+                push @$accum, {item => $left_or_item, overlap => $o};
             }
             else{
-                push @search_queue, $node->[4], $node->[5];
+                push @search_queue, $left_or_item, $right;
             }
         }
     }

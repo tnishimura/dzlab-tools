@@ -32,6 +32,7 @@ has normalize => (
     default => 1,
 );
 
+# check that start, end lln and start <= end
 has launder => (
     is => 'ro',
     default => 0,
@@ -46,6 +47,26 @@ has putback => (
         push_putback => 'push',
         shift_putback  => 'shift',
         has_putback  => 'count',
+    },
+);
+
+has 'line_counter' => (
+    traits  => ['Counter'],
+    is      => 'ro',
+    isa     => 'Num',
+    default => 0,
+    handles => {
+        inc_line_counter   => 'inc',
+    },
+);
+
+has 'error_counter' => (
+    traits  => ['Counter'],
+    is      => 'ro',
+    isa     => 'Num',
+    default => 0,
+    handles => {
+        inc_error_counter   => 'inc',
     },
 );
 
@@ -96,7 +117,9 @@ sub next{
     }
     my $launder = $self->launder();
     while (defined (my $line = scalar readline $self->filehandle)){
-        my $gff = parse_gff($line, $self->normalize);
+        $self->inc_line_counter();
+        my $gff = parse_gff($line, $self->normalize); #returns '0' on parse error
+
         if (!$self->skip || is_gff($gff)){
             if (
                 (
@@ -112,6 +135,14 @@ sub next{
             ){
                 return $gff;
             }
+            else{
+                # record improper start/end
+                $self->inc_error_counter();
+            }
+        }
+        else{
+            # record unparseable
+            $self->inc_error_counter();
         }
     }
     $self->done(1);

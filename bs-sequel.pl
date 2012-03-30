@@ -265,8 +265,7 @@ if ($opt_new_cm){
     my $single_c_prefix = catfile($single_c_dir, $opt_base_name);
     my @single = map { "$single_c_prefix.single-c.$_.gff.merged" } @contexts;
     my $dinucopt = $opt_di_nuc_freqs ? '-d' : '';
-    my $mem = $opt_in_memory ? ' -m ' : '';
-    launch("perl -S discountMethylation.pl $mem -r $opt_reference $dinucopt -o $single_c_prefix $base_gff",
+    launch("perl -S bargainMethylation.pl -v -r $opt_reference $dinucopt -o $single_c_prefix $base_gff",
         expected => [@single], dryrun => $dry,
     );
 
@@ -540,10 +539,6 @@ subprocesses).  Will use up to 3.
 =item --new-cm
 
 Use the new discountMethylation.pl instead of theolder countMethylation.pl. (EXPERIMENTAL)
-
-=item --in-memory
-
-Use memory when possible. For discountMethylation.pl only currently. Careful. 
 
 =item  --dry 
 

@@ -158,6 +158,21 @@ sub slice{
     return map { $self->get_column($_) } @default_colnames[map {$_ - 1} @_];
 }
 
+sub as_array{
+    my $self = shift;
+    return [
+    $self->sequence(),
+    $self->source(),
+    $self->feature(),
+    $self->start(),
+    $self->end(),
+    $self->score(),
+    $self->strand(),
+    $self->frame(),
+    $self->attribute_string(),
+    ];
+}
+
 no Moose;
 __PACKAGE__->meta->make_immutable;
 

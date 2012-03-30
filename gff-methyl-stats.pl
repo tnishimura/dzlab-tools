@@ -13,6 +13,7 @@ use Cwd qw/getcwd/;
 use File::Basename qw/basename dirname/;
 use File::Path qw/make_path remove_tree/;
 use File::Spec::Functions qw/canonpath catdir catfile updir/;
+use Parallel::ForkManager;
 
 END {close STDOUT}
 $| = 1;
@@ -21,12 +22,16 @@ use Getopt::Long;
 
 my $result = GetOptions (
     "tmp-dir|d=s" => \my $tmpdir,
+    "parallel|p=i" => \(my $parallel=1),
 );
 pod2usage(-verbose => 99) if (!$result || !@ARGV);  
+
+my $pm = Parallel::ForkManager->new($parallel);
 
 if (! $tmpdir || ! -d $tmpdir){
     $tmpdir = getcwd();
 }
+
 
 sub memoname{
     my $name = rel2abs shift;
@@ -38,14 +43,24 @@ sub memoname{
 my %all_stats;
 
 for my $file (@ARGV) {
+    $pm->start and next;
+    my $memo = memoname($file);
+    if (! -f $memo){
+        my $stats = methylation_stats($file);
+        DumpFile($memo, $stats);
+        $all_stats{$file} = $stats;
+    }
+    $pm->finish; 
+}
+$pm->wait_all_children;
+
+for my $file (@ARGV) {
     my $memo = memoname($file);
     if (-f $memo){
         $all_stats{$file} = LoadFile($memo);
     }
     else{
-        my $stats = methylation_stats($file);
-        DumpFile($memo, $stats);
-        $all_stats{$file} = $stats;
+        die "why doesn't $memo exist?";
     }
 }
 
