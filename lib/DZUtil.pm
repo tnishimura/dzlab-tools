@@ -242,6 +242,16 @@ sub common_prefix{
     return join "", @accum;
 }
 
+sub strip_common_prefix{
+    my $pre = common_prefix(@_);
+    return map { s/^\Q$pre\E// } @_;
+}
+
+sub strip_common_suffix{
+    my $suf = common_suffix(@_);
+    return map { s/\Q$suf\E$// } @_;
+}
+
 sub common_suffix{
     return scalar reverse common_prefix map { scalar reverse $_ } @_;
 }
