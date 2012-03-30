@@ -46,6 +46,10 @@ sub gff_info{
         $file_yaml{count}++;
 
         $lengths->add_data($gff->end - $gff->start + 1);
+
+        if ($count++ % 25000 == 0){
+            say STDERR $count;
+        }
     }
 
     $file_yaml{mean}                = sprintf "%.1f", $lengths->mean();
@@ -259,7 +263,11 @@ sub methylation_stats{
         mit_methyl_total => ($mit_c + $mit_t > 0) ? ($mit_c / ($mit_c+$mit_t)) : 'na',
         nuc_methyl_total => ($nuc_c + $nuc_t > 0) ? ($nuc_c / ($nuc_c+$nuc_t)) : 'na',
         coverage         => sumhists(\%chr_ct, \%mit_ct, \%nuclear_ct),
-    };
+    }, 
+    \%nuclear_ct,
+    \%chr_ct,
+    \%mit_ct,
+    ;
 }
 
 
