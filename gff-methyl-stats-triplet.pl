@@ -28,22 +28,21 @@ while (my ($name,$file) = each %files) {
     $stats->{file} = $file;
 
     $total_stats{$name} = $stats;
-    while (my ($pos,$ct) = each %$nuc_ct) {
-        $total_nuc_ct{$pos} += $ct;
+    while (my ($bin,$count) = each %$nuc_ct) {
+        $total_nuc_ct{$bin} += $count;
     }
-    while (my ($pos,$ct) = each %$chr_ct) {
-        $total_chr_ct{$pos} += $ct;
+    while (my ($bin,$count) = each %$chr_ct) {
+        $total_chr_ct{$bin} += $count;
     }
-    while (my ($pos,$ct) = each %$mit_ct) {
-        $total_mit_ct{$pos} += $ct;
+    while (my ($bin,$count) = each %$mit_ct) {
+        $total_mit_ct{$bin} += $count;
     }
 }
 
-$total_stats{'total'} = 
-{
-    nuc_ct_median => GFF::Statistics::histmedian(\%total_nuc_ct),
-    chr_ct_median => GFF::Statistics::histmedian(\%total_chr_ct),
-    mit_ct_median => GFF::Statistics::histmedian(\%total_mit_ct),
+$total_stats{'total'} = {
+    nuc_ct_percentile => GFF::Statistics::histpercentile(\%total_nuc_ct),
+    chr_ct_percentile => GFF::Statistics::histpercentile(\%total_chr_ct),
+    mit_ct_percentile => GFF::Statistics::histpercentile(\%total_mit_ct),
     nuc_ct_mean   => GFF::Statistics::histmean(\%total_nuc_ct),
     chr_ct_mean   => GFF::Statistics::histmean(\%total_chr_ct),
     mit_ct_mean   => GFF::Statistics::histmean(\%total_mit_ct),

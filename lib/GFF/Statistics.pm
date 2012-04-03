@@ -11,6 +11,7 @@ use Scalar::Util qw/looks_like_number/;
 use List::MoreUtils qw/all/;
 use Statistics::Descriptive;
 use YAML qw/Bless Dump/;
+use Tie::IxHash;
 
 require Exporter;
 our @ISA = qw(Exporter);
@@ -116,14 +117,14 @@ sub gff_detect_width{
 #######################################################################
 
 
-our @rownames = qw/
-nuc_ct_mean nuc_ct_median 
-chr_ct_mean chr_ct_median 
-mit_ct_mean mit_ct_median 
-nuc_methyl_mean chr_methyl_mean mit_methyl_mean 
-chr_methyl_total mit_methyl_total nuc_methyl_total
-coverage
-/;
+#our @rownames = qw/
+#nuc_ct_mean nuc_ct_median 
+#chr_ct_mean chr_ct_median 
+#mit_ct_mean mit_ct_median 
+#nuc_methyl_mean chr_methyl_mean mit_methyl_mean 
+#chr_methyl_total mit_methyl_total nuc_methyl_total
+#coverage
+#/;
 
 #######################################################################
 # utility
@@ -154,12 +155,54 @@ sub sum{
     }
     return $total;
 }
+
 sub histmean{
     my $hist = shift;
     if (keys %$hist == 0){ return 'na'; }
 
     my $total_bin_count = sum values %$hist;
     return sumhists($hist)/$total_bin_count;
+}
+
+sub histstd{
+    my $hist = shift;
+    if (keys %$hist == 0){ return 'na'; }
+
+    my $total_bin_count = sum values %$hist;
+    my $mean = histmean($hist);
+
+    my $accum=0;
+    while (my ($bin,$bincount) = each %$hist) {
+        $accum += $bincount * ($bin - $mean) * ($bin - $mean);
+    }
+    return sqrt($accum/$total_bin_count);
+}
+
+sub histpercentiles{
+    my $hist = shift;
+    if (keys %$hist == 0){ return 'na'; }
+
+    my @wanted_percentiles = qw(.05 .25 .50 .75 .95);
+    tie my %percentiles, "Tie::IxHash", @wanted_percentiles;
+
+    my $total_bin_count = sum values %$hist;
+    my $bins_counted = 0;
+
+    BIN:
+    for my $bin (sort {$a<=>$b} keys %$hist){
+        last BIN if (!@wanted_percentiles);
+        $bins_counted += $hist->{$bin};
+        if ($bins_counted > $total_bin_count * $wanted_percentiles[0]){
+            $percentiles{shift @wanted_percentiles} = $bin;
+        }
+    }
+    return \%percentiles;
+    if (keys %percentiles == @wanted_percentiles){
+        return \%percentiles;
+    }
+    else{
+        return 'na';
+    }
 }
 
 sub histmedian{
@@ -197,6 +240,19 @@ sub tohist{
     }
     return %accum;
 }
+
+sub hist_filter_by_quartile{
+    my ($hist, $percentile25, $percentile75) = @_;
+    return {
+        map {
+            $_ => $hist->{$_}
+        }
+        grep {
+            $percentile25 <= $_ && $_ <= $percentile75
+        }
+        keys %$hist
+    };
+}
 #######################################################################
 # statistics
 
@@ -211,7 +267,6 @@ sub methylation_stats{
     my ($mit_c, $mit_t, $chr_c, $chr_t, $nuc_c, $nuc_t) = (0) x 6;
 
     my $parser = GFF::Parser->new(file => $singlec);
-
 
     my $counter = 0;
     PARSE:
@@ -249,19 +304,37 @@ sub methylation_stats{
         }
     }
 
+    # for my $bin (sort { $a <=> $b } keys %nuclear_ct){
+    #     say "$bin => $nuclear_ct{$bin}";
+    # }
+
     return {
-        chr_ct_median    => histmedian(\%chr_ct),
-        mit_ct_median    => histmedian(\%mit_ct),
-        nuc_ct_median    => histmedian(\%nuclear_ct),
+        # percentiles have median as .50
+        # chr_ct_median    => histmedian(\%chr_ct),
+        # mit_ct_median    => histmedian(\%mit_ct),
+        # nuc_ct_median    => histmedian(\%nuclear_ct),
+
+        chr_ct_percentiles => histpercentiles(\%chr_ct),
+        mit_ct_percentiles => histpercentiles(\%mit_ct),
+        nuc_ct_percentiles  => histpercentiles(\%nuclear_ct),
+
         chr_ct_mean      => histmean(\%chr_ct),
+        chr_ct_std       => histstd(\%chr_ct),
+
         mit_ct_mean      => histmean(\%mit_ct),
+        mit_ct_std       => histstd(\%mit_ct),
+
         nuc_ct_mean      => histmean(\%nuclear_ct),
+        nuc_ct_std       => histstd(\%nuclear_ct),
+
         chr_methyl_mean  => $chr_methyl->(),
         mit_methyl_mean  => $mit_methyl->(),
         nuc_methyl_mean  => $nuclear_methyl->(),
         chr_methyl_total => ($chr_c + $chr_t > 0) ? ($chr_c / ($chr_c+$chr_t)) : 'na',
         mit_methyl_total => ($mit_c + $mit_t > 0) ? ($mit_c / ($mit_c+$mit_t)) : 'na',
         nuc_methyl_total => ($nuc_c + $nuc_t > 0) ? ($nuc_c / ($nuc_c+$nuc_t)) : 'na',
+        methyl_total     => ($chr_c + $chr_t + $mit_c + $mit_t + $nuc_c + $nuc_t > 0) ?  ($chr_c + $mit_c + $nuc_c)/($chr_c + $chr_t + $mit_c + $mit_t + $nuc_c + $nuc_t) : 'na',
+            
         coverage         => sumhists(\%chr_ct, \%mit_ct, \%nuclear_ct),
     }, 
     \%nuclear_ct,
@@ -269,7 +342,6 @@ sub methylation_stats{
     \%mit_ct,
     ;
 }
-
 
 1;
 

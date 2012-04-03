@@ -8,7 +8,7 @@ use FindBin;
 use lib "$FindBin::Bin/lib";
 use GFF::Statistics qw/methylation_stats/;
 use File::Spec::Functions qw/rel2abs/;
-use YAML qw/LoadFile DumpFile/;
+use YAML qw/Dump LoadFile DumpFile/;
 use Cwd qw/getcwd/;
 use File::Basename qw/basename dirname/;
 use File::Path qw/make_path remove_tree/;
@@ -46,7 +46,7 @@ for my $file (@ARGV) {
     $pm->start and next;
     my $memo = memoname($file);
     if (! -f $memo){
-        my $stats = methylation_stats($file);
+        my ($stats) = methylation_stats($file);
         DumpFile($memo, $stats);
         $all_stats{$file} = $stats;
     }
@@ -66,11 +66,13 @@ for my $file (@ARGV) {
 
 # header
 
-say join "\t", "", @GFF::Statistics::rownames;
+say Dump \%all_stats;
 
-for my $file (sort keys %all_stats) {
-    say join "\t", $file, @{$all_stats{$file}}{@GFF::Statistics::rownames};
-}
+# say join "\t", "", @GFF::Statistics::rownames;
+
+# for my $file (sort keys %all_stats) {
+# say join "\t", $file, @{$all_stats{$file}}{@GFF::Statistics::rownames};
+# }
 
 
 =head1 NAME
