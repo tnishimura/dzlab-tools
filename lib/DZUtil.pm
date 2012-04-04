@@ -443,7 +443,7 @@ sub memodo{
     my ($file, $code, $force) = @_;
     if (! -f $file || $force){
         my $results = $code->();
-        Dumpfile($file, $results);
+        DumpFile($file, $results);
         return $results;
     }
     else{
