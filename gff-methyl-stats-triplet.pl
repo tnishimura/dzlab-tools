@@ -40,9 +40,9 @@ while (my ($name,$file) = each %files) {
 }
 
 $total_stats{'total'} = {
-    nuc_ct_percentile => GFF::Statistics::histpercentile(\%total_nuc_ct),
-    chr_ct_percentile => GFF::Statistics::histpercentile(\%total_chr_ct),
-    mit_ct_percentile => GFF::Statistics::histpercentile(\%total_mit_ct),
+    nuc_ct_percentile => GFF::Statistics::histpercentiles(\%total_nuc_ct),
+    chr_ct_percentile => GFF::Statistics::histpercentiles(\%total_chr_ct),
+    mit_ct_percentile => GFF::Statistics::histpercentiles(\%total_mit_ct),
     nuc_ct_mean   => GFF::Statistics::histmean(\%total_nuc_ct),
     chr_ct_mean   => GFF::Statistics::histmean(\%total_chr_ct),
     mit_ct_mean   => GFF::Statistics::histmean(\%total_mit_ct),

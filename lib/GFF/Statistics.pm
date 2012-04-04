@@ -182,7 +182,8 @@ sub histpercentiles{
     my $hist = shift;
     if (keys %$hist == 0){ return 'na'; }
 
-    my @wanted_percentiles = qw(.05 .25 .50 .75 .95);
+    my @wanted_percentiles = @_;
+
     tie my %percentiles, "Tie::IxHash", @wanted_percentiles;
 
     my $total_bin_count = sum values %$hist;
@@ -241,8 +242,12 @@ sub tohist{
     return %accum;
 }
 
-sub hist_filter_by_quartile{
-    my ($hist, $percentile25, $percentile75) = @_;
+# histogram inter-quartile range (from 25% to 75%)
+sub hist_iqr{
+    my ($hist, $percentile_aref) = @_;
+    return {} if keys %$hist == 0;
+
+    my ($percentile25, $percentile75) = @{$percentile_aref}[1,3];
     return {
         map {
             $_ => $hist->{$_}
@@ -258,6 +263,11 @@ sub hist_filter_by_quartile{
 
 sub methylation_stats{
     my $singlec = shift;
+    my @wanted_percentiles = @_;
+    if (@wanted_percentiles == 0){
+        @wanted_percentiles = qw/.05 .25 .50 .75 .95/;
+    }
+
     my %nuclear_ct;
     my %chr_ct;
     my %mit_ct;
@@ -308,31 +318,38 @@ sub methylation_stats{
     #     say "$bin => $nuclear_ct{$bin}";
     # }
 
-    return {
-        # percentiles have median as .50
-        # chr_ct_median    => histmedian(\%chr_ct),
-        # mit_ct_median    => histmedian(\%mit_ct),
-        # nuc_ct_median    => histmedian(\%nuclear_ct),
+    my $chr_ct_percentiles = histpercentiles(\%chr_ct, @wanted_percentiles);
+    my $mit_ct_percentiles = histpercentiles(\%mit_ct, @wanted_percentiles);
+    my $nuc_ct_percentiles = histpercentiles(\%nuclear_ct, @wanted_percentiles);
+    #my %chr_ct_iqr = hist_iqr(\%chr_ct, $chr_ct_percentiles);
+    #my %mit_ct_iqr = hist_iqr(\%mit_ct, $mit_ct_percentiles);
+    #my %nuc_ct_iqr = hist_iqr(\%nuclear_ct, $nuc_ct_percentiles);
 
-        chr_ct_percentiles => histpercentiles(\%chr_ct),
-        mit_ct_percentiles => histpercentiles(\%mit_ct),
-        nuc_ct_percentiles  => histpercentiles(\%nuclear_ct),
+    return {
+        nuc_c => $nuc_c, nuc_t => $nuc_t,
+        mit_c => $mit_c, mit_t => $mit_t,
+        chr_c => $chr_c, chr_t => $chr_t,
+
+        chr_ct_percentiles => $chr_ct_percentiles, 
+        mit_ct_percentiles => $mit_ct_percentiles,
+        nuc_ct_percentiles => $nuc_ct_percentiles,
 
         chr_ct_mean      => histmean(\%chr_ct),
-        chr_ct_std       => histstd(\%chr_ct),
-
         mit_ct_mean      => histmean(\%mit_ct),
-        mit_ct_std       => histstd(\%mit_ct),
-
         nuc_ct_mean      => histmean(\%nuclear_ct),
-        nuc_ct_std       => histstd(\%nuclear_ct),
+
+        #chr_ct_std       => histstd(\%chr_ct),
+        #mit_ct_std       => histstd(\%mit_ct),
+        #nuc_ct_std       => histstd(\%nuclear_ct),
 
         chr_methyl_mean  => $chr_methyl->(),
         mit_methyl_mean  => $mit_methyl->(),
         nuc_methyl_mean  => $nuclear_methyl->(),
+
         chr_methyl_total => ($chr_c + $chr_t > 0) ? ($chr_c / ($chr_c+$chr_t)) : 'na',
         mit_methyl_total => ($mit_c + $mit_t > 0) ? ($mit_c / ($mit_c+$mit_t)) : 'na',
         nuc_methyl_total => ($nuc_c + $nuc_t > 0) ? ($nuc_c / ($nuc_c+$nuc_t)) : 'na',
+
         methyl_total     => ($chr_c + $chr_t + $mit_c + $mit_t + $nuc_c + $nuc_t > 0) ?  ($chr_c + $mit_c + $nuc_c)/($chr_c + $chr_t + $mit_c + $mit_t + $nuc_c + $nuc_t) : 'na',
             
         coverage         => sumhists(\%chr_ct, \%mit_ct, \%nuclear_ct),
