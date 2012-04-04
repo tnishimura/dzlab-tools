@@ -9,6 +9,7 @@ use autodie;
 use File::Spec::Functions;
 use File::Basename;
 use File::Temp qw/tempdir tempfile/;
+use File::Path qw/make_path/;
 use List::MoreUtils qw/all/;
 use POSIX qw/strftime/;
 use IO::Uncompress::Gunzip qw(gunzip $GunzipError) ;
@@ -23,7 +24,7 @@ our @EXPORT_OK = qw(localize reverse_complement common_suffix common_prefix
 mfor basename_prefix fastq_read_length timestamp datestamp overlap chext
 split_names open_maybe_compressed fastq_convert_read_header c2t g2a
 numdiff safediv safemethyl clean_basename open_cached close_cached_all downsample
-approximate_line_count);
+approximate_line_count memofile gimmetmpdir);
 our @EXPORT = qw();
 
 sub clean_basename{
@@ -422,6 +423,37 @@ sub approximate_line_count{
     my $mean = List::Util::sum(@lengths)/scalar(@lengths);
 
     return int $size/$mean;
+}
+
+# flatten a path and return it.  if there's a second argument, catfile() onto it.
+sub memofile{
+    my ($path, $tmpdir) = @_;
+    my (undef,$directories,$file) = File::Spec::Functions::splitpath(File::Spec::Functions::rel2abs($path)); 
+
+    my @directory_parts = File::Spec::Functions::splitdir($directories);
+    @directory_parts = grep { $_ ne '' } @directory_parts; 
+
+    return catfile($tmpdir, join ",", @directory_parts, $file);
+}
+
+# without an argument, create and return a tmpdir.
+# with an argument, make sure it exists and that its a directory.
+sub gimmetmpdir{
+    my ($tmpdir) = @_;
+    $tmpdir //= tempdir(CLEANUP => 1);
+
+    if (-e $tmpdir){
+        if (! -d $tmpdir){
+            die "$tmpdir not a dir";
+        }
+    }
+    else{
+        make_path $tmpdir;
+        if (! -d $tmpdir){
+            die "can't make $tmpdir";
+        }
+    }
+    return $tmpdir;
 }
 
 1;

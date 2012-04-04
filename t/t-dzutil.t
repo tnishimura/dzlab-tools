@@ -6,7 +6,7 @@ use feature 'say';
 use autodie;
 use FindBin;
 use lib "$FindBin::Bin/../lib";
-use DZUtil qw/fastq_read_length overlap common_suffix common_prefix chext split_names/;
+use DZUtil qw/memofile fastq_read_length overlap common_suffix common_prefix chext split_names/;
 use Test::Exception;
 
 
@@ -56,3 +56,6 @@ is(100, fastq_read_length("t/data/fastq_read_length/fastq_read_length-test.fastq
 is(100, fastq_read_length("t/data/fastq_read_length/dir-gzip"), "fastq_read_length gzip dir");
 is(100, fastq_read_length("t/data/fastq_read_length/dir-bz2"), "fastq_read_length bzip2 dir");
 dies_ok { fastq_read_length "t/data/fastq_read_length/dir-gzip-uneven" } "fastq_read_length gzip dir uneven dies";
+
+### memofile 
+is(memofile("/home/neko/meow.txt", '/tmp'), "/tmp/home,neko,meow.txt", "memofile");
