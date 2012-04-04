@@ -22,6 +22,7 @@ my $result = GetOptions (
     "tmp-dir|d=s"  => \my $tmpdir,
     "parallel|p=i" => \(my $parallel=1),
     "force|f"      => \(my $force),
+    "wp=s" => \(my $wanted_percentiles = ".05,.25,.50,.75,.95"),
 );
 
 pod2usage(-verbose => 99) if (!$result || !@ARGV);  
@@ -43,7 +44,7 @@ for my $file (@ARGV) {
     my $memo = memofile($file, $tmpdir);
 
     my $stats = memodo($memo, sub{
-            my ($stats) = methylation_stats($file);
+            my ($stats) = methylation_stats($file, split /,/, $wanted_percentiles);
             return $stats;
         }, $force);
 
