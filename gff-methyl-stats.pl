@@ -4,76 +4,54 @@ use warnings FATAL => "all";
 use 5.010_000;
 use Data::Dumper;
 use autodie;
+
+use Getopt::Long;
+use Parallel::ForkManager;
+use Pod::Usage;
+use YAML qw/Dump/;
+
 use FindBin;
 use lib "$FindBin::Bin/lib";
+use DZUtil qw/memodo memofile gimmetmpdir/;
 use GFF::Statistics qw/methylation_stats/;
-use File::Spec::Functions qw/rel2abs/;
-use YAML qw/Dump LoadFile DumpFile/;
-use Cwd qw/getcwd/;
-use File::Basename qw/basename dirname/;
-use File::Path qw/make_path remove_tree/;
-use File::Spec::Functions qw/canonpath catdir catfile updir/;
-use Parallel::ForkManager;
 
 END {close STDOUT}
 $| = 1;
-use Pod::Usage;
-use Getopt::Long;
 
 my $result = GetOptions (
-    "tmp-dir|d=s" => \my $tmpdir,
+    "tmp-dir|d=s"  => \my $tmpdir,
     "parallel|p=i" => \(my $parallel=1),
+    "force|f"      => \(my $force),
 );
+
 pod2usage(-verbose => 99) if (!$result || !@ARGV);  
 
-my $pm = Parallel::ForkManager->new($parallel);
-
-if (! $tmpdir || ! -d $tmpdir){
-    $tmpdir = getcwd();
-}
-
-
-sub memoname{
-    my $name = rel2abs shift;
-    $name =~ s/\W/_/g;
-    $name =~ s/^_//g;
-    return catfile($tmpdir, $name);
-}
-
+$tmpdir = gimmetmpdir($tmpdir);
 my %all_stats;
+
+my $pm = Parallel::ForkManager->new($parallel);
+$pm->run_on_finish(sub{ 
+        my ($pid, $exit_code, $ident, $exit_signal, $core_dump, $ref) = @_;
+        if (defined($ref)) {  
+            my ($file, $stats) = %$ref;
+            $all_stats{$file} = $stats;
+        } 
+    });
 
 for my $file (@ARGV) {
     $pm->start and next;
-    my $memo = memoname($file);
-    if (! -f $memo){
-        my ($stats) = methylation_stats($file);
-        DumpFile($memo, $stats);
-        $all_stats{$file} = $stats;
-    }
-    $pm->finish; 
+    my $memo = memofile($file, $tmpdir);
+
+    my $stats = memodo($memo, sub{
+            my ($stats) = methylation_stats($file);
+            return $stats;
+        }, $force);
+
+    $pm->finish(0, {$file => $stats}); 
 }
 $pm->wait_all_children;
 
-for my $file (@ARGV) {
-    my $memo = memoname($file);
-    if (-f $memo){
-        $all_stats{$file} = LoadFile($memo);
-    }
-    else{
-        die "why doesn't $memo exist?";
-    }
-}
-
-# header
-
 say Dump \%all_stats;
-
-# say join "\t", "", @GFF::Statistics::rownames;
-
-# for my $file (sort keys %all_stats) {
-# say join "\t", $file, @{$all_stats{$file}}{@GFF::Statistics::rownames};
-# }
-
 
 =head1 NAME
 

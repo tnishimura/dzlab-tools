@@ -16,6 +16,7 @@ use IO::Uncompress::Gunzip qw(gunzip $GunzipError) ;
 use IO::Uncompress::Bunzip2 qw(bunzip2 $Bunzip2Error) ;
 use Scalar::Util qw/looks_like_number/;
 use List::Util qw//;
+use YAML qw/LoadFile DumpFile/;
 
 require Exporter;
 our @ISA = qw(Exporter);
@@ -24,7 +25,7 @@ our @EXPORT_OK = qw(localize reverse_complement common_suffix common_prefix
 mfor basename_prefix fastq_read_length timestamp datestamp overlap chext
 split_names open_maybe_compressed fastq_convert_read_header c2t g2a
 numdiff safediv safemethyl clean_basename open_cached close_cached_all downsample
-approximate_line_count memofile gimmetmpdir);
+approximate_line_count memofile memodo gimmetmpdir);
 our @EXPORT = qw();
 
 sub clean_basename{
@@ -426,6 +427,7 @@ sub approximate_line_count{
 }
 
 # flatten a path and return it.  if there's a second argument, catfile() onto it.
+# memofile("/home/kitten/meow.txt", "/tmp") => /tmp/home,kitten,meow.txt
 sub memofile{
     my ($path, $tmpdir) = @_;
     my (undef,$directories,$file) = File::Spec::Functions::splitpath(File::Spec::Functions::rel2abs($path)); 
@@ -434,6 +436,19 @@ sub memofile{
     @directory_parts = grep { $_ ne '' } @directory_parts; 
 
     return catfile($tmpdir, join ",", @directory_parts, $file);
+}
+
+# do $code if memofile $file doesn't exist (or forced)
+sub memodo{
+    my ($file, $code, $force) = @_;
+    if (! -f $file || $force){
+        my $results = $code->();
+        Dumpfile($file, $results);
+        return $results;
+    }
+    else{
+        return LoadFile($file);
+    }
 }
 
 # without an argument, create and return a tmpdir.
