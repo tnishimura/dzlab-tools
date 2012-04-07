@@ -5,11 +5,17 @@ use 5.010_000;
 use Data::Dumper;
 use autodie;
 use FindBin;
+use Getopt::Long;
+
 use lib "$FindBin::Bin/lib";
 use GFF::Statistics qw/methylation_stats/;
 use YAML qw/Dump/;
 
-usage() if (@ARGV != 3);
+my $result = GetOptions (
+    "wp=s" => \(my $wanted_percentiles = ".05,.25,.50,.75,.95"),
+);
+my @wp = split /,/, $wanted_percentiles;
+usage() if (@ARGV != 3 || ! $result);
 my %files = (
     cg => $ARGV[0],
     chg => $ARGV[1],
@@ -40,9 +46,9 @@ while (my ($name,$file) = each %files) {
 }
 
 $total_stats{'total'} = {
-    nuc_ct_percentile => GFF::Statistics::histpercentiles(\%total_nuc_ct),
-    chr_ct_percentile => GFF::Statistics::histpercentiles(\%total_chr_ct),
-    mit_ct_percentile => GFF::Statistics::histpercentiles(\%total_mit_ct),
+    nuc_ct_percentile => GFF::Statistics::histpercentiles(\%total_nuc_ct, @wp),
+    chr_ct_percentile => GFF::Statistics::histpercentiles(\%total_chr_ct, @wp),
+    mit_ct_percentile => GFF::Statistics::histpercentiles(\%total_mit_ct, @wp),
     nuc_ct_mean   => GFF::Statistics::histmean(\%total_nuc_ct),
     chr_ct_mean   => GFF::Statistics::histmean(\%total_chr_ct),
     mit_ct_mean   => GFF::Statistics::histmean(\%total_mit_ct),
