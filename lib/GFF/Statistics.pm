@@ -326,6 +326,7 @@ sub methylation_stats{
     #my %nuc_ct_iqr = hist_iqr(\%nuclear_ct, $nuc_ct_percentiles);
 
     return {
+        file => $singlec,
         nuc_c => $nuc_c, nuc_t => $nuc_t,
         mit_c => $mit_c, mit_t => $mit_t,
         chr_c => $chr_c, chr_t => $chr_t,
