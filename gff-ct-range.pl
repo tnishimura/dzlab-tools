@@ -21,7 +21,6 @@ my $result = GetOptions (
     "chr|c=s{2}" => \@chr,
 );
 
-
 if (!$result or !@nuc or !@mit or !@chr) {
     say "$0 --nuc <min> <max> --mit <min> <max> --chr <min> <max> <file>";
     exit 1;
@@ -31,7 +30,10 @@ my $parser = GFF::Parser->new(file => \*ARGV);
 
 sub between{
     my ($start, $val, $end) = @_;
-    return ($start <= $val && $val <= $end);
+    return (
+        ($start == -1 || $start <= $val) && 
+        ($end   == -1 || $val <= $end)
+    );
 }
 
 my $counter = 0;
