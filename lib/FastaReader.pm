@@ -477,6 +477,20 @@ sub get{
 #######################################################################
 # Utilities
 
+
+sub reverse2forward{
+    my ($self, $seqid, $coord, $base) = @_;
+    $base //= 1;
+
+    $coord -=$base; # zero base
+    my $totlen = $self->get_length($seqid);
+
+    croak "$seqid does not exist" if ! $self->has_sequence($seqid);
+    croak "$coord out of range" if ($coord < 0 && $totlen <= $coord);
+
+    return $totlen - 1 - $coord + $base;
+}
+
 sub rc_file{
     my ($in, $out) = @_;
     my $f = FastaReader->new(file => $in, slurp => 0);
