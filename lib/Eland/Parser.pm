@@ -1,53 +1,64 @@
 package Eland::Parser;
-use version; our $VERSION = qv('0.0.1');
 use strict;
 use warnings;
 use 5.010_000;
 use Data::Dumper;
+use Moose;
 use Carp;
-use autodie;
+use autodie;    
 
-require Exporter;
-our @ISA = qw(Exporter);
-our @EXPORT_OK = qw(parse_eland);
-our @EXPORT = qw();
+with 'ParserRole';
+
+has 'fastareader' => (
+    is => 'ro',
+);
+
+sub next{
+    my $self = shift;
+    if (defined (my $line = scalar readline $self->filehandle)){
+        return parse_eland($line, $self->fastareader());
+    }
+    return;
+}
 
 sub parse_eland{
     my ($line, $fasta_reader) = @_;
     chomp $line;
 
-    my %results;
+    my ($read_id, $read_sequence, my $match_counts_string, my $matches_string) = split /\t/, $line;
 
-    ($results{read_id}, $results{read_sequence}, my $match_counts_string, my $matches_string) = split /\t/, $line;
-    $results{positions} = [ ];
+    my @positions;
 
-    if ($match_counts_string eq 'NM'){
-        $results{NM} = 1;
-    }
-    else{
-        $results{NM} = 0;
+    if ($match_counts_string ne 'NM'){
         for my $match (split /,/, $matches_string) {
             my $reverse = $match =~ s/^RC_//;
             if ($match =~ m/([^:]+):(\d+)(F|R)(\d)/){
                 my $seqid = $1;
 
                 my $coord_start = $2;
-                my $coord_end = $coord_start + length($results{read_sequence}) - 1;
+                my $coord_end = $coord_start + length($read_sequence) - 1;
 
                 my $mismatch = $4;
 
-                if ($reverse){
-                    ($coord_end, $coord_start) = ($fasta_reader->reverse2forward($seqid, $coord_start), $fasta_reader->reverse2forward($seqid, $coord_end));
+                if (defined $fasta_reader){
+                    if ($reverse){
+                        ($coord_end, $coord_start) = ($fasta_reader->reverse2forward($seqid, $coord_start), $fasta_reader->reverse2forward($seqid, $coord_end));
+                    }
+                    push @positions, [$seqid, $mismatch, $reverse, $coord_start, $coord_end];
                 }
-                push @{$results{positions}}, [$seqid, $mismatch, $reverse, $coord_start, $coord_end];
+                else{
+                    push @positions, [$seqid, $mismatch];
+                }
             }
             else{
                 die "$line unparseable";
             }
         }
     }
-    return \%results;
+    return [$read_id, $read_sequence, @positions];
 }
 
-1;
+no Moose;
+__PACKAGE__->meta->make_immutable;
 
+1;
