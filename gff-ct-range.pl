@@ -59,21 +59,19 @@ while (defined(my $gff = $parser->next())){
 
 =head1 NAME
 
-gff-iqr.pl - 
+gff-iqr.pl - Read in GFF, print out lines within a certain C+T range
 
 =head1 SYNOPSIS
 
-Usage examples:
+Keep only gff lines where nuclear c+t is 10 to 20, mitochondrial is 100 to 200,
+and chloroplast is 1 to 20.
 
- gff-iqr.pl [options]...
+ gff-iqr.pl --nuc 10 20 --mit 100 200 --chr 1 20 in.gff > out.gff
 
-=head1 REQUIRED ARGUMENTS
+Keep only gff lines where nuclear c+t is at least 10, mitochondrial is at most 200,
+and any chloroplast.
 
-=over
-
-=item  --iqr <p25> <p75>
-
-=back
+ gff-iqr.pl --nuc 10 -1 --mit -1 200 --chr -1 -1 in.gff > out.gff
 
 =cut
 
