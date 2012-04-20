@@ -45,6 +45,7 @@ usage() if (! defined $outdir || ! -d $outdir);
 my $pm = Parallel::ForkManager->new($parallel);
 
 sub usage {
+    $0 = basename($0);
     say "$0 [options] -o outdir tdna-file flank-seq-file reads-file";
     exit 1;
 }
@@ -55,6 +56,8 @@ my $bait_file = catfile($outdir, "chromosomal-bait");
 my $split_dir = catdir($outdir, "split_reads");
 make_path $split_dir;
 my $split_prefix = catdir($split_dir, basename($reads_file)) . ".";
+my $prefix_file = catfile($outdir, basename($reads_file) . ".prefix.fasta");
+my $tdna_file_bsrc = catfile($outdir, basename($tdna_file) . ".bsrc");
 
 #######################################################################
 # create bait from flank seq 
@@ -67,11 +70,20 @@ my $split_prefix = catdir($split_dir, basename($reads_file)) . ".";
     if (@seqs_in_flank != 1) {
         die "why are the more than one seqs in flank file?";
     }
-    my $bait = substr $fr->get($seqs_in_flank[0]), 0, $flank_size;
+    my $bait = c2t substr $fr->get($seqs_in_flank[0]), 0, $flank_size;
     open my $fh, '>', $bait_file;
     say $fh ">chrbait";
     say $fh $bait;
     close $fh;
+}
+
+#######################################################################
+# create bsrc tdna
+
+{
+    FastaReader::bsrc_file($tdna_file, $tdna_file_bsrc, 'c2t');
+
+    cast "bowtie-build --noref $tdna_file_bsrc $tdna_file_bsrc";
 }
 
 #######################################################################
@@ -124,8 +136,6 @@ SPLIT:
 #######################################################################
 # bowtie-build
 
-#say Dumper \@split_reads;
-
 for my $split (@split_reads) {
     $pm->start and next;
     if (notall { -f && -s } map { "$split.$_" } qw/1.ebwt 2.ebwt rev.1.ebwt rev.2.ebwt/){
@@ -137,8 +147,6 @@ for my $split (@split_reads) {
     $pm->finish; 
 }
 $pm->wait_all_children;
-
-exit 1;
 
 #######################################################################
 
@@ -154,7 +162,7 @@ $pm->run_on_finish(sub{ # call before calling start()
     });
 
 for my $split_read (@split_reads){
-    my $bowtie_output = "$bait_file-vs-" . basename($split_read) . "mm$flank_mismatch";
+    my $bowtie_output = catfile($outdir, basename($bait_file) . "-vs-" . basename($split_read) . ".mm$flank_mismatch");
 
     $pm->start and next;
     if (! -f $bowtie_output){
@@ -168,7 +176,7 @@ for my $split_read (@split_reads){
     while (defined(my $line = <$fh>)){
         chomp $line;
         my (undef, undef, $readid, $position) = split /\t/, $line;
-        $return_value->[0]{$readid} = $position;
+        $return_value->[1]{$readid} = $position;
     }
     close $fh;
 
@@ -178,18 +186,27 @@ $pm->wait_all_children;
 
 #######################################################################
 
-while (my ($split_reads_file,$id_to_startpos) = each %reads) {
-    my $fqr = FastqReader->new(file => $split_reads_file, linesper => 2);
-    my $id2seq = $fqr->get_reads(keys %$id_to_startpos);
-    next if (keys %$id_to_startpos == 0);
+if (! -f $prefix_file){
+    say STDERR "grabbing prefixes from bowtie results";
 
-    while (my ($id,$seq) = each %$id2seq) {
-        my $position = $id_to_startpos->{$id};
-        if ($position - 5  > 20){
-            say ">PREFIX_$id";
-            say substr $seq, 0, $position;
+    open my $prefix_out, '>', $prefix_file;
+    while (my ($split_reads_file,$id_to_startpos) = each %reads) {
+        my $fqr = FastqReader->new(file => $split_reads_file, linesper => 2);
+        my $id2seq = $fqr->get_reads(keys %$id_to_startpos);
+        next if (keys %$id_to_startpos == 0);
+
+        while (my ($id,$seq) = each %$id2seq) {
+            my $position = $id_to_startpos->{$id};
+            if ($position - 5  > 20){
+                say $prefix_out ">PREFIX_$id";
+                say $prefix_out substr $seq, 0, $position;
+            }
         }
     }
+    close $prefix_out;
+}
+else{
+    say STDERR "prefix file already done";
 }
 
-# bowtie -f -B 1 -v 1 ref/salk-pBIN-pROK2-tdna.fa.c2t bait.prefix.fasta
+cast("bowtie --norc -f -B 1 -v $tdna_mismatch $tdna_file_bsrc $prefix_file");
