@@ -16,7 +16,9 @@ use IO::Uncompress::Gunzip qw(gunzip $GunzipError) ;
 use IO::Uncompress::Bunzip2 qw(bunzip2 $Bunzip2Error) ;
 use Scalar::Util qw/looks_like_number/;
 use List::Util qw//;
+use List::MoreUtils qw//;
 use YAML qw/LoadFile DumpFile/;
+use Digest::MD5;
 
 require Exporter;
 our @ISA = qw(Exporter);
@@ -25,7 +27,7 @@ our @EXPORT_OK = qw(localize reverse_complement common_suffix common_prefix
 mfor basename_prefix fastq_read_length timestamp datestamp overlap chext
 split_names open_maybe_compressed fastq_convert_read_header c2t g2a
 numdiff safediv safemethyl clean_basename open_cached close_cached_all downsample
-approximate_line_count memofile memodo gimmetmpdir);
+approximate_line_count memofile memodo gimmetmpdir split_file md5sum);
 our @EXPORT = qw();
 
 sub clean_basename{
@@ -471,6 +473,103 @@ sub gimmetmpdir{
     return $tmpdir;
 }
 
-1;
+use Params::Validate qw/:all/;
+sub split_file{
+    my %opt = validate(@_, {
+            file => {
+                type => SCALAR,
+                callbacks => {
+                    'file must exist' => sub { -f shift },
+                },
+                optional => 1,
+            }, 
+            outdir   => { 
+                type => SCALAR, callbacks => {
+                    'directory must exist' => sub { -d shift },
+                },
+                optional => 1,
+            },
+            size     => { type => SCALAR, default => 2**30, }, # gigabyte 
+            multiple => { type => SCALAR, default => 1, },
+            skip     => { type => SCALAR, default => 0, }
+        });
 
+    my $prefix = $opt{outdir} ? catfile($opt{outdir}, basename($opt{file})) : basename($opt{file});
+    $prefix .= ".prefix";
+
+    my $hashfile = $prefix . ".MD5SUM";
+
+    if (-f $hashfile){
+        my $md5sums = LoadFile($hashfile);
+        my $ok = 1;
+        while (my ($file,$md5) = each %$md5sums) {
+            if (md5sum($file) ne $md5){
+                $ok = 0;
+            }
+        }
+        if ($ok == 1){
+            return keys %$md5sums;
+        }
+    }
+
+
+    my $suffix = "aaa";
+    my $bytes_written = 0;;
+
+    my @split;
+
+    open my $reader, '<', $opt{file};
+    open my $writer, '>', "$prefix.$suffix";
+    push @split, "$prefix.$suffix";
+
+    while (! eof $reader){
+        my @lines = map { scalar readline $reader } (1 .. $opt{multiple});
+        my $to_write = List::Util::sum(map { defined() ? length($_) : 0 } @lines);
+
+        if (List::MoreUtils::notall {defined $_} @lines){
+            carp "$opt{file} was not a multiple of $opt{multiple}";
+        }
+
+        if ($opt{skip}){
+            for (1 .. $opt{skip}) {
+                scalar readline $reader;
+            }
+        }
+
+        for my $line (@lines) {
+            print $writer $line;
+        }
+
+        $bytes_written += $to_write;
+
+        if ($bytes_written > $opt{size}){
+            close $writer;
+            $suffix++;
+            open $writer, '>', "$prefix.$suffix";
+            push @split, "$prefix.$suffix";
+            $bytes_written = 0;
+        }
+    }
+
+    close $writer;
+    close $reader;
+
+    @split = map { File::Spec::Functions::rel2abs($_) } @split;
+    DumpFile($hashfile, { map { $_ => md5sum($_) } @split });
+
+    return @split;
+
+}
+
+sub md5sum{
+    my $file = shift;
+    # md5sum doesn't support addfile(filename)?
+    open my $fh, '<', $file;
+    binmode($fh);
+    my $rv = Digest::MD5->new->addfile($fh)->hexdigest();
+    close $fh;
+    return $rv;
+}
+
+1;
 
