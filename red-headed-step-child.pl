@@ -6,17 +6,18 @@ use Data::Dumper;
 use autodie;
 use File::Basename qw/basename/;
 use File::Path qw/make_path remove_tree/;
-use File::Spec::Functions qw/catdir catfile/;
+use File::Spec::Functions qw/rel2abs catdir catfile/;
 use Getopt::Long;
 use Parallel::ForkManager;
 use List::Util qw/sum/;
 use List::MoreUtils qw/ any notall/;
 
+
 use FindBin;
 use lib "$ENV{HOME}/dzlab-tools/lib";
 use FastqReader;
 use FastaReader;
-use DZUtil qw/c2t/;
+use DZUtil qw/c2t md5sum/;
 use Launch qw/cast/;
 
 END {close STDOUT}
@@ -56,6 +57,7 @@ my $bait_file = catfile($outdir, "chromosomal-bait");
 my $split_dir = catdir($outdir, "split_reads");
 make_path $split_dir;
 my $split_prefix = catdir($split_dir, basename($reads_file)) . ".";
+my $split_hash_file = $split_prefix . "MD5SUM";
 my $prefix_file = catfile($outdir, basename($reads_file) . ".prefix.fasta");
 my $tdna_file_bsrc = catfile($outdir, basename($tdna_file) . ".bsrc");
 
@@ -92,23 +94,23 @@ my $tdna_file_bsrc = catfile($outdir, basename($tdna_file) . ".bsrc");
 my @split_reads;
 SPLIT:
 {
+    if (-f $split_hash_file && defined(my $split_hashes = LoadFile($split_hash_file))){
+        my $ok = 1;
+        while (my ($file,$hash) = each %$split_hashes) {
+            if (md5sum($file) ne $hash){
+                $ok = 0;
+                last;
+            }
+        }
+        if ($ok){
+            @split_reads = keys %$split_hashes;
+            last SPLIT;
+        }
+    }
+
     my $max_per_file = 943_718_400; # 900MB
     my $suffix = 'aa';
     my $bytes_written = 0;;
-
-    my @already_existing = glob("$split_prefix??");
-    if (@already_existing){
-        if (sum(map {-s} @already_existing) > .49 * (-s $reads_file)){
-            # looks to be already exists
-            say "splitting the reads file seems to be already done, skipping";
-            @split_reads = @already_existing;
-            last SPLIT;
-        }
-        else{
-            say "splitting seems to have been aborted prematurely, redoing";
-            unlink $_ for @already_existing;
-        }
-    }
 
     my $fqr = FastqReader->new(file => $reads_file, linesper => 4);
     open my $writer, '>', $split_prefix . $suffix;
@@ -131,6 +133,12 @@ SPLIT:
         }
     }
     close $writer;
+    
+    @split_reads = map { rel2abs($_) } @split_reads;
+
+    DumpFile($split_hash_file, {
+            map {$_ => md5sum($_)} @split_reads
+        });
 }
 
 #######################################################################
