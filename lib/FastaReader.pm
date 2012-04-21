@@ -557,6 +557,7 @@ sub format_fasta{
 
 our @iupac_bases = qw/A C G T R Y S W K M B D H V N/;
 
+our $iupac_bases_regex = qr/^[ACGTRYSWKMBDHVN]+$/;
 
 # deprecated by Fasta::BaseComposition, but keep for testing purposes
 sub base_composition{
