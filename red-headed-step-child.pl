@@ -12,6 +12,7 @@ use Parallel::ForkManager;
 use List::Util qw/sum/;
 use List::MoreUtils qw/ any notall/;
 
+use YAML qw/LoadFile DumpFile/;
 
 use FindBin;
 use lib "$ENV{HOME}/dzlab-tools/lib";
