@@ -10,7 +10,6 @@ use FindBin;
 use lib "$FindBin::Bin/lib";
 use DZUtil qw/reverse_complement c2t g2a/;
 
-
 has filename => (
     is => 'ro',
     required => 1,
@@ -90,6 +89,12 @@ sub get_original_name { $_[0]->original_name()->{uc $_[1]}; }
 sub sequence_list{
     my $self = shift;
     return sort values %{$self->original_name};
+}
+
+sub sequence_count{
+    my $self = shift;
+    my @seqs = $self->sequence_list;
+    return scalar @seqs;
 }
 
 #######################################################################
@@ -332,6 +337,10 @@ sub get{
     my $base      = $opt{base} // 1;
     $seqid = uc $seqid;
 
+    if (! $self->has_sequence($seqid)){
+        croak "no such sequence $seqid";
+    }
+
     if (defined $bs && $bs ne 'c2t' && $bs ne 'g2a'){
         croak "bs, if given, should be c2t or g2a";
     }
@@ -477,7 +486,6 @@ sub get{
 #######################################################################
 # Utilities
 
-
 sub reverse2forward{
     my ($self, $seqid, $coord, $base) = @_;
     $base //= 1;
@@ -491,47 +499,6 @@ sub reverse2forward{
     return $totlen - 1 - $coord + $base;
 }
 
-sub rc_file{
-    my ($in, $out) = @_;
-    my $f = FastaReader->new(file => $in, slurp => 0);
-    my $outfh;
-    if (ref $out eq 'GLOB'){
-        $outfh = $out;
-    }
-    else {
-        open $outfh, '>', $out;
-    }
-
-    for my $seq ($f->sequence_list()) {
-        say $outfh $f->get_pretty($seq,undef,undef,rc => 1);
-    }
-    if (! ref $out eq 'GLOB'){
-        close $outfh;
-    }
-}
-
-sub bsrc_file{
-    my ($in, $out, $bs) = @_;
-    my $f = FastaReader->new(file => $in, slurp => 0);
-    my $outfh;
-    if (ref $out eq 'GLOB'){
-        $outfh = $out;
-    }
-    else {
-        open $outfh, '>', $out;
-    }
-
-    for my $seq ($f->sequence_list()) {
-        say $outfh ">$seq";
-        print $outfh $f->get($seq,undef, undef, bs => $bs);
-
-        say $outfh ">RC_$seq";
-        print $outfh $f->get($seq,undef, undef, rc => 1, bs => $bs);
-    }
-    if (! ref $out eq 'GLOB'){
-        close $outfh;
-    }
-}
 
 =head2 format_fasta('header', $seq)
 
