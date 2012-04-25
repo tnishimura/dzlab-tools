@@ -23,6 +23,10 @@ our @EXPORT = qw(fasta_eq rc_fasta_on_disk bs_fasta_on_disk bsrc_fasta_on_disk);
  bsrc_fasta_on_disk ('c2t' | 'g2a', $input_file_or_fh, $output_file_or_fh)
 
 =cut
+
+# when converting c2t/g2a without any rc, not using FastaReader b/c most likely doing 
+# it on a very large file like for red-headed-step-child.pl.  Also, it's
+# unneccesary since line-by-line
 sub bs_fasta_on_disk{
     my ($pattern, $input_file_or_filehandle, $output_file_or_filehandle) = @_;
     
@@ -77,7 +81,6 @@ sub bsrc_fasta_on_disk{
     else{
         croak "bsrc_fasta_on_disk invalid pattern";
     }
-
 
     my $f = FastaReader->new(file => $in, slurp => 0);
     my $outfh;
