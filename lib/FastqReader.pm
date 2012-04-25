@@ -16,6 +16,7 @@ has 'linesper' => (
     default => 4,
 );
 
+# given a list of read ids, return a hash of { id => sequence }
 sub get_reads{
     my $self = shift;
     my @query_ids = @_;
