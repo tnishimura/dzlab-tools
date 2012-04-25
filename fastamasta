@@ -9,6 +9,7 @@ use Getopt::Long;
 use FindBin;
 use lib "$FindBin::Bin/lib";
 use FastaReader;
+use FastaUtil;
 use FastaReader::BaseComposition;
 
 END {close STDOUT}
@@ -55,6 +56,18 @@ Get methyl context composition (mc) of fasta file:
         should be double the number given by the bc command, since that
         one only counts one strand.
 
+Test if two fasta files have equal content.
+
+  $0 eq file1.fasta file2.fasta
+
+Convert:
+
+  $0 rc input.fasta output.fasta
+  $0 bs -c2t input.fasta output.fasta
+  $0 bs -g2a input.fasta output.fasta
+  $0 bsrc -c2t input.fasta output.fasta
+  $0 bsrc -g2a input.fasta output.fasta
+
 END
 
     exit 1;
@@ -64,31 +77,30 @@ my $cmd = shift;
 
 given ($cmd){
     when ([qw/lengths length len l/]){
-        use Pod::Usage;
-        use Getopt::Long;
-        
         my $result = GetOptions (
             "gff|g" => \(my $gff),
         );
-        usage() if (!$result);
+        usage() if (!$result || !@ARGV);
 
-        my $fasta = shift || usage();
-        my $r = FastaReader->new(file => $fasta, slurp => 0);
+        for my $fasta (@ARGV) {
+            say $fasta;
+            my $r = FastaReader->new(file => $fasta, slurp => 0);
 
-        my %lengths = $r->sequence_lengths;
+            my %lengths = $r->sequence_lengths;
 
-        my $total = 0;
-        for (sort keys %lengths){
-            if ($gff){
-                say join "\t", $_, '.', 'chromosome', 1, $lengths{$_}, qw/. . ./, "Name=$_";
+            my $total = 0;
+            for (sort keys %lengths){
+                if ($gff){
+                    say join "\t", $_, '.', 'chromosome', 1, $lengths{$_}, qw/. . ./, "Name=$_";
+                }
+                else{
+                    say "$_:\t" . $lengths{$_};
+                }
+                $total += $lengths{$_};
             }
-            else{
-                say "$_:\t" . $lengths{$_};
+            if (! $gff){
+                say "total:\t" . $total; 
             }
-            $total += $lengths{$_};
-        }
-        if (! $gff){
-            say "total:\t" . $total; 
         }
     }
     when ([qw/base-composition bc/]){
@@ -156,11 +168,47 @@ given ($cmd){
             );
         }
     }
-    when (qw/split/){
-
+    # when (qw/split/){
+    # }
+    when ([qw/bsrc bs/]){
+        my $result = GetOptions (
+            "c2t|c2t" => \(my $c2t),
+            "g2a|g2a" => \(my $g2a),
+        );
+        if (! $result || ! ($c2t xor $g2a) || @ARGV != 2){
+            say "usage: $0 bs   [-c2t | -g2a ]  input.fasta output.fasta";
+            say "       $0 bsrc [-c2t | -g2a ]  input.fasta output.fasta";
+            exit 1;
+        }
+        if ($_ eq 'bsrc'){
+            bsrc_fasta_on_disk($c2t ? 'c2t' : 'g2a', @ARGV);
+        }
+        else{
+            bs_fasta_on_disk($c2t ? 'c2t' : 'g2a', @ARGV);
+        }
     }
-    when (qw/bsrc/){
+    when ('rc'){
+        if (@ARGV != 2){
+            say "usage: $0 rc input.fasta output.fasta";
+            exit 1;
+        }
+        rc_fasta_on_disk(@ARGV);
+    }
+    when ('eq'){
+        if (@ARGV != 2){
+            say "usage: $0 eq first.fasta second.fasta";
+            exit 1;
+        }
 
+        my ($success, $msg) = fasta_eq(@ARGV);
+        if ($success){
+            say STDERR 'equal';
+            exit 0;
+        }
+        else{
+            say STDERR "not equal: $msg";
+            exit 1;
+        }
     }
     default{
         usage();

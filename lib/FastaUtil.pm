@@ -12,7 +12,7 @@ use DZUtil qw/c2t g2a/;
 require Exporter;
 our @ISA = qw(Exporter);
 our @EXPORT_OK = qw();
-our @EXPORT = qw( rc_fasta_on_disk bs_fasta_on_disk bsrc_fasta_on_disk);
+our @EXPORT = qw(fasta_eq rc_fasta_on_disk bs_fasta_on_disk bsrc_fasta_on_disk);
 
 =head1 USAGE
 
@@ -89,10 +89,7 @@ sub bsrc_fasta_on_disk{
     }
 
     for my $seq ($f->sequence_list()) {
-        #say $outfh ">$seq";
         print $outfh $f->get_pretty($seq, $seq, undef, undef, @bsarg);
-
-        #say $outfh ">RC_$seq";
         print $outfh $f->get_pretty("RC_$seq", $seq, undef, undef, rc => 1, @bsarg);
     }
     if (ref $out ne 'GLOB'){
@@ -103,6 +100,28 @@ sub bsrc_fasta_on_disk{
 sub rc_fasta_on_disk{
     my ($in, $out) = @_;
     return bsrc_fasta_on_disk(undef, $in, $out);
+}
+
+sub fasta_eq{
+    my ($file1, $file2) = @_;
+
+    my $fr1 = FastaReader->new(file => $file1, slurp => 1);
+    my $fr2 = FastaReader->new(file => $file2, slurp => 1);
+
+    return (0, "sequence count not equal") if ($fr1->sequence_count() != $fr2->sequence_count());
+
+    my %seen;
+    for my $seq ($fr1->sequence_list(), $fr2->sequence_list()) {
+        ++$seen{uc $seq};
+    }
+    return (0, "didn't have the same seqs") if (0 < grep { $_ != 2 } values %seen);
+
+    for my $seq (keys %seen) {
+        say $seq;
+        return (0, "$seq not equal") if ($fr1->get($seq) ne $fr2->get($seq));
+    }
+
+    return (1);
 }
 
 1;
