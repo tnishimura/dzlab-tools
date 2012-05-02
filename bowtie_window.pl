@@ -11,14 +11,17 @@ use lib "$FindBin::Bin/lib";
 use BowtieParser;
 use BigArray;
 use FastaReader;
+use Eland::Parser;
 END {close STDOUT}
 $| = 1;
 
 my $result = GetOptions (
-    "reference|r=s"       => \my $reference,
+    "reference|r=s"   => \my $reference,
     "window-size|w=i" => \(my $window_size = 50),
-    "no-skip|k"           => \(my $noskip),
-    "base|b=i"            => \(my $base = 1),
+    "no-skip|k"       => \(my $noskip),
+    "base|b=i"        => \(my $base = 1),
+    "eland|e"         => \(my $eland),
+    "gff|g"           => \(my $gff),
 );
 
 if (!$result || !$reference){
@@ -26,18 +29,42 @@ if (!$result || !$reference){
     exit 1;
 }
 
-my $bowtie_reader = BowtieParser->new(file => \*ARGV);
 my $fasta_reader = FastaReader->new(file => $reference, slurp => 0);
 
 my %counters = map { 
     uc($_) => BigArray->new(base => $base, size => $fasta_reader->get_length($_))
 } $fasta_reader->sequence_list();
 
-my $counter = 0;
-while (defined(my $bowtie = $bowtie_reader->next())){
-    my (undef, undef, $chr, $pos, $read) = @$bowtie;
-    $counters{uc $chr}->increment_range($pos, $pos + length($read) - 1);
-    say STDERR $counter if (++$counter % 10000 == 0);
+{
+    my $c = 0;
+    sub counter { say STDERR $c if (++$c % 50000 == 0); }
+}
+
+if ($eland){
+    my $eland_parser = Eland::Parser->new(file => \*ARGV, fastareader => $fasta_reader);
+    while (defined(my $eland = $eland_parser->next())){
+        my (undef, undef, $positions) = @$eland;
+        for my $pos (@$positions) {
+            my ($chr, undef, $is_reverse, $start, $end) = @$pos;
+            $counters{uc $chr}->increment_range($start, $end);
+            counter();
+        }
+    }
+}
+elsif ($gff){
+    my $gff_parser = GFF::Parser->new(file => \*ARGV);
+    while (defined(my $gff = $gff_parser->next())){
+        $counters{uc $gff->sequence}->increment_range($gff->start(), $gff->end());
+        counter();
+    }
+}
+else{
+    my $bowtie_reader = BowtieParser->new(file => \*ARGV);
+    while (defined(my $bowtie = $bowtie_reader->next())){
+        my (undef, $strand, $chr, $pos, $read) = @$bowtie;
+        $counters{uc $chr}->increment_range($pos, $pos + length($read) - 1);
+        counter();
+    }
 }
 
 for my $seq (sort $fasta_reader->sequence_list()) {
