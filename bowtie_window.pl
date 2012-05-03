@@ -22,6 +22,7 @@ my $result = GetOptions (
     "base|b=i"        => \(my $base = 1),
     "eland|e"         => \(my $eland),
     "gff|g"           => \(my $gff),
+    "strand|s"        => \(my $do_strand),
 );
 
 if (!$result || !$reference){
@@ -32,7 +33,16 @@ if (!$result || !$reference){
 my $fasta_reader = FastaReader->new(file => $reference, slurp => 0);
 
 my %counters = map { 
-    uc($_) => BigArray->new(base => $base, size => $fasta_reader->get_length($_))
+    uc($_) => {
+        (
+            $do_strand ?  (
+                '+' => BigArray->new(base => $base, size => $fasta_reader->get_length($_)),
+                '-' => BigArray->new(base => $base, size => $fasta_reader->get_length($_))
+            ) : (
+                '.' => BigArray->new(base => $base, size => $fasta_reader->get_length($_)),
+            )
+        ),
+    }
 } $fasta_reader->sequence_list();
 
 {
@@ -46,7 +56,12 @@ if ($eland){
         my (undef, undef, $positions) = @$eland;
         for my $pos (@$positions) {
             my ($chr, undef, $is_reverse, $start, $end) = @$pos;
-            $counters{uc $chr}->increment_range($start, $end);
+            if ($do_strand){
+                $counters{uc $chr}{$is_reverse ? '-' : '+'}->increment_range($start, $end);
+            }
+            else{
+                $counters{uc $chr}{'.'}->increment_range($start, $end);
+            }
             counter();
         }
     }
@@ -54,7 +69,13 @@ if ($eland){
 elsif ($gff){
     my $gff_parser = GFF::Parser->new(file => \*ARGV);
     while (defined(my $gff = $gff_parser->next())){
-        $counters{uc $gff->sequence}->increment_range($gff->start(), $gff->end());
+        if ($do_strand){
+            my $strand = defined($gff->strand()) && $gff->strand() eq '-' ? '-' : '+';
+            $counters{uc $gff->sequence}{$strand}->increment_range($gff->start(), $gff->end());
+        }
+        else{
+            $counters{uc $gff->sequence}{'.'}->increment_range($gff->start(), $gff->end());
+        }
         counter();
     }
 }
@@ -62,21 +83,30 @@ else{
     my $bowtie_reader = BowtieParser->new(file => \*ARGV);
     while (defined(my $bowtie = $bowtie_reader->next())){
         my (undef, $strand, $chr, $pos, $read) = @$bowtie;
-        $counters{uc $chr}->increment_range($pos, $pos + length($read) - 1);
+        if ($do_strand){
+            $strand = defined($strand) && $strand eq '-' ? '-' : '+';
+            $counters{uc $chr}{$strand}->increment_range($pos, $pos + length($read) - 1);
+        }
+        else{
+            $counters{uc $chr}{'.'}->increment_range($pos, $pos + length($read) - 1);
+        }
         counter();
     }
 }
 
+my @strands = $do_strand ? qw/+ -/ : qw/./;
+
 for my $seq (sort $fasta_reader->sequence_list()) {
-    my $ba = $counters{uc $seq};
     my $start = 1;
     my $max = $fasta_reader->get_length($seq);
     #say STDERR "$seq from $start to $max";
     while ($start <= $max){
         if ($window_size == 1){
-            my $value = $ba->{pdl}->at($start - $base); 
-            if ($value > 0 || $noskip){
-                say join "\t", $seq, qw/. ./, $start, $start, $value, qw/. . ./;
+            for my $s (@strands) {
+                my $value  = $counters{uc $seq}{$s}->{pdl}->at($start - $base); 
+                if ($value > 0 || $noskip){
+                    say join "\t", $seq, qw/. ./, $start, $start, $value, $s, qw/. ./;
+                }
             }
             ++$start;
         }
@@ -85,12 +115,14 @@ for my $seq (sort $fasta_reader->sequence_list()) {
             if ($end > $max){
                 $end = $max;
             }
-            my $pdl = $ba->get_range($start, $end);
-            my $count = $pdl->max();
-            if ($count > 0 || $noskip){
-                say join "\t", $seq, qw/. ./, $start, $end, $count, qw/. . ./;
-            }
+            for my $s (@strands) {
+                my $pdl  = $counters{uc $seq}{$s}->get_range($start, $end);
+                my $count  = $pdl->max();
 
+                if ($count  > 0 || $noskip){ 
+                    say join "\t", $seq, qw/. ./, $start, $end, $count , $s, qw/. ./; 
+                }
+            }
             $start += $window_size;
         }
     }
