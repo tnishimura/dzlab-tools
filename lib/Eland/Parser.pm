@@ -21,11 +21,14 @@ sub next{
     return;
 }
 
+# returns [read_id, read_sequence, [[seq_id, mismatch, reverse?, coord_start, coord_end], ...]
 sub parse_eland{
     my ($line, $fasta_reader) = @_;
     chomp $line;
 
     my ($read_id, $read_sequence, my $match_counts_string, my $matches_string) = split /\t/, $line;
+
+    croak "not parseable: $line" if ! defined $match_counts_string;
 
     my @positions;
 
@@ -55,7 +58,7 @@ sub parse_eland{
             }
         }
     }
-    return [$read_id, $read_sequence, @positions];
+    return [$read_id, $read_sequence, \@positions];
 }
 
 no Moose;
