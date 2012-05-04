@@ -7,11 +7,13 @@ use autodie;
 use Pod::Usage;
 use Getopt::Long;
 use FindBin;
+
 use lib "$FindBin::Bin/lib";
 use BowtieParser;
 use BigArray;
 use FastaReader;
 use Eland::Parser;
+use GFF::Parser;
 END {close STDOUT}
 $| = 1;
 
@@ -20,15 +22,13 @@ my $result = GetOptions (
     "window-size|w=i" => \(my $window_size = 50),
     "no-skip|k"       => \(my $noskip),
     "base|b=i"        => \(my $base = 1),
-    "eland|e"         => \(my $eland),
-    "gff|g"           => \(my $gff),
+    "format|f=s"      => \(my $format),
     "strand|s"        => \(my $do_strand),
+    "verbose|v"       => \(my $verbose),
 );
 
-if (!$result || !$reference){
-    say "usage: bowtie_window.pl -r genome --no-skip --base 1 --window-size 50 bowtiefile";
-    exit 1;
-}
+pod2usage(-verbose => 2, -noperldoc => 1) 
+if (!$result || !$reference || $format !~ /^(?:gff|eland|bowtie|g|e|b)$/);
 
 my $fasta_reader = FastaReader->new(file => $reference, slurp => 0);
 
@@ -47,14 +47,15 @@ my %counters = map {
 
 {
     my $c = 0;
-    sub counter { say STDERR $c if (++$c % 50000 == 0); }
+    sub counter { say STDERR $c if ($verbose && ++$c % 50000 == 0); }
 }
 
-if ($eland){
+if ($format eq 'e' || $format eq 'eland'){
     my $eland_parser = Eland::Parser->new(file => \*ARGV, fastareader => $fasta_reader);
     while (defined(my $eland = $eland_parser->next())){
         my (undef, undef, $positions) = @$eland;
         for my $pos (@$positions) {
+            #say STDERR Dumper $pos;
             my ($chr, undef, $is_reverse, $start, $end) = @$pos;
             if ($do_strand){
                 $counters{uc $chr}{$is_reverse ? '-' : '+'}->increment_range($start, $end);
@@ -66,7 +67,7 @@ if ($eland){
         }
     }
 }
-elsif ($gff){
+elsif ($format eq 'g' || $format eq 'gff'){
     my $gff_parser = GFF::Parser->new(file => \*ARGV);
     while (defined(my $gff = $gff_parser->next())){
         if ($do_strand){
@@ -79,7 +80,7 @@ elsif ($gff){
         counter();
     }
 }
-else{
+elsif ($format eq 'b' || $format eq 'bowtie'){
     my $bowtie_reader = BowtieParser->new(file => \*ARGV);
     while (defined(my $bowtie = $bowtie_reader->next())){
         my (undef, $strand, $chr, $pos, $read) = @$bowtie;
@@ -131,19 +132,52 @@ for my $seq (sort $fasta_reader->sequence_list()) {
 
 =head1 NAME
 
-bowtie_window.pl - return windows, with scores showing how many reads overlap that window
+ alignment_window.pl - given an alignment file, return a gff file of windows
+ scores showing how many reads overlap that window.  
 
 =head1 SYNOPSIS
 
 Usage examples:
 
- bowtie_window.pl [options]...
+ alignment_window.pl -r genome.fasta -w 1 -f bowtie alignment.bowtie
+ alignment_window.pl -r genome.fasta -k -w 50 -f bowtie alignment.bowtie
+ alignment_window.pl -r genome.fasta -k -w 50 -f gff bowtie_converted_to_gff.gff
+ alignment_window.pl -r genome.fasta -k -w 50 -f eland bowtie_converted_to_eland.eland3
 
 =head1 OPTIONS
 
 =over
 
-=item --help | -h
+=item --reference <fasta> | -r <fasta>
+
+Reference genome file.
+
+*WARNING* This script will consume approximately (4 * size_of_reference_genome)
+bytes of memory.  If --strand is used, it will use double that. 
+
+=item --format <f> | -f <f>
+
+Format of alignment file. Can be "gff", "g", "eland", "e", "bowtie", "b".  
+
+=item --window-size <window_size> | -w <window_size>
+
+Default 50.
+
+=item --no-skip | -k 
+
+Print window even if nothing maps to it.
+
+=item --base <b> | -b <b>
+
+The base of the coordinates in the file (ie, is the first coordinate of the
+chromosomes 0 or 1?)  This should match the -B options passed to bowtie.
+Default 1.
+
+=item --strand | -s 
+
+Preserve strand information.  Default off.
+
+=item --verbose | -v 
 
 =back
 
