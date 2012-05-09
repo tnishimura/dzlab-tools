@@ -48,14 +48,14 @@ sub split_sequence{
 
 sub _gff_split{
     my ($file,$col,@groups) = (@_);
-    my %fh;
-    my @files;
-    my %tempfiles; # temp => real 
+    my %part2fh;
+    my %temp2real; # temp => real 
+    my %part2real;
 
     if (@groups){
-        my @expected = split_names($file,@groups);
-        if (all { -f } @expected){
-            return sort @expected;
+        my %expected = map { $_ => _split_name($file, $_) } @groups;
+        if (all { -f } values %expected){
+            return %expected;
         }
     }
 
@@ -75,24 +75,24 @@ sub _gff_split{
 
         next if ($part eq '.' || $part eq '');
 
-        if (! exists $fh{$part}){
+        if (! exists $part2fh{$part}){
             my $split_file = _split_name($file, $part);
             my $temp  = mktemp($split_file . ".tmp.XXXXX");
-            open $fh{$part}, '>', $temp;
-            push @files, $temp;
-            $tempfiles{$temp} = $split_file;
+            open $part2fh{$part}, '>', $temp;
+            $temp2real{$temp} = $split_file;
+            $part2real{$part} = $split_file;
         }
 
-        say {$fh{$part}} $line;
+        say {$part2fh{$part}} $line;
     }
 
-    for my $handle (values %fh) {
+    for my $handle (values %part2fh) {
         close $handle;
     }
-    while (my ($temp,$real) = each %tempfiles) {
+    while (my ($temp,$real) = each %temp2real) {
         rename $temp, $real;
     }
-    return sort values %tempfiles;
+    return %part2real;
 }
 
 1;
