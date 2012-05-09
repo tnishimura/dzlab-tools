@@ -6,7 +6,7 @@ use Data::Dumper;
 use autodie;
 use FindBin;
 use lib "$FindBin::Bin/lib";
-use Launch;
+use Run::BowtieBuild;
 
 END {close STDOUT}
 $| = 1;
@@ -22,17 +22,7 @@ unless ($opt_c2t xor $opt_g2a){
 }
 
 my $conversion = $opt_c2t ? 'c2t' : 'g2a';
-my @indices = map { "$opt_reference.$conversion.$_.ebwt" } qw/1 2 3 4 rev.1 rev.2/;
-
-launch("perl -S rcfas.pl $opt_reference > ??", 
-    expected =>  "$opt_reference.rc");
-
-launch("perl -S convert.pl $conversion $opt_reference.rc > ??", 
-    expected =>  "$opt_reference.$conversion");
-
-launch("bowtie-build $opt_reference.$conversion $opt_reference.$conversion", 
-    expected =>  \@indices);
-
+bowtie_build(file => $opt_reference, bs => $conversion, rc => 1);
 
 =head1 NAME
 
