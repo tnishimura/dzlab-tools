@@ -8,9 +8,10 @@ use File::Basename qw/basename/;
 use File::Path qw/make_path remove_tree/;
 use File::Spec::Functions qw/rel2abs catdir catfile/;
 use Getopt::Long;
-use Parallel::ForkManager;
-use List::Util qw/sum/;
 use List::MoreUtils qw/ any notall/;
+use List::Util qw/sum/;
+use Parallel::ForkManager;
+use Pod::Usage;
 use YAML qw/LoadFile DumpFile/;
 
 use FindBin;
@@ -46,6 +47,7 @@ my $result = GetOptions (
     "parallel|p=i"           => \(my $parallel = 0),
 );
 
+
 @flank_range = @flank_range ? @flank_range : (1, 30);
 
 usage("malformed arguments") if (!$result);
@@ -58,12 +60,7 @@ usage("output directory dne") if (! defined $outdir || ! -d $outdir);
 
 my $pm = Parallel::ForkManager->new($parallel);
 
-sub usage {
-    $0 = basename($0);
-    say $_[0] if @_;
-    say "usage: $0 [options] -o outdir tdna-file flank-seq-file reads-file";
-    exit 1;
-}
+sub usage { pod2usage(scalar(@_) ? (-msg => shift()) : (), -verbose => 2, -noperldoc => 1); }
 
 #######################################################################
 
@@ -72,7 +69,6 @@ my $split_dir = catdir($outdir, "split_reads");
 make_path $split_dir;
 my $split_prefix = catdir($split_dir, basename($reads_file)) . ".";
 my $split_checksum_file = $split_prefix . "MD5SUM";
-
 
 my $tdna_file_bsrc; 
 my $reference_bsrc;
@@ -145,7 +141,7 @@ SPLIT:
 
 for my $split (@split_read_files) {
     $pm->start and next;
-    bowtie_build(file => $split, noref => 1);
+    bowtie_build(file => $split, noref => 1, rc => 0);
     $pm->finish; 
 }
 $pm->wait_all_children;
@@ -239,9 +235,25 @@ my $prefix_vs_reference = "$prefix_file-vs-reference.mm$prefix_mismatch";
 cast("bowtie --norc -f -B 1 -v $prefix_mismatch $tdna_file_bsrc $prefix_file > $prefix_vs_tdna");
 cast("bowtie --norc -f -B 1 -v $prefix_mismatch $reference_bsrc $prefix_file > $prefix_vs_reference");
 
+=head1 USAGE
+
+ red-headed-step-child.pl [options] -r reference.fasta tdna.fasta flanks.fasta reads.fasta 
+
+=head1 OPTIONS
+
+ --outdir <dir>              | -o <dir>          : Output directory.
+ --reference <fasta>         | -r <fasta>        : Reference file
+ --flank-range <start> <end> | -fr <start> <end> : This range of flank becomes range
+ --flank-mismatch <n>        | -fm <n>           : align bait to reads with this many mm
+ --prefix-trim5 <n>          | -p5 <n>           : trim this much from prefix 5'
+ --prefix-trim3 <n>          | -p3 <n>           : trim this much from prefix 3'
+ --prefix-min-size <n>       | -pmin <n>         : if trimmed is smaller, discard
+ --prefix-max-size <n>       | -pmax <n>         : if trimmed is bigger, trim 3' further
+ --prefix-mismatch <n>       | -tm <n>           : align prefixes to tdna/ref with this many mm
+ --parallel <n>              | -p <n>
+
 =head2 INTERNALS
 
-=head3 Step one - create bait from flank
 
 =head3
 
