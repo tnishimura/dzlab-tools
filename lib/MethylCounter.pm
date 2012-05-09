@@ -12,44 +12,106 @@ use List::Util qw/max/;
 use List::MoreUtils qw/all/;
 use File::Temp qw/mktemp tempfile/;
 use BigArray;
+use DZUtil qw/approximate_line_count/;
+use GFF::Parser::Correlated;
+
+use Params::Validate qw/:all/;
+# types: SCALAR ARRAYREF HASHREF CODEREF GLOB GLOBREF SCALARREF UNDEF OBJECT(blessed) BOOLEAN(UNDEF | SCALAR) HANDLE
 
 sub new {
     my $class = shift;
     my %opt = @_;
     my $self = bless {}, $class;
 
-    $self->{bigarrays}        = {};
-    $self->{stats}            = {};
-    $self->{reference_genome} = $opt{reference_genome};
-    $self->{dinucleotide}     = $opt{dinucleotide};
-    $self->{file_prefix}      = $opt{file_prefix};
+    $self->{dinucleotide} = $opt{dinucleotide};
+    $self->{verbose}      = $opt{verbose};
+    $self->{file}         = $opt{correlation};
+    $self->{bigarrays}    = {};
+    $self->{stats}        = {};
+    $self->{genome}       = FastaReader->new(file => $opt{genome}, slurp => 1);
+
+    # want genome file instead of pre-created FastaReader b/c want to make sure to slurp
 
     return $self;
 }
 
+#######################################################################
+# input
 
-sub record_methylation{
+sub record_single_methylation{
     my ($self, $seq, $coord, $base) = @_;
 
-    my $reference_genome = $self->{reference_genome};
+    my $genome    = $self->{genome};
     my $bigarrays = $self->{bigarrays};
 
     $seq = uc $seq;
     $base = uc $base;
 
-    #say Dumper "BEFORE", $bigarrays;
     if (! exists $bigarrays->{$seq}){
-        my $len = $reference_genome->get_length($seq);
+        my $len = $genome->get_length($seq);
         $bigarrays->{$seq}{C} = BigArray->new(size => $len, base => 1);
         $bigarrays->{$seq}{T} = BigArray->new(size => $len, base => 1);
     }
-    #say Dumper "AFTER", $bigarrays;
-    #say STDERR "$seq $base $coord";
 
     $bigarrays->{$seq}{$base}->push_increment($coord);
 }
 
-sub commit{
+sub count_methylation{
+    my ($self, $correlation_gff) = @_;
+
+    my $genome = $self->{genome};
+
+    my ($seq, $start, $end, $reverse, $read_seq, $target_seq) = @$correlation_gff;
+    $seq = uc $seq;
+    my $filtered = 0;
+
+    $self->{stats}{$seq}{bp} += length($read_seq);
+
+    my @target_bases = split //,$target_seq;
+    my @read_bases = (q{.}, q{.}, split(//, $read_seq), q{.}, q{.});
+
+    READ:
+    for (my $strand_coord = $start; $strand_coord <= $end; ++$strand_coord){
+        my $i = $strand_coord - $start + 2;
+        my $abs_coord = $reverse ? $genome->get_length($seq) - $strand_coord + 1 : $strand_coord;
+        my $context;
+
+        my $read_base = $read_bases[$i];
+        if ($target_bases[$i] eq 'C' && ($read_base eq 'C' || $read_base eq 'T')){
+            $self->record_single_methylation($seq,$abs_coord,$read_base);
+        }
+    }
+}
+
+sub process{
+    my ($self) = @_;
+
+    my $counter_increment = 10000;
+    my $line_count        = approximate_line_count($self->{file}, 10000);
+    my $verbose           = $self->{verbose};
+
+    my $parser = GFF::Parser::Correlated->new(
+        file => $self->{file}, 
+        normalize => 0,
+    );
+
+    while (defined(my $corr = $parser->next())){
+        if ($verbose && $. % $counter_increment == 0){
+            printf(STDERR "%d (%.4f)\n", $., $. / $line_count * 100);
+        }
+
+        $self->count_methylation($corr);
+    }
+    say STDERR "Done processing! creating single-c and freq file" if $verbose;
+
+    $self->{stats}{no_match_count} = $parser->no_match_counter();
+    $self->{stats}{error_count} = $parser->error_counter();
+}
+
+#######################################################################
+# output gff
+
+sub commit_bigarrays {
     my ($self) = @_;
 
     my $bigarrays = $self->{bigarrays};
@@ -60,27 +122,28 @@ sub commit{
     }
 }
 
-sub record_output{
-    my ($self) = @_;
+sub output_single_c { # and also count stats
+    my ($self, %output_files) = @_;
 
-    my $reference_genome = $self->{reference_genome};
-    my $bigarrays        = $self->{bigarrays};
-    my $stats            = $self->{stats};
-    my $dinucleotide     = $self->{dinucleotide};
-    my $file_prefix      = $self->{file_prefix};
+    my $genome       = $self->{genome};
+    my $bigarrays    = $self->{bigarrays};
+    my $stats        = $self->{stats};
+    my $dinucleotide = $self->{dinucleotide};
+
+    my @contexts = $dinucleotide ? qw/CG CC CA CT/ : qw/CG CHG CHH/;
+
+    croak '$mc->output_single(CG => cgfile, CHG => chgfile, CHH => chhfile)' 
+    unless 3 == grep { exists $output_files{$_} } @contexts;
 
     my @seqs = sort keys %$bigarrays;
 
     my %filehandles;
     my %temp2real;
 
-    for my $seq (@seqs) {
-        $bigarrays->{$seq}{C}->commit_increment();
-        $bigarrays->{$seq}{T}->commit_increment();
-    }
+    $self->commit_bigarrays();
 
-    for my $context (qw/CG CHG CHH/) {
-        my $file = "$file_prefix.single-c.$context.gff.merged";
+    for my $context (@contexts) {
+        my $file = $output_files{$context};
         my $tmpfile = mktemp($file . ".tmp.XXXX");
         open my $writer, q{>}, $tmpfile;
         $filehandles{$context} = $writer;
@@ -99,7 +162,7 @@ sub record_output{
     } @seqs;
 
     for my $seq (@seqs) {
-        my $len = $reference_genome->get_length($seq);
+        my $len = $genome->get_length($seq);
 
         my $cbigarray = $bigarrays->{$seq}{C};
         my $tbigarray = $bigarrays->{$seq}{T};
@@ -109,13 +172,13 @@ sub record_output{
             my $c = $cbigarray->get($coord);
             my $t = $tbigarray->get($coord);
 
-            my $context = $reference_genome->get_context($seq, $coord, dinuc => $dinucleotide, undef_on_nonc => 1);
-            next POSITION if ! defined $context; # means was not a C/G position
+            next POSITION if $c + $t == 0;
 
-            $context = uc $context;
-
-            die "why is \$c + \$t == 0? bug, dying" if $c + $t == 0;
             my $filtered = $c + $t > 20 ? '*' : '';
+
+            my $context = $genome->get_context($seq, $coord, dinuc => $dinucleotide, undef_on_nonc => 1);
+            next POSITION if ! defined $context; # means was not a C/G position
+            $context = uc $context;
 
             my $score = sprintf("%.4f", $c/($c+$t));
             say {$filehandles{$context}} join "\t", $seq, q{.}, $context, $coord, $coord, $score, q{.}, q{.}, "c=$c;t=$t$filtered";
@@ -137,33 +200,8 @@ sub record_output{
     }
 }
 
-sub count_methylation{
-    my ($self, $correlation_gff) = @_;
-
-    my $reference_genome = $self->{reference_genome};
-
-    my ($seq, $start, $end, $reverse, $read_seq, $target_seq) = @$correlation_gff;
-    $seq = uc $seq;
-    my $filtered = 0;
-
-    $self->{stats}{$seq}{bp} += length($read_seq);
-
-    my @target_bases = split //,$target_seq;
-    my @read_bases = (q{.}, q{.}, split(//, $read_seq), q{.}, q{.});
-
-    READ:
-    for (my $strand_coord = $start; $strand_coord <= $end; ++$strand_coord){
-        my $i = $strand_coord - $start + 2;
-        my $abs_coord = $reverse ? $reference_genome->get_length($seq) - $strand_coord + 1 : $strand_coord;
-        my $context;
-
-        my $read_base = $read_bases[$i];
-        if ($target_bases[$i] eq 'C' && ($read_base eq 'C' || $read_base eq 'T')){
-            $self->record_methylation($seq,$abs_coord,$read_base);
-        }
-        next READ;
-    }
-}
+#######################################################################
+# print_freq - must be run after output_single_c since stats need to be computed
 
 sub rat{
     my ($x,$y) = @_;
@@ -175,17 +213,16 @@ sub rat{
     }
 }
 
-
 # this thing looks ridiculous...
 sub print_freq{
-    my ($self, $error) = @_;
+    my ($self, $output_file) = @_;
 
-    my $reference_genome = $self->{reference_genome};
-    my $stats            = $self->{stats};
-    my $dinucleotide     = $self->{dinucleotide};
-    my $file_prefix      = $self->{file_prefix};
+    my $error = $self->{stats}{no_match_count} + $self->{stats}{error_count};
+    my $genome       = $self->{genome};
+    my $stats        = $self->{stats};
+    my $dinucleotide = $self->{dinucleotide};
 
-    open my $out, '>', "$file_prefix.freq";
+    open my $out, '>', $output_file;
 
     my @output;
 
@@ -266,8 +303,23 @@ sub print_freq{
     say STDERR "error\t$error";
     say $out "error\t$error";
     close $out;
+}
 
-    #say Dumper \%stats;
+#######################################################################
+# run
+
+sub run{
+    use Params::Validate qw/:all/;
+    # types: SCALAR ARRAYREF HASHREF CODEREF GLOB GLOBREF SCALARREF UNDEF OBJECT(blessed) BOOLEAN(UNDEF | SCALAR) HANDLE
+    
+    my %opt = validate(@_, {
+            dinucleotide => 0, 
+            genome => {
+                isa => 'FastaReader',
+            },
+            file_prefix => 1,
+        });
+
 }
 
 

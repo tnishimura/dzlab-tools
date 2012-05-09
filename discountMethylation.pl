@@ -10,33 +10,30 @@ use Pod::Usage;
 use FindBin;
 use lib "$FindBin::Bin/lib";
 
-use FastaReader;
-use GFF::Parser::Correlated;
-use DZUtil qw/approximate_line_count/;
+use MethylCounter;
 
 pod2usage(-verbose => 99,-sections => [qw/NAME SYNOPSIS OPTIONS/]) 
 if !$opt_file || !$opt_output_prefix || !$opt_reference;
 
-my $reference_genome = FastaReader->new(slurp => 1, file => $opt_reference, normalize => 0);
-my $parser = GFF::Parser::Correlated->new(file => $opt_file, normalize => 0);
+#######################################################################
 
-my $counter_increment = 10000; 
-my $line_count = approximate_line_count($opt_file, 10000);
+my $methylcounter = MethylCounter->new(
+    dinucleotide => $opt_dinucleotide,
+    genome       => $opt_reference,
+    correlation  => $opt_file,
+    verbose      => $verbose,
+);
 
-my $methylcounter = MethylCounter->new(reference_genome => $reference_genome, dinucleotide => $opt_dinucleotide, file_prefix => $opt_output_prefix);
+$methylcounter->process();
 
-while (defined(my $corr = $parser->next())){
-    $methylcounter->count_methylation($corr);
+$methylcounter->output_single_c(
+    CG  => "$opt_output_prefix.CG.gff",
+    CHG => "$opt_output_prefix.CHG.gff",
+    CHH => "$opt_output_prefix.CHH.gff",
+);
+$methylcounter->print_freq("$opt_output_prefix.freq");
 
-    if ($opt_verbose && $. % $counter_increment == 0){
-        printf(STDERR "%d (%.4f)\n", $., $. / $line_count * 100);
-    }
-}
-
-say STDERR "Done processing! creating single-c and freq file";
-
-$methylcounter->record_output();
-$methylcounter->print_freq($parser->no_match_counter() + $parser->error_counter());
+#######################################################################
 
 __END__
 
@@ -70,8 +67,6 @@ Usage examples:
     fasta.type:        readable
 
 =item  -d | --dinucleotide 
-
-=item --help | -h
 
 =item --verbose | -v
 
