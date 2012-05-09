@@ -41,9 +41,16 @@ has lenient => (
     default => 0,
 );
 
+has verbose => (
+    is => 'ro',
+    default => 0,
+);
+
 
 sub BUILD{
     my ($self) = @_;
+    my $verbose = $self->verbose;
+    my $counter = 0;
     my $p = GFF::Parser->new(file => $self->file, normalize => $self->normalize);
     while (defined(my $gff = $p->next())){
         my ($seq, $start, $end) = ($gff->sequence, $gff->start, $gff->end);
@@ -52,6 +59,8 @@ sub BUILD{
             $self->set_tree($seq => Tree::Range->new());
         }
         $self->get_tree($seq)->add($start,$end,$gff);
+
+        ++$counter % 10000 == 0 and $verbose and say STDERR $counter;
     }
     for my $tree ($self->tree_values) {
         $tree->finalize();
@@ -60,6 +69,7 @@ sub BUILD{
 
 sub search_overlap{
     my ($self, $seq, $start, $end) = @_;
+    $seq = uc $seq;
     if (! $self->has_tree($seq)){
         if (! $self->lenient){
             croak "no such sequence $seq in GFF::Tree";
@@ -74,6 +84,7 @@ sub search_overlap{
 
 sub search{
     my ($self, $seq, $start, $end) = @_;
+    $seq = uc $seq;
     if (! $self->has_tree($seq)){
         if (! $self->lenient){
             croak "no such sequence $seq in GFF::Tree";
