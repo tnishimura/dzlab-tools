@@ -50,6 +50,15 @@ sub sequence_lengths {
     return map { $_ => $self->get_length($_); } $self->sequence_list;
 }
 
+sub info{
+    my ($self) = @_;
+    my @ret;
+    for my $seq (sort $self->sequence_list) {
+        push @ret, "$seq\t" . $self->get_length($seq);
+    }
+    return join "\n", @ret;
+}
+
 #######################################################################
 # get or set entire sequence
 

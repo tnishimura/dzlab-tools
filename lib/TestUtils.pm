@@ -25,6 +25,8 @@ sub setup_intermediate_dir{
 
 sub setup_reference{
     my $test_dir = shift // $intermediate_dir;
+    my $do_methylation = shift;
+
     my $gz = 't/data/TAIR_mini.fas.gz';
     my $ref = catfile($test_dir, basename($gz, '.gz'));
     if (-e $test_dir && ! -d $test_dir){
@@ -32,8 +34,12 @@ sub setup_reference{
     }
     mkdir $test_dir if ! -d $test_dir;
     launch("gunzip -c $gz > ??", expected => $ref);
-    launch("./bs-bowtie-build -c2t $ref");
-    launch("./bs-bowtie-build -g2a $ref");
+
+    if ($do_methylation){
+        launch("./bs-bowtie-build -c2t $ref");
+        launch("./bs-bowtie-build -g2a $ref");
+    }
+
     is(8527645, [stat($ref)]->[7], "unzipped reference the correct size");
     return $ref;
 }

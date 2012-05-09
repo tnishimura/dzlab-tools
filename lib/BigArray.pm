@@ -65,6 +65,11 @@ sub info{
     #return $self->{pdl}->info("Type: %T Dim: %-15D State: %S, %M");
 }
 
+sub get{
+    my ($self, $coord) = @_;
+    $self->{pdl}->at($coord - $self->{base});
+}
+
 sub get_range{
     my ($self, $start, $end) = @_;
     $start -= $self->{base};
@@ -106,7 +111,7 @@ sub push_increment{
         #}
     }
     if (@$buffer > $self->{buffer}){
-        $self->commit();
+        $self->commit_increment();
     }
 }
 
