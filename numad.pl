@@ -23,6 +23,8 @@ use Digest::MD5::Util;
 my $result = GetOptions (
     "tmpdir|d=s"    => \my $tmpdir,
     "reference|r=s" => \my $ref,
+    "min=i"         => \(my $min = 136),
+    "max=i"         => \(my $max = 160),
 );
 pod2usage(-verbose => 2, -noperldoc => 1) if (!$result || ! $tmpdir || ! $ref);
 
@@ -50,8 +52,14 @@ else{
         defined(my $left_bowtie = $bp->next()) and 
         defined(my $right_bowtie = $bp->next())
     ){
-        my %left = process($left_bowtie);
-        my %right = process($right_bowtie);
+        my ($ok_left, %left) = process($left_bowtie);
+        my ($ok_right, %right) = process($right_bowtie);
+        if (! $ok_left || ! $ok_right){
+            warn "line $. not ok " . Dumper \%left, \%right;
+            next;
+        }
+
+        die "bowtie lines not coming in pairs??" if $left{seq} ne $right{seq};
 
         my $seq = $left{seq};
 
@@ -62,7 +70,10 @@ else{
             push @filenames, $filename;
         }
 
-        say {$filehandles{$seq}} join "\t", $left{start}, $right{end};
+        my $length = $right{end} - $left{start};
+        if ($length >= $min && $length <= $max){
+            say {$filehandles{$seq}} join "\t", $left{start}, $right{end};
+        }
     }
     close $_ for values %filehandles;
 
@@ -151,10 +162,17 @@ sub median{
     }
 }
 
+use Scalar::Util qw/looks_like_number/;
 sub process{
     my $bowtie = shift;
-    return 
-        seq   => $bowtie->[2],
-        start => $bowtie->[3],
-        end   => $bowtie->[3] + length($bowtie->[4]) - 1;
+    if (looks_like_number($bowtie->[3])){
+        return (1, 
+            seq   => $bowtie->[2],
+            start => $bowtie->[3],
+            end   => $bowtie->[3] + length($bowtie->[4]) - 1,
+        );
+    }
+    else{
+        return (0);
+    }
 }
