@@ -34,10 +34,9 @@ my $simulator = FastaReader::MethylSimulator->new(
     readlen  => 100,
 );
 
-
 {
     open my $fh, '>', $correlation;
-    for (1 .. 100) {
+    for (1 .. 10000) {
         my ($seq, $start, $stop, $rc, undef, $bsread) = @{$simulator->get_read()};
 
         # correlation gff target needs to be padded with 2 bases 
@@ -69,6 +68,9 @@ my $simulator = FastaReader::MethylSimulator->new(
 
 $simulator->dump($expected_file);
 
+#######################################################################
+# count it
+
 my $methylcounter = MethylCounter->new(
     dinucleotide => 0, 
     genome       => $reference,
@@ -84,6 +86,9 @@ $methylcounter->output_single_c(
     CHH => $chhfile,
 );
 
+#######################################################################
+# compare
+
 
 my %expected = %{$simulator->bsrecord()};
 my %got;
@@ -92,12 +97,13 @@ for my $file ($cgfile, $chgfile, $chhfile) {
     my $parser = GFF::Parser->new(file => $file);
     while (defined(my $gff = $parser->next())){
         my $seq = $simulator->get_original_name($gff->sequence);
-        next unless $gff->get_column('c') > 0;
+        my $c = $gff->get_column('c');
+        next unless $c > 0;
         if ($gff->strand() eq '+'){
-            $got{$seq}{$gff->start()}++;
+            $got{$seq}{$gff->start()} += $c;
         }
         else{
-            $got{$seq}{$gff->start()}--;
+            $got{$seq}{$gff->start()} -= $c;
         }
     }
 }
