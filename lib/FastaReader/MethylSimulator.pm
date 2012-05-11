@@ -69,7 +69,7 @@ sub get_read{
 
         $self->record_meth($seq, $get_rc, @$meth);
 
-        return [$seq, $start, $stop, $get_rc, $read, $bsread];
+        return [$seq, $start, $stop, $get_rc, $read, $bsread, $meth];
     }
     else{
         return [$seq, $start, $stop, $get_rc, $read];
