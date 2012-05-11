@@ -287,11 +287,13 @@ sub get_context{
 
     my @split = split //, $self->get_context_raw( $seqid, $position, base => $base, rc => 0);
 
+    my $reverse;
     if ($split[0] eq 'C'){
-        # do nothing
+        $reverse = 0;
     }
     elsif ($split[0] eq 'G'){ 
         @split = split //, $self->get_context_raw( $seqid, $position, base => $base, rc => 1);
+        $reverse = 1;
     }
     elsif ($undef_on_nonc){
         return;
@@ -495,6 +497,7 @@ sub get{
 #######################################################################
 # Utilities
 
+# given a sequence and 5' coordinate, return the 3' coordinate 
 sub reverse2forward{
     my ($self, $seqid, $coord, $base) = @_;
     $base //= 1;
@@ -508,6 +511,10 @@ sub reverse2forward{
     return $totlen - 1 - $coord + $base;
 }
 
+# they are actually the same... aren't they?
+sub forward2reverse{ 
+    return reverse2forward(@_);
+}
 
 =head2 format_fasta('header', $seq)
 

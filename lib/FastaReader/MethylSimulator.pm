@@ -10,6 +10,8 @@ use List::Util qw/sum/;
 
 extends 'FastaReader';
 
+# $ms->bsrecord()->{seq}{coord} = methylation count. 
+# positive if positive strand, negative if reverse
 has 'bsrecord' => (
     is => 'ro',
     default => sub { {} },
@@ -146,6 +148,20 @@ sub rmultinomial{
     return $items->[-1];
 }
 
+sub dump{
+    my ($self, $outfile) = @_;
+    my %bsrec = %{$self->bsrecord()};
+    open my $out, '>', $outfile;
+    for my $seq (sort keys %bsrec) {
+        for my $pos ( sort {$a <=> $b} keys %{$bsrec{$seq}} ) {
+            my $score = $bsrec{$seq}{$pos};
+            my $strand = $score > 0 ? '+' : '-';
+
+            say $out join "\t", $seq, qw/. ./, $pos, $pos, abs($score), $strand, qw/. ./;
+        }
+    }
+    close $out;
+}
 
 no Moose;
 __PACKAGE__->meta->make_immutable;

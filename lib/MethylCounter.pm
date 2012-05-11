@@ -28,7 +28,11 @@ sub new {
     $self->{file}         = $opt{correlation};
     $self->{bigarrays}    = {};
     $self->{stats}        = {};
-    $self->{genome}       = FastaReader->new(file => $opt{genome}, slurp => 1);
+
+    $self->{genome} = FastaReader->new(
+        file => $opt{genome}, 
+        slurp => 1,
+    );
 
     # want genome file instead of pre-created FastaReader b/c want to make sure to slurp
 
@@ -73,7 +77,8 @@ sub count_methylation{
     READ:
     for (my $strand_coord = $start; $strand_coord <= $end; ++$strand_coord){
         my $i = $strand_coord - $start + 2;
-        my $abs_coord = $reverse ? $genome->get_length($seq) - $strand_coord + 1 : $strand_coord;
+        # Reverse strand coordinates are w.r.t. the 3' end!!!! This is about the only place that this happens.
+        my $abs_coord = $reverse ? $genome->get_length($seq) - $strand_coord + 1 : $strand_coord; 
         my $context;
 
         my $read_base = $read_bases[$i];
@@ -104,8 +109,8 @@ sub process{
     }
     say STDERR "Done processing! creating single-c and freq file" if $verbose;
 
-    $self->{stats}{no_match_count} = $parser->no_match_counter();
-    $self->{stats}{error_count} = $parser->error_counter();
+    $self->{no_match_count} = $parser->no_match_counter();
+    $self->{error_count} = $parser->error_counter();
 }
 
 #######################################################################
@@ -180,8 +185,13 @@ sub output_single_c { # and also count stats
             next POSITION if ! defined $context; # means was not a C/G position
             $context = uc $context;
 
+            my $strand = uc($genome->get($seq, $coord, $coord)) eq 'G' ? '-' : '+';
+
             my $score = sprintf("%.4f", $c/($c+$t));
-            say {$filehandles{$context}} join "\t", $seq, q{.}, $context, $coord, $coord, $score, q{.}, q{.}, "c=$c;t=$t$filtered";
+
+            say {$filehandles{$context}} join("\t", 
+                $seq, q{.}, $context, $coord, $coord, $score, $strand, q{.}, "c=$c;t=$t$filtered",
+            );
 
             my $type = $filtered ? 'filtered' : 'unfiltered';
 
@@ -217,7 +227,7 @@ sub rat{
 sub print_freq{
     my ($self, $output_file) = @_;
 
-    my $error = $self->{stats}{no_match_count} + $self->{stats}{error_count};
+    my $error = $self->{no_match_count} + $self->{error_count};
     my $genome       = $self->{genome};
     my $stats        = $self->{stats};
     my $dinucleotide = $self->{dinucleotide};
