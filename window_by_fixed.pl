@@ -79,7 +79,7 @@ $dbh->do(q{
     create table gff (sequence text, position integer, c integer, t integer, n integer)
     });
 
-#$dbh->do("create index idx1 on gff (position,sequence)");
+$dbh->do("create index idx1 on gff (position,sequence)");
 my $insert_sth = $dbh->prepare("insert into gff (sequence, position, c, t, n) values (?,?,?,?,?)");
 my $update_sth = $dbh->prepare("update gff set c=?, t=?, n=? where position=? and sequence=? ");
 my $checker_sth = $dbh->prepare("select count(*), c, t, n from gff where position=? and sequence=?");
@@ -159,7 +159,6 @@ for my $file (@opt_files) {
 
 $dbh->commit;
 $dbh->{AutoCommit} = 1;
-$dbh->do("create index idx1 on gff (position,sequence)");
 
 if ($opt_verbose){
     say STDERR "done inserting at: " . timestamp();
