@@ -19,6 +19,7 @@ my $correlation = catfile($tmpdir, "correlation");
 my $cgfile = catfile($tmpdir, "cg");
 my $chgfile = catfile($tmpdir, "chg");
 my $chhfile = catfile($tmpdir, "chh");
+my $freq = catfile($tmpdir, "freq");
 my $expected_file = catfile($tmpdir, "expected");
 
 my $mc = MethylCounter->new(genome => $reference, output_prefix => catfile($tmpdir, "meow"));
@@ -86,9 +87,10 @@ $methylcounter->output_single_c(
     CHH => $chhfile,
 );
 
+$methylcounter->print_freq($freq);
+
 #######################################################################
 # compare
-
 
 my %expected = %{$simulator->bsrecord()};
 my %got;
@@ -114,14 +116,11 @@ is_deeply(
     "expected and got same seqs",
 );
 
-
 is_deeply(
     \%got, 
     \%expected, 
     "expected and got same methylations",
 );
-
-#$methylcounter->print_freq("$opt_output_prefix.freq");
 
 __END__
 chr3	U/NM	SOLEXA2_0531_FC62W31AAXX:4:1:1804:1117#0/1:TTTTATGATGTGGTAATTTATTATTGGATGGGAAGTTTGAT	1567476	1567516	1	+	0	target=TGTCCCATGACGTGGCAACCTATTACTGGATGGGAAGTTCGACCG

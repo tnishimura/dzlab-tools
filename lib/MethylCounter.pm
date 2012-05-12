@@ -6,6 +6,7 @@ use 5.010_000;
 use Data::Dumper;
 use Carp;
 use autodie;
+use YAML qw/DumpFile/;
 
 use FastaReader;
 use List::Util qw/max/;
@@ -232,87 +233,79 @@ sub print_freq{
     my $stats        = $self->{stats};
     my $dinucleotide = $self->{dinucleotide};
 
-    open my $out, '>', $output_file;
-
-    my @output;
-
-    if ($dinucleotide){
-        push @output, [qw/seq bp overlaps 
-        C CG CT CA CC T TG TT TA TC
-        C_ratio CG_ratio CT_ratio CA_ratio CC_ratio 
-        filtered_C filtered_CG filtered_CT filtered_CA filtered_CC filtered_T filtered_TG filtered_TT filtered_TA filtered_TC
-        filtered_C_ratio filtered_CG_ratio filtered_CT_ratio filtered_CA_ratio filtered_CC_ratio 
-        /];
-    }
-    else{
-        push @output, [qw/seq bp overlaps 
-        C CG CHG CHH T TG THG THH 
-        C_ratio CG_ratio CHG_ratio CHH_ratio 
-        filtered_C filtered_CG filtered_CHG filtered_CHH filtered_T filtered_TG filtered_THG filtered_THH 
-        filtered_C_ratio filtered_CG_ratio filtered_CHG_ratio filtered_CHH_ratio 
-        /];
-    }
-
+    my %out;
     for my $seq (sort keys %$stats){
         if ($dinucleotide){
-            push @output, [
-            $seq, $stats->{$seq}{bp}, 0,
-
-            $stats->{$seq}{unfiltered}{C}, $stats->{$seq}{unfiltered}{CG}, $stats->{$seq}{unfiltered}{CT},$stats->{$seq}{unfiltered}{CA}, $stats->{$seq}{unfiltered}{CC}, 
-            $stats->{$seq}{unfiltered}{T}, $stats->{$seq}{unfiltered}{TG}, $stats->{$seq}{unfiltered}{TT},$stats->{$seq}{unfiltered}{TA}, $stats->{$seq}{unfiltered}{TC}, 
-
-            rat($stats->{$seq}{unfiltered}{C}  ,$stats->{$seq}{unfiltered}{T} ),
-            rat($stats->{$seq}{unfiltered}{CG} ,$stats->{$seq}{unfiltered}{TG} ),
-            rat($stats->{$seq}{unfiltered}{CT} ,$stats->{$seq}{unfiltered}{TT} ),
-            rat($stats->{$seq}{unfiltered}{CA} ,$stats->{$seq}{unfiltered}{TA} ),
-            rat($stats->{$seq}{unfiltered}{CC} ,$stats->{$seq}{unfiltered}{TC} ),
-
-            $stats->{$seq}{filtered}{C}, $stats->{$seq}{filtered}{CG}, $stats->{$seq}{filtered}{CT},$stats->{$seq}{filtered}{CA}, $stats->{$seq}{filtered}{CC}, 
-            $stats->{$seq}{filtered}{T}, $stats->{$seq}{filtered}{TG}, $stats->{$seq}{filtered}{TT},$stats->{$seq}{filtered}{TA}, $stats->{$seq}{filtered}{TC}, 
-
-            rat($stats->{$seq}{filtered}{C}  ,$stats->{$seq}{filtered}{T} ),
-            rat($stats->{$seq}{filtered}{CG} ,$stats->{$seq}{filtered}{TG} ),
-            rat($stats->{$seq}{filtered}{CT} ,$stats->{$seq}{filtered}{TT} ),
-            rat($stats->{$seq}{filtered}{CA} ,$stats->{$seq}{filtered}{TA} ),
-            rat($stats->{$seq}{filtered}{CC} ,$stats->{$seq}{filtered}{TC} ),
-            ]
+            $out{$seq} = [
+            { seq               => $seq},
+            { bp                => $stats->{$seq}{bp}},
+            { overlaps          => 0},
+            { C                 => $stats->{$seq}{unfiltered}{C}},
+            { CG                => $stats->{$seq}{unfiltered}{CG}},
+            { CT                => $stats->{$seq}{unfiltered}{CT}},
+            { CA                => $stats->{$seq}{unfiltered}{CA}},
+            { CC                => $stats->{$seq}{unfiltered}{CC}},
+            { T                 => $stats->{$seq}{unfiltered}{T}},
+            { TG                => $stats->{$seq}{unfiltered}{TG}},
+            { TT                => $stats->{$seq}{unfiltered}{TT}},
+            { TA                => $stats->{$seq}{unfiltered}{TA}},
+            { TC                => $stats->{$seq}{unfiltered}{TC}},
+            { C_ratio           => rat($stats->{$seq}{unfiltered}{C}  ,$stats->{$seq}{unfiltered}{T} )},
+            { CG_ratio          => rat($stats->{$seq}{unfiltered}{CG} ,$stats->{$seq}{unfiltered}{TG} )},
+            { CT_ratio          => rat($stats->{$seq}{unfiltered}{CT} ,$stats->{$seq}{unfiltered}{TT} )},
+            { CA_ratio          => rat($stats->{$seq}{unfiltered}{CA} ,$stats->{$seq}{unfiltered}{TA} )},
+            { CC_ratio          => rat($stats->{$seq}{unfiltered}{CC} ,$stats->{$seq}{unfiltered}{TC} )},
+            { filtered_C        => $stats->{$seq}{filtered}{C}},
+            { filtered_CG       => $stats->{$seq}{filtered}{CG}},
+            { filtered_CT       => $stats->{$seq}{filtered}{CT}},
+            { filtered_CA       => $stats->{$seq}{filtered}{CA}},
+            { filtered_CC       => $stats->{$seq}{filtered}{CC}},
+            { filtered_T        => $stats->{$seq}{filtered}{T}},
+            { filtered_TG       => $stats->{$seq}{filtered}{TG}},
+            { filtered_TT       => $stats->{$seq}{filtered}{TT}},
+            { filtered_TA       => $stats->{$seq}{filtered}{TA}},
+            { filtered_TC       => $stats->{$seq}{filtered}{TC}},
+            { filtered_C_ratio  => rat($stats->{$seq}{filtered}{C}  ,$stats->{$seq}{filtered}{T} )},
+            { filtered_CG_ratio => rat($stats->{$seq}{filtered}{CG} ,$stats->{$seq}{filtered}{TG} )},
+            { filtered_CT_ratio => rat($stats->{$seq}{filtered}{CT} ,$stats->{$seq}{filtered}{TT} )},
+            { filtered_CA_ratio => rat($stats->{$seq}{filtered}{CA} ,$stats->{$seq}{filtered}{TA} )},
+            { filtered_CC_ratio => rat($stats->{$seq}{filtered}{CC} ,$stats->{$seq}{filtered}{TC} )},
+            ],
         }
-        else{
-            push @output, [
-            $seq, $stats->{$seq}{bp}, 0,
-
-            $stats->{$seq}{unfiltered}{C}, $stats->{$seq}{unfiltered}{CG}, $stats->{$seq}{unfiltered}{CHG}, $stats->{$seq}{unfiltered}{CHH},
-            $stats->{$seq}{unfiltered}{T}, $stats->{$seq}{unfiltered}{TG}, $stats->{$seq}{unfiltered}{THG}, $stats->{$seq}{unfiltered}{THH},
-
-            rat($stats->{$seq}{unfiltered}{C}  ,$stats->{$seq}{unfiltered}{T} ),
-            rat($stats->{$seq}{unfiltered}{CG} ,$stats->{$seq}{unfiltered}{TG} ),
-            rat($stats->{$seq}{unfiltered}{CHG},$stats->{$seq}{unfiltered}{THG} ),
-            rat($stats->{$seq}{unfiltered}{CHH},$stats->{$seq}{unfiltered}{THH} ),
-
-            $stats->{$seq}{filtered}{C}, $stats->{$seq}{filtered}{CG}, $stats->{$seq}{filtered}{CHG}, $stats->{$seq}{filtered}{CHH},
-            $stats->{$seq}{filtered}{T}, $stats->{$seq}{filtered}{TG}, $stats->{$seq}{filtered}{THG}, $stats->{$seq}{filtered}{THH},
-
-            rat($stats->{$seq}{filtered}{C}  , $stats->{$seq}{filtered}{T} ),
-            rat($stats->{$seq}{filtered}{CG} , $stats->{$seq}{filtered}{TG} ),
-            rat($stats->{$seq}{filtered}{CHG}, $stats->{$seq}{filtered}{THG} ),
-            rat($stats->{$seq}{filtered}{CHH}, $stats->{$seq}{filtered}{THH} ),
+        else {
+            $out{$seq} = [
+                { seq                => $seq},
+                { bp                 => $stats->{$seq}{bp}},
+                { overlaps           => 0},
+                { C                  => $stats->{$seq}{unfiltered}{C}},
+                { CG                 => $stats->{$seq}{unfiltered}{CG}},
+                { CHG                => $stats->{$seq}{unfiltered}{CHG}},
+                { CHH                => $stats->{$seq}{unfiltered}{CHH}},
+                { T                  => $stats->{$seq}{unfiltered}{T}},
+                { TG                 => $stats->{$seq}{unfiltered}{TG}},
+                { THG                => $stats->{$seq}{unfiltered}{THG}},
+                { THH                => $stats->{$seq}{unfiltered}{THH}},
+                { C_ratio            => rat($stats->{$seq}{unfiltered}{C}  ,$stats->{$seq}{unfiltered}{T} )},
+                { CG_ratio           => rat($stats->{$seq}{unfiltered}{CG} ,$stats->{$seq}{unfiltered}{TG} )},
+                { CHG_ratio          => rat($stats->{$seq}{unfiltered}{CHG},$stats->{$seq}{unfiltered}{THG} )},
+                { CHH_ratio          => rat($stats->{$seq}{unfiltered}{CHH},$stats->{$seq}{unfiltered}{THH} )},
+                { filtered_C         => $stats->{$seq}{filtered}{C}},
+                { filtered_CG        => $stats->{$seq}{filtered}{CG}},
+                { filtered_CHG       => $stats->{$seq}{filtered}{CHG}},
+                { filtered_CHH       => $stats->{$seq}{filtered}{CHH}},
+                { filtered_T         => $stats->{$seq}{filtered}{T}},
+                { filtered_TG        => $stats->{$seq}{filtered}{TG}},
+                { filtered_THG       => $stats->{$seq}{filtered}{THG}},
+                { filtered_THH       => $stats->{$seq}{filtered}{THH}},
+                { filtered_C_ratio   => rat($stats->{$seq}{filtered}{C}  , $stats->{$seq}{filtered}{T} )},
+                { filtered_CG_ratio  => rat($stats->{$seq}{filtered}{CG} , $stats->{$seq}{filtered}{TG} )},
+                { filtered_CHG_ratio => rat($stats->{$seq}{filtered}{CHG}, $stats->{$seq}{filtered}{THG} )},
+                { filtered_CHH_ratio => rat($stats->{$seq}{filtered}{CHH}, $stats->{$seq}{filtered}{THH} )},
             ]
         }
     }
 
-    #say scalar(@$_) for @output;
-    my $numcols = $dinucleotide ? 33 : 27;
-
-    #die "uneven number of lines in freq? dying" unless all { $numcols == scalar @$_ } @output;
-
-    for my $i (0..$numcols-1) {
-        my $line = join "\t", map { $_->[$i] } @output;
-        say STDERR $line;
-        say $out $line;
-    }
-    say STDERR "error\t$error";
-    say $out "error\t$error";
-    close $out;
+    DumpFile $output_file, \%out;
 }
 
 #######################################################################
