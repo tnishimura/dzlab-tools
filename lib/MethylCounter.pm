@@ -35,6 +35,13 @@ sub new {
         slurp => 1,
     );
 
+    # get_length() memoized. 
+    $self->{length} = {
+        map {
+            uc($_) => $self->{genome}->get_length($_)
+        } $self->{genome}->sequence_list()
+    };
+
     # want genome file instead of pre-created FastaReader b/c want to make sure to slurp
 
     return $self;
@@ -53,7 +60,8 @@ sub record_single_methylation{
     $base = uc $base;
 
     if (! exists $bigarrays->{$seq}){
-        my $len = $genome->get_length($seq);
+        #my $len = $genome->get_length($seq);
+        my $len = $self->{length}{uc $seq};
         $bigarrays->{$seq}{C} = BigArray->new(size => $len, base => 1);
         $bigarrays->{$seq}{T} = BigArray->new(size => $len, base => 1);
     }
@@ -72,18 +80,22 @@ sub count_methylation{
 
     $self->{stats}{$seq}{bp} += length($read_seq);
 
-    my @target_bases = split //,$target_seq;
-    my @read_bases = (q{.}, q{.}, split(//, $read_seq), q{.}, q{.});
+    #my @target_bases = split //,$target_seq;
+    #my @read_bases = (q{.}, q{.}, split(//, $read_seq), q{.}, q{.});
+    $read_seq = "..$read_seq..";
 
     READ:
     for (my $strand_coord = $start; $strand_coord <= $end; ++$strand_coord){
         my $i = $strand_coord - $start + 2;
         # Reverse strand coordinates are w.r.t. the 3' end!!!! This is about the only place that this happens.
-        my $abs_coord = $reverse ? $genome->get_length($seq) - $strand_coord + 1 : $strand_coord; 
+        #my $abs_coord = $reverse ? $genome->get_length($seq) - $strand_coord + 1 : $strand_coord; 
+        my $abs_coord = $reverse ? $self->{length}{uc $seq} - $strand_coord + 1 : $strand_coord; 
         my $context;
 
-        my $read_base = $read_bases[$i];
-        if ($target_bases[$i] eq 'C' && ($read_base eq 'C' || $read_base eq 'T')){
+        #my $read_base = $read_bases[$i];
+        my $read_base = substr $read_seq, $i, 1;
+        #if ($target_bases[$i] eq 'C' && ($read_base eq 'C' || $read_base eq 'T')){
+        if (substr($target_seq, $i, 1) eq 'C' && ($read_base eq 'C' || $read_base eq 'T')){
             $self->record_single_methylation($seq,$abs_coord,$read_base);
         }
     }
@@ -168,7 +180,8 @@ sub output_single_c { # and also count stats
     } @seqs;
 
     for my $seq (@seqs) {
-        my $len = $genome->get_length($seq);
+        #my $len = $genome->get_length($seq);
+        my $len = $self->{length}{uc $seq};
 
         my $cbigarray = $bigarrays->{$seq}{C};
         my $tbigarray = $bigarrays->{$seq}{T};
