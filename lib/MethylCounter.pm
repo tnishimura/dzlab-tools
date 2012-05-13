@@ -29,6 +29,7 @@ sub new {
     $self->{file}         = $opt{correlation};
     $self->{bigarrays}    = {};
     $self->{stats}        = {};
+    $self->{debug}        = $opt{debug};
 
     $self->{genome} = FastaReader->new(
         file => $opt{genome}, 
@@ -111,6 +112,7 @@ sub process{
     my $parser = GFF::Parser::Correlated->new(
         file => $self->{file}, 
         normalize => 0,
+        debug => $self->{debug},
     );
 
     while (defined(my $corr = $parser->next())){
