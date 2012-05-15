@@ -254,11 +254,11 @@ my $base_log = "$basename.align_stats.log";
 
 if ($do_right){
     launch("perl -S correlatePairedEnds.pl -l $eland_left_post -r $eland_right_post -ref $opt_reference -o ?? -t 0 -d $opt_library_size -s $read_size -2 $opt_trust_dash_2 -1 $opt_single_ends -m $opt_max_hits -a $opt_random_assign", expected =>  $base_gff, dryrun => $dry);
-    #launch("perl -S collect_align_stats.pl -1 $eland_left_post -2 $eland_right_post -c $base_gff -t $opt_organism -b $opt_batch > ??", expected =>  $base_log, dryrun => $dry);
+    launch("perl -S collect_align_stats.pl -1 $eland_left_post -2 $eland_right_post -c $base_gff -t $opt_organism -b $opt_batch > ??", expected =>  $base_log, dryrun => $dry);
 }
 else{
     launch("perl -S correlateSingleEnds.pl -e $eland_left_post --reference $opt_reference -o ?? -m $opt_max_hits --random-assign $opt_random_assign", expected =>  $base_gff, dryrun => $dry);
-    #launch("perl -S collect_align_stats.pl -1 $eland_left_post -c $base_gff -t $opt_organism -b $opt_batch > ??", expected =>  $base_log, dryrun => $dry);
+    launch("perl -S collect_align_stats.pl -1 $eland_left_post -c $base_gff -t $opt_organism -b $opt_batch > ??", expected =>  $base_log, dryrun => $dry);
 }
 
 #######################################################################
