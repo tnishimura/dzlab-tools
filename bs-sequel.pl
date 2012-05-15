@@ -12,11 +12,15 @@ use FindBin;
 use Parallel::ForkManager;
 use Getopt::Euclid qw( :vars<opt_> );
 use Pod::Usage;
+
 use File::Copy;
 use lib "$FindBin::Bin/lib";
+
 use DZUtil qw/downsample mfor timestamp split_names fastq_read_length/;
 use Launch;
 use GFF::Split;
+use MethylCounter;
+
 my $pm = Parallel::ForkManager->new($opt_parallel);
 
 pod2usage(-verbose => 99,-sections => [qw/NAME SYNOPSIS OPTIONS/]) 
@@ -250,68 +254,77 @@ my $base_log = "$basename.align_stats.log";
 
 if ($do_right){
     launch("perl -S correlatePairedEnds.pl -l $eland_left_post -r $eland_right_post -ref $opt_reference -o ?? -t 0 -d $opt_library_size -s $read_size -2 $opt_trust_dash_2 -1 $opt_single_ends -m $opt_max_hits -a $opt_random_assign", expected =>  $base_gff, dryrun => $dry);
-    launch("perl -S collect_align_stats.pl -1 $eland_left_post -2 $eland_right_post -c $base_gff -t $opt_organism -b $opt_batch > ??", expected =>  $base_log, dryrun => $dry);
+    #launch("perl -S collect_align_stats.pl -1 $eland_left_post -2 $eland_right_post -c $base_gff -t $opt_organism -b $opt_batch > ??", expected =>  $base_log, dryrun => $dry);
 }
 else{
     launch("perl -S correlateSingleEnds.pl -e $eland_left_post --reference $opt_reference -o ?? -m $opt_max_hits --random-assign $opt_random_assign", expected =>  $base_gff, dryrun => $dry);
-    launch("perl -S collect_align_stats.pl -1 $eland_left_post -c $base_gff -t $opt_organism -b $opt_batch > ??", expected =>  $base_log, dryrun => $dry);
+    #launch("perl -S collect_align_stats.pl -1 $eland_left_post -c $base_gff -t $opt_organism -b $opt_batch > ??", expected =>  $base_log, dryrun => $dry);
 }
 
+#######################################################################
+# Split correlate
+
+$logger->info("Splitting $base_gff by group");
+
+my %base_gff_split;    
+
+if (!$dry){
+    %base_gff_split = GFF::Split::split_sequence($base_gff,@groups);
+    $logger->info("result of context split of $base_gff: \n" . join "\n", values %base_gff_split);
+}
+else {
+    $logger->info("DRY: GFF::Split::split_sequence($base_gff,@groups);");
+}
 
 #######################################################################
 # discountMethylation.pl
 
 if ($opt_new_cm){
-    my $single_c_prefix = catfile($single_c_dir, $opt_base_name);
-    my @single = map { "$single_c_prefix.single-c.$_.gff.merged" } @contexts;
-    my $dinucopt = $opt_di_nuc_freqs ? '-d' : '';
-    launch("perl -S bargainMethylation.pl -v -r $opt_reference $dinucopt -o $single_c_prefix $base_gff",
-        expected => [@single], dryrun => $dry,
-    );
+    while (my ($seq,$base_gff_part) = each %base_gff_split) {
+        $pm->start and next;
+        my $single_c_prefix = catfile($single_c_dir, $opt_base_name) . ".$seq";
+        my %single = map { $_ => "$single_c_prefix.single-c.$_.gff" } @contexts;
+        my $freqfile = "$single_c_prefix.single-c.freq";
 
-    unless ($opt_no_windowing){
-        for my $sc (@single) {
-            my $windows_base = basename($sc);
-            if ($windows_base !~ s/\.single-c/.w$opt_window_size/){
-                $logger->logdie("$sc- naming screwed up?");
-            }
-            my $window = catfile($windows_dir, $windows_base);
+        if (4 != grep { -f && -s } $freqfile, values %single){
+            my $mc = MethylCounter->new(
+                dinucleotide => $opt_di_nuc_freqs,
+                genome       => $opt_reference,
+                correlation  => $base_gff_part,
+            );
 
-            launch("perl -S window_by_fixed.pl -w $opt_window_size --reference $opt_reference --output ?? --no-skip $sc", 
-                expected => $window, dryrun => $dry);
+            $mc->process();
+            $mc->output_single_c( %single );
+            $mc->print_freq($freqfile);
         }
-    }
 
-    $logger->info("DONE!");
+        unless ($opt_no_windowing){
+            for my $sc (values %single) {
+                my $windows_base = basename($sc);
+                if ($windows_base !~ s/\.single-c/.w$opt_window_size/){
+                    $logger->logdie("$sc- naming screwed up?");
+                }
+                my $window = catfile($windows_dir, $windows_base);
+
+                launch("perl -S window_by_fixed.pl -w $opt_window_size --reference $opt_reference --output ?? --no-skip $sc", 
+                    expected => $window, dryrun => $dry);
+            }
+        }
+
+        $logger->info("DONE!");
+        $pm->finish; 
+    }
+    $pm->wait_all_children;
+    MethylCounter::combine($opt_di_nuc_freqs, "$basename.single-c.freq", glob(catfile($single_c_dir,"*.freq")));
 }
 
 #######################################################################
 # OLD countMethylation.pl
 
 else{
-
-    # Split correlate
-
-    $logger->info("Splitting $base_gff by group");
-
-    my @base_gff_split=();
-    if (!$dry){
-        @base_gff_split = GFF::Split::split_sequence($base_gff,@groups);
-        $logger->info("result of context split of $base_gff: \n" . join "\n", @base_gff_split);
-    }
-    else {
-        $logger->info("DRY: GFF::Split::split_sequence($base_gff,@groups);");
-    }
-
     # Count methyl
-
-    my @single_c_split = map {
-        my $single_c_base = basename($_, ".gff");
-        catfile($single_c_dir, $single_c_base) . ".single-c.gff";
-    } @base_gff_split;
-
-    mfor \@base_gff_split, \@single_c_split, sub{
-        my ($base, $singlec) = @_;
+    for my $base (sort values %base_gff_split) {
+        my $singlec = catfile($single_c_dir, basename($base, ".gff")) . ".single-c.gff";
 
         if ($pm->start == 0){
             $logger->info("Processing $base");
@@ -319,16 +332,16 @@ else{
             launch("perl -S countMethylation.pl --ref $opt_reference --gff $base --output ?? --freq $singlec.freq --sort -d $opt_di_nuc_freqs", 
                 expected => $singlec, dryrun => $dry);
 
-            my @split_by_context = (); 
+            my %split_by_context;
             if (!$dry){
-                @split_by_context = GFF::Split::split_feature($singlec, @contexts);
-                $logger->info("result of context split of $singlec: \n" . join "\n", @split_by_context);
+                %split_by_context = GFF::Split::split_feature($singlec, @contexts);
+                $logger->info("result of context split of $singlec: \n" . join "\n", values %split_by_context);
             }
             else {
                 $logger->info("DRY: GFF::Split::split_feature($singlec, @contexts); ");
             }
 
-            for my $singlec_context (@split_by_context) {
+            for my $singlec_context (values %split_by_context) {
                 my $m = "$singlec_context.merged";
                 launch("perl -S window_by_fixed.pl -o ?? $singlec_context", expected => $m, dryrun => $dry);
 
