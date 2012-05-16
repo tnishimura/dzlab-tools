@@ -110,7 +110,7 @@ sub push_increment{
         #    croak "increment out-of-bounds error!";
         #}
     }
-    if (@$buffer > $self->{buffer}){
+    if (@$buffer > $self->{buffer_size}){ 
         $self->commit_increment();
     }
 }
