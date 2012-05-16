@@ -54,8 +54,10 @@ find( sub {
             $accum{$File::Find::name} = 1;
         }
         # merged single-c files
-        if ($singlec && $dirbase =~ /^single-c/ && /gff.merged$/){
-            $accum{$File::Find::name} = 1;
+        if ($singlec && $dirbase =~ /^single-c/){
+            if (/gff.merged$/ || (/\.gff$/ and ! -f "$_.merged")){
+                $accum{$File::Find::name} = 1;
+            }
         }
         # non-single-c/non-window big files
         if ($inter && $dirbase !~ /^windows/ && $dirbase !~ /^single-c/){ 
