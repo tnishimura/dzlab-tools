@@ -26,7 +26,7 @@ my $result = GetOptions (
     "min=i"         => \(my $min = 136),
     "max=i"         => \(my $max = 160),
 );
-pod2usage(-verbose => 2, -noperldoc => 1) if (!$result || ! $tmpdir || ! $ref);
+pod2usage(-verbose => 2, -noperldoc => 1) if (!$result || ! $tmpdir || ! $ref || !@ARGV);
 
 #######################################################################
 
@@ -176,3 +176,21 @@ sub process{
         return (0);
     }
 }
+
+
+=head1 NAME
+
+numad.pl - given a (paired-end) bowtie alignment and a reference genome, at
+each base, calculate median-absolute deviation of the midpoints reads which
+overlap that base. (NUclosome Mean Absolute Deviation).
+
+=head1 SYNOPSIS
+
+Usage examples:
+
+ numad.pl -d temporary_directory -r genome.fasta --min 130 --max 160 paired-end-alignment.bowtie
+
+Only reads between --min and --max base pairs will be kept.
+
+=cut
+
