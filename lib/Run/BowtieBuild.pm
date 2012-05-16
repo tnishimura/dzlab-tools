@@ -50,13 +50,13 @@ sub bowtie_build{
         });
 
     if ($opt{bs} && $opt{rc}){
-        my $bsrc_file = "$opt{file}.rc.$opt{bs}";
+        my $bsrc_file = "$opt{file}.$opt{bs}";
         if (! -f $bsrc_file){
             bsrc_fasta_on_disk($opt{bs}, $opt{file}, $bsrc_file);
         }
         $opt{file} = $bsrc_file;
     }
-    elsif ($opt{bs} && ! $opt{rc}){
+    elsif ($opt{bs} && ! $opt{rc}){ # naming conflict if you want to do both....
         my $bs_file = "$opt{file}.$opt{bs}";
         if (! -f $bs_file){
             bs_fasta_on_disk($opt{bs}, $opt{file}, $bs_file);
