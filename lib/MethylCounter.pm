@@ -156,6 +156,8 @@ sub output_single_c { # and also count stats
     croak '$mc->output_single(CG => cgfile, CHG => chgfile, CHH => chhfile)' 
     unless 3 == grep { exists $output_files{$_} } @contexts;
 
+    say STDERR "" if ($self->{verbose});
+
     my @seqs = sort keys %$bigarrays;
 
     my %filehandles;

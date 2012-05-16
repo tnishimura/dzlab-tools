@@ -280,17 +280,21 @@ else {
 # discountMethylation.pl
 
 if ($opt_new_cm){
+    $logger->info("starting --new-cm");
     while (my ($seq,$base_gff_part) = each %base_gff_split) {
         $pm->start and next;
         my $single_c_prefix = catfile($single_c_dir, $opt_base_name) . ".$seq";
         my %single = map { $_ => "$single_c_prefix.single-c.$_.gff" } @contexts;
         my $freqfile = "$single_c_prefix.single-c.freq";
 
+        $logger->info("started --new-cm on $seq (creating $single_c_prefix.* and $freqfile)");
+
         if (4 != grep { -f && -s } $freqfile, values %single){
             my $mc = MethylCounter->new(
                 dinucleotide => $opt_di_nuc_freqs,
                 genome       => $opt_reference,
                 correlation  => $base_gff_part,
+                verbose      => $opt_verbose,
             );
 
             $mc->process();
@@ -562,6 +566,10 @@ Downsample reads by given fraction.
 =for Euclid
     fraction.type:        number, fraction >= 0 && fraction <= 1
     fraction.type.error:  <fraction> must be between 0 and 1.
+
+=item --verbose
+
+Be verbose (only for --new-cm right now)
 
 =item -h | --help
 
