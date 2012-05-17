@@ -47,7 +47,11 @@ sub _set_length { $_[0]->length()->{uc $_[1]} = $_[2]; }
 sub get_length { $_[0]->length()->{uc $_[1]}; }
 sub sequence_lengths { 
     my $self = shift;
-    return map { $_ => $self->get_length($_); } $self->sequence_list;
+    my $mutator = shift;
+    return map { 
+        my $key = defined $mutator ? $mutator->($_) : $_;
+        $key => $self->get_length($key); 
+    } $self->sequence_list;
 }
 
 sub info{

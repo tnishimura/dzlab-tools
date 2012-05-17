@@ -25,10 +25,17 @@ SKIP: {
         my $aref = [ (0) x $N ];
         for (1 .. 20 * $N) {
             my $index = int(rand($N));
+            my $value = int(rand(100));
+
+            $ba->push_pair($index, $value);
             $ba->push_increment($index);
+
             $aref->[$index] += 1;
+            $aref->[$index] += $value;
         }
-        $ba->commit_increment();
+        #$ba->commit_increment();
+        #$ba->commit_pair();
+        $ba->commit();
         push @success, sum_square($ba->get_pdl(), pdl($aref)) == 0;
     }
     all_ok(\@success, "randomized assignments");
@@ -65,3 +72,16 @@ sub all_ok{
     all_ok(\@residence_ok, "committing appropriately");
 }
 
+#######################################################################
+# create_collection
+
+my %specs = (
+    chr1 => 100,
+    chr2 => 200,
+    chr3 => 123,
+);
+
+my $collection = BigArray::create_collection({}, \%specs);
+while (my ($k,$v) = each %specs) {
+    is($collection->{$k}{size}, $specs{$k}, "create_collection size test");
+}
