@@ -5,7 +5,6 @@ use Data::Dumper;
 use feature 'say';
 use autodie;
 use DBI;
-use Getopt::Euclid qw( :vars<opt_> );
 use Pod::Usage;
 use FindBin;
 use lib "$FindBin::Bin/lib";
@@ -15,6 +14,7 @@ use File::Temp qw/mktemp/;
 use Scalar::Util qw/looks_like_number/;
 use FastaReader;
 use Counter;
+use Getopt::Euclid qw( :vars<opt_> );
 
 pod2usage(-verbose => 99,-sections => [qw/NAME SYNOPSIS OPTIONS/]) if $opt_help;
 
@@ -51,7 +51,7 @@ if ($opt_output eq '-' && @opt_files == 1){
     open STDOUT, '>', $defout or die "can't open $opt_output for writing";
 } 
 elsif ($opt_output eq '-' && @opt_files > 1){
-    die "Sorry, when there are more than 1 input file, you need to specify a name with -o";
+    die "Sorry, when there are more than 1 input file, you need to specify a name with -o. (files: @opt_files)";
 }
 else {
     open my $fh, '>', $opt_output or die "can't open $opt_output for writing";
@@ -117,6 +117,7 @@ for my $file (@opt_files) {
     while (defined(my $gff = $p->next())){
         if (my $count = $counter->increment()){
             $dbh->commit;
+            say $count if ($opt_verbose);
         }
 
         if (defined $feature && defined $gff->feature && $feature ne $gff->feature){

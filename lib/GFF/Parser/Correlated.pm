@@ -29,6 +29,11 @@ has 'no_match_counter' => (
     },
 );
 
+has debug => (
+    is => 'ro',
+    default => 0,
+);
+
 # die on # unrecoverable error
 # return (0, $errmsg) on continuable error
 #        (1, [$seq, $start, $end, $filetered, $reverse, $read_seq, $target_seq]) on 
@@ -64,7 +69,7 @@ around 'next' => sub{
         croak "read seq is not the right length" if (length($read_seq) != ($end-$start+1));
         croak "target seq is not length(read)+4" if (length $target_seq != 4 + length $read_seq);
 
-        if (! only_c2t_changes($read_seq, $target_seq)){
+        if ($self->debug and ! only_c2t_changes($read_seq, $target_seq)){
             $self->inc_correlation_error_counter();
             next LOOP;
         }

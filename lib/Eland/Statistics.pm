@@ -10,7 +10,7 @@ use Eland::Parser;
 
 require Exporter;
 our @ISA = qw(Exporter);
-our @EXPORT_OK = qw();
+our @EXPORT_OK = qw(eland_single_stat);
 our @EXPORT = qw();
 
 sub eland_single_stat{
@@ -20,9 +20,10 @@ sub eland_single_stat{
     my $nm_count = 0;
 
     my $p = Eland::Parser->new(file => $file_or_fh);
+    my $counter = 0;
     while (defined(my $eland = $p->next())){
-        # body...
         my (undef, undef, @matches) = @$eland;
+        say STDERR $counter if ++$counter % 50000 == 0;
 
         ++$total_count;
         ++$nm_count if ! @matches;
@@ -30,6 +31,7 @@ sub eland_single_stat{
             my ($seq, $mismatch) = @$m;
             # there's got to be a better way of handling cases...
             ++$results{lc $seq}{$mismatch};
+            ++$results{lc $seq}{'total'};
         }
     }
     return ($total_count, $nm_count, \%results);

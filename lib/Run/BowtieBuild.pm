@@ -17,7 +17,7 @@ our @ISA = qw(Exporter);
 our @EXPORT_OK = qw();
 our @EXPORT = qw(bowtie_build);
 
-=head2 bowtie_build(file => 'reference.fas', noref => BOOL, bs => ['c2t' | 'g2a'], rc => BOOL)
+=head2 bowtie_build(file => 'reference.fas', noref => BOOL, bs => ['c2t' | 'g2a'], rc => BOOL, force => BOOL)
 
 Returns (converted_file, index_prefix);
 
@@ -42,17 +42,21 @@ sub bowtie_build{
                 },
                 optional => 1,
             },
-            rc => 0,
+            rc => {
+                default => 1, 
+                optional => 1
+            },
+            force => 0,
         });
 
     if ($opt{bs} && $opt{rc}){
-        my $bsrc_file = "$opt{file}.rc.$opt{bs}";
+        my $bsrc_file = "$opt{file}.$opt{bs}";
         if (! -f $bsrc_file){
             bsrc_fasta_on_disk($opt{bs}, $opt{file}, $bsrc_file);
         }
         $opt{file} = $bsrc_file;
     }
-    elsif ($opt{bs} && ! $opt{rc}){
+    elsif ($opt{bs} && ! $opt{rc}){ # naming conflict if you want to do both....
         my $bs_file = "$opt{file}.$opt{bs}";
         if (! -f $bs_file){
             bs_fasta_on_disk($opt{bs}, $opt{file}, $bs_file);
@@ -65,7 +69,7 @@ sub bowtie_build{
     my @expected_files = map { "$opt{index}.$_" } (qw/1.ebwt 2.ebwt rev.1.ebwt rev.2.ebwt/, $opt{noref} ? () : (qw/3.ebwt 4.ebwt/));
 
     my $norefarg = $opt{noref} ? '--noref' : '';
-    if (notall { -f && -s } @expected_files){
+    if ($opt{force} or notall { -f && -s } @expected_files){
         cast "bowtie-build $norefarg $opt{file} $opt{index}";
     }
     return ($opt{file}, $opt{index}, @expected_files);

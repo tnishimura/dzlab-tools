@@ -1,79 +1,128 @@
 #!/usr/bin/env perl
 use strict;
 use warnings;
-use Data::Dumper;
 use 5.010_000;
+use Data::Dumper;
 use autodie;
-use Getopt::Euclid qw( :vars<opt_> );
-use Pod::Usage;
+use Test::More qw(no_plan);
+use Test::Exception;
+use File::Spec::Functions qw/catfile/;
 
-use FindBin;
-use lib "$FindBin::Bin/lib";
-
+use FastaReader::MethylSimulator;
 use MethylCounter;
+use FastaReader;
+use TestUtils;
 
-pod2usage(-verbose => 99,-sections => [qw/NAME SYNOPSIS OPTIONS/]) 
-if !$opt_file || !$opt_output_prefix || !$opt_reference;
+my $tmpdir = setup_intermediate_dir();
+my $reference = setup_reference($tmpdir, 0);
+my $correlation = catfile($tmpdir, "correlation");
+my $cgfile = catfile($tmpdir, "cg");
+my $chgfile = catfile($tmpdir, "chg");
+my $chhfile = catfile($tmpdir, "chh");
+my $freq = catfile($tmpdir, "freq");
+my $expected_file = catfile($tmpdir, "expected");
+
+my $mc = MethylCounter->new(genome => $reference, output_prefix => catfile($tmpdir, "meow"));
 
 #######################################################################
+# Create simulated correlation gff
+
+my $simulator = FastaReader::MethylSimulator->new(
+    file     => $reference,
+    slurp    => 1,
+    methrate => .2,
+    norc     => 0,
+    readlen  => 100,
+);
+
+{
+    open my $fh, '>', $correlation;
+    for (1 .. 10000) {
+        my ($seq, $start, $stop, $rc, undef, $bsread) = @{$simulator->get_read()};
+
+        # correlation gff target needs to be padded with 2 bases 
+        my $read = $simulator->get($seq, $start-2, $stop+2, rc => $rc);
+
+        # correlation gff coordinate rc are wrt 3' end.
+        if ($rc){
+            ($stop, $start) = 
+            (
+                $simulator->forward2reverse($seq, $start),
+                $simulator->forward2reverse($seq, $stop),
+            );
+        }
+
+        say $fh join("\t", 
+            $seq, 
+            "U/NM", 
+            "meow:bark:moo#0/1:$bsread", 
+            $start, 
+            $stop, 
+            1, 
+            ($rc ? '-' : '+'), 
+            0, 
+            "target=$read"
+        );
+    }
+    close $fh;
+}
+
+$simulator->dump($expected_file);
+
+#######################################################################
+# count it
 
 my $methylcounter = MethylCounter->new(
-    dinucleotide => $opt_dinucleotide,
-    genome       => $opt_reference,
-    correlation  => $opt_file,
-    verbose      => $verbose,
+    dinucleotide => 0, 
+    genome       => $reference,
+    correlation  => $correlation,
+    verbose      => 1,
 );
 
 $methylcounter->process();
 
 $methylcounter->output_single_c(
-    CG  => "$opt_output_prefix.CG.gff",
-    CHG => "$opt_output_prefix.CHG.gff",
-    CHH => "$opt_output_prefix.CHH.gff",
+    CG  => $cgfile, 
+    CHG => $chgfile, 
+    CHH => $chhfile,
 );
-$methylcounter->print_freq("$opt_output_prefix.freq");
+
+$methylcounter->print_freq($freq);
 
 #######################################################################
+# compare
+
+my %expected = %{$simulator->bsrecord()};
+my %got;
+
+for my $file ($cgfile, $chgfile, $chhfile) {
+    my $parser = GFF::Parser->new(file => $file);
+    while (defined(my $gff = $parser->next())){
+        my $seq = $simulator->get_original_name($gff->sequence);
+        my $c = $gff->get_column('c');
+        next unless $c > 0;
+        if ($gff->strand() eq '+'){
+            $got{$seq}{$gff->start()} += $c;
+        }
+        else{
+            $got{$seq}{$gff->start()} -= $c;
+        }
+    }
+}
+
+is_deeply(
+    [sort keys %got], 
+    [sort keys %expected], 
+    "expected and got same seqs",
+);
+
+is_deeply(
+    \%got, 
+    \%expected, 
+    "expected and got same methylations",
+);
 
 __END__
-
-=head1 NAME
-
-discountMethylation.pl - ...
-
-=head1 SYNOPSIS
-
-Usage examples:
-
- discountMethylation.pl [options]...
-
-=head1 OPTIONS
-
-=over
-
-=item  -o <prefix> | --output-prefix <prefix>
-
-=for Euclid
-    prefix.default:     '-'
-
-=item  <file> 
-
-=for Euclid
-    file.type:        readable
-
-=item  -r <fasta> | --reference <fasta>
-
-=for Euclid
-    fasta.type:        readable
-
-=item  -d | --dinucleotide 
-
-=item --verbose | -v
-
-=back
-
-=cut
-__DATA__
 chr3	U/NM	SOLEXA2_0531_FC62W31AAXX:4:1:1804:1117#0/1:TTTTATGATGTGGTAATTTATTATTGGATGGGAAGTTTGAT	1567476	1567516	1	+	0	target=TGTCCCATGACGTGGCAACCTATTACTGGATGGGAAGTTCGACCG
 chr1	U/NM	SOLEXA2_0531_FC62W31AAXX:4:1:1996:1117#0/1:TGGATTGTAAGAAATAGAGAAGAAGTTAATTAGTGATTGAA	17479814	17479854	1	-	0	target=TGTGGACTGCAAGAAATAGAGAAGAAGCTAATTAGTGACTGAATA
 chr5	U/NM	SOLEXA2_0531_FC62W31AAXX:4:1:2211:1114#0/1:AGTTTATTATTGAGAGAGGTTTGTGGAAATATGAGAGAATG	95815	95855	1	-	0	target=TTAGTTTATTACTGAGAGAGGCTTGTGGAAACACGAGAGAATGCG
