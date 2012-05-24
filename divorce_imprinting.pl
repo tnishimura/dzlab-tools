@@ -7,6 +7,7 @@ use Carp;
 use List::Util qw/sum/;
 use File::Spec::Functions;
 use File::Basename;
+use File::Path qw/make_path/;
 use Getopt::Euclid qw( :vars<opt_> );
 use Pod::Usage;
 use FindBin;
@@ -128,11 +129,11 @@ if ($opt_split_strand){
 #######################################################################
 # bowtie-windowing
 
-if ($opt_window_by_fixed){
+if ($opt_window_by_fixed && ! $opt_skip_whole_wf){
     for my $b (@bowties){
         my $w50 = $b;
         $w50 =~ s/bowtie/w$opt_window_by_fixed\.gff/;
-        launch(qq{perl -S bowtie_window.pl -w $opt_window_by_fixed -r $opt_reference_a -b $b}, expected => $w50);
+        launch(qq{perl -S window_alignment.pl -r $opt_reference_a -f bowtie -w $opt_window_by_fixed -k -b 1 -v $b -o $w50});
     }
 }
 
@@ -158,16 +159,19 @@ $pm->wait_all_children;
 #######################################################################
 # Sort
 
+my $tmpdir = catfile($opt_output_directory, "_sort_tmp");
+make_path($tmpdir);
+
 $logger->info("sort the eland files");
 my $eland_sorted_a = "$basename_a.2.elsorted";
 my $eland_sorted_b = "$basename_b.2.elsorted";
 
 if ($pm->start == 0){
-    launch("sort -k 1,1 -k 4,4 -S 100M $eland_a -o $eland_sorted_a",expected => $eland_sorted_a, force => $opt_force);
+    launch("sort -k 1,1 -k 4,4 -S 100M -T $tmpdir $eland_a -o $eland_sorted_a",expected => $eland_sorted_a, force => $opt_force);
     $pm->finish();
 }
 if ($pm->start == 0){
-    launch("sort -k 1,1 -k 4,4 -S 100M $eland_b -o $eland_sorted_b",expected => $eland_sorted_b, force => $opt_force);
+    launch("sort -k 1,1 -k 4,4 -S 100M -T $tmpdir $eland_b -o $eland_sorted_b",expected => $eland_sorted_b, force => $opt_force);
     $pm->finish();
 }
 $pm->wait_all_children;
@@ -437,6 +441,10 @@ Split the 0.bowtie, 5.sorted.gff file by strand.
     size.type.error:  <size> must be greater than 1
 
 Window the 0.bowtie files and 5.sorted.gff files.
+
+=item --skip-whole-wf
+
+Don't window 0.bowties for -wf. 
 
 =item  -nw | --no-windowing
 

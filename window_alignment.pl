@@ -25,10 +25,11 @@ my $result = GetOptions (
     "format|f=s"      => \(my $format),
     "strand|s"        => \(my $do_strand),
     "verbose|v"       => \(my $verbose),
+    "output|o=s" => \(my $output = '-'),
 );
 
 pod2usage(-verbose => 2, -noperldoc => 1) 
-if (!$result || !$reference || $format !~ /^(?:gff|eland|bowtie|g|e|b)$/);
+if (!$result || !$reference || ! $format || $format !~ /^(?:gff|eland|bowtie|g|e|b)$/);
 
 my $fasta_reader = FastaReader->new(file => $reference, slurp => 0);
 
@@ -97,6 +98,11 @@ elsif ($format eq 'b' || $format eq 'bowtie'){
 
 my @strands = $do_strand ? qw/+ -/ : qw/./;
 
+if ($output ne '-'){
+    open my $output_fh, '>', $output;
+    select $output_fh;
+}
+
 for my $seq (sort $fasta_reader->sequence_list()) {
     my $start = 1;
     my $max = $fasta_reader->get_length($seq);
@@ -129,6 +135,9 @@ for my $seq (sort $fasta_reader->sequence_list()) {
     }
 }
 
+if ($output ne '-'){
+    close \*STDOUT;
+}
 
 =head1 NAME
 
