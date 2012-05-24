@@ -21,7 +21,7 @@ my $methylcounter = MethylCounter->new(
     dinucleotide => $opt_dinucleotide,
     genome       => $opt_reference,
     correlation  => $opt_file,
-    verbose      => $verbose,
+    verbose      => $opt_verbose,
 );
 
 $methylcounter->process();
