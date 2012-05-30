@@ -94,11 +94,6 @@ else {
 =for Euclid
     fasta.type:        readable
 
-=item  -i <regex> | --regex <regex>
-
-=for Euclid
-    regex.default:     '([^\s]+)'
-
 =item  -o <file> | --output <file>
 
 =item  -n | --dry 
