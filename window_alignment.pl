@@ -135,10 +135,6 @@ for my $seq (sort $fasta_reader->sequence_list()) {
     }
 }
 
-if ($output ne '-'){
-    close \*STDOUT;
-}
-
 =head1 NAME
 
  alignment_window.pl - given an alignment file, return a gff file of windows
