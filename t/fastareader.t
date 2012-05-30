@@ -11,7 +11,7 @@ use feature 'say';
 sub rc{
     my $seq = shift;
     $seq =~ tr/acgtACGT/tgcaTGCA/;
-    return reverse $seq;
+    return scalar(reverse $seq);
 }
 
 for my $slurp (0, 1) {
@@ -45,6 +45,10 @@ for my $slurp (0, 1) {
         is(length($f->get($seq,undef, undef)), $len, "whole seq length for $seq");
         if ($slurp){
             is($f->get($seq, 1, $lengths{$seq}, coord => 'f' , base => 1) , $f->get($seq) , "get($seq) whole implied vs get($seq) whole explicit");
+        }
+        # check rc working for whole sequence gets
+        for my $base (0, 1) {
+            is($f->get($seq, undef, undef, rc => 1, base => $base), rc($f->get($seq, undef, undef, rc => 0, base => $base)), "whole rc $seq base = $base");
         }
     }
     is(substr($f->get('chr1', undef, undef, coord => 'f', base => 1,rc => 1),0, 10), rc('TTTTAGATGT'), "get whole implicit rc");
@@ -150,7 +154,31 @@ for my $slurp (0, 1) {
     is($f->get('CHR5' , 1  , 20 , rc => 0, base => 1, bs => 'g2a') , 'TATACCATATACCCTCAACC' , "g2a forward (slurp=$slurp)");
     is($f->get('CHR5' , 1  , 20 , rc => 1, base => 1, bs => 'c2t') , 'GGTTGAGGGTATATGGTATA' , "c2t reverse (slurp=$slurp)");
     is($f->get('CHR5' , 1  , 20 , rc => 1, base => 1, bs => 'g2a') , 'AATTAAAAATACATAATATA' , "g2a reverse (slurp=$slurp)");
+
+    #######################################################################
+    # find
+    
+    is_deeply([$f->find(   'GGATCCGTTCGAAACAGGTT' )], [['chrm', 1, 20, 0]], "find forward");
+    is_deeply([$f->find(   'AACCTGTTTCGAACGGATCC' )], [['chrm', 1, 20, 1]], "find reverse");
+    is_deeply([$f->find(rc('GGATCCGTTCGAAACAGGTT'))], [['chrm', 1, 20, 1]], "find reverse rc");
+    is_deeply(
+        [$f->find('GAATCCCTAAATACCTAATTCCCTAAACCCGAAACCGGTTTCTCTGGTTGAAAATCATTGTGTATATAATGATAATTTT')],
+        [['chr1', 80, 158, 0]],
+        "find forward",
+    );
+    is_deeply(
+        [$f->find(rc 'GAATCCCTAAATACCTAATTCCCTAAACCCGAAACCGGTTTCTCTGGTTGAAAATCATTGTGTATATAATGATAATTTT')],
+        [['chr1', 80, 158, 1]],
+        "find reverse",
+    );
+    is_deeply(
+        [$f->find('GGATCCGTTCGAAACAGGTT', 'AACCTGTTTCGAACGGATCC' )], 
+        [['chrm', 1, 20, 0], ['chrm', 1, 20, 1]], "find multi"
+    );
+
 }
+
+
 
 
 __DATA__

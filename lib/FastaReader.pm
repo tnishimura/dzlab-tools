@@ -501,6 +501,31 @@ sub get{
 #######################################################################
 # Utilities
 
+sub find{
+    my ($self, @fragments) = @_;
+    # say Dumper \@fragments;
+    my $base = 1;
+    my @fragments_qr = map { qr/\Q$_\E/ } @fragments;
+    my @results;
+    for my $seqid ($self->sequence_list()) {
+        for my $rc (0, 1) {
+            my $seq = $self->get($seqid, undef, undef, rc => $rc);
+            for my $qr (@fragments_qr) {
+                while ($seq =~ /$qr/g){
+                    my $start = $-[0] + $base;
+                    my $end   = $+[0] + $base - 1;
+                    if ($rc){
+                        ($end, $start) = ($self->reverse2forward($seqid, $start), $self->reverse2forward($seqid, $end));
+                    }
+                    push @results, [$seqid, $start, $end, $rc];
+                }
+            }
+        }
+    }
+    return @results;
+    # say join "\t", $seqid, qw/. ./, $start, $end, q/./, ($rc ? '-' : '+'), qw/. ./;
+}
+
 # given a sequence and 5' coordinate, return the 3' coordinate 
 sub reverse2forward{
     my ($self, $seqid, $coord, $base) = @_;

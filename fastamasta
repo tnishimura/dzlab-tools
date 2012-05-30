@@ -11,6 +11,7 @@ use lib "$FindBin::Bin/lib";
 use FastaReader;
 use FastaUtil;
 use FastaReader::BaseComposition;
+use DZUtil qw/reverse_complement/;
 
 END {close STDOUT}
 $| = 1;
@@ -67,6 +68,22 @@ Convert:
   $0 bs -g2a input.fasta output.fasta
   $0 bsrc -c2t input.fasta output.fasta
   $0 bsrc -g2a input.fasta output.fasta
+
+Search (for exact match):
+  # look for ACTGTTACCATG in input.fasta
+  $0 find -s ACTGTTACCATG input.fasta  
+
+  # look for seqs in search.fasta in input.fasta
+  $0 find -f search.fasta input.fasta  
+
+  # can be combined:
+  $0 find -s ACGT -f file_containing_seq.fasta input.fasta 
+
+  # set all features (column 3) to "MEOW" in output:
+  $0 find -s ACGT --feature MEOW input.fasta     
+
+  # set all attributes (column 3) to "ID=AT123" in output:
+  $0 find -s ACGT --attribute "ID=AT123" input.fasta
 
 END
 
@@ -208,6 +225,41 @@ given ($cmd){
         else{
             say STDERR "not equal: $msg";
             exit 1;
+        }
+    }
+    when ('find'){
+        my $result = GetOptions (
+            "fasta|f=s"    => \(my $file),
+            "sequence|s=s" => \(my $sequence),
+            "rc"           => \(my $rc),
+            "feature|3=s"    => \(my $feature),
+            "attribute|9=s"  => \(my $attribute),
+        );
+        my $input = shift @ARGV;
+        usage() if (!$result || ! $input || ! -f $input);  
+
+        $feature //= '.';
+        $attribute //= '.';
+
+        my @search;
+        if (defined $file and -f $file){
+            my $fr = FastaReader->new(file => $file, slurp => 0);
+            for my $seq ($fr->sequence_list()) {
+                push @search, $fr->get($seq, undef, undef);
+                if ($rc){
+                    push @search, $fr->get($seq, undef, undef, rc => 1);
+                }
+            }
+        }
+        if (defined $sequence){
+            push @search, $sequence;
+        }
+
+        my $input_fr = FastaReader->new(file => $input, slurp => 1);
+
+        for my $match ($input_fr->find(@search)) {
+            my ($seqid, $start, $end, $rc) = @$match;
+            say join "\t", $seqid, qw/./, $feature, $start, $end, q/./, ($rc ? '-' : '+'), qw/./, $attribute;
         }
     }
     default{
