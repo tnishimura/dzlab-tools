@@ -555,7 +555,8 @@ subprocesses).  Will use up to 3.
 
 =item --new-cm
 
-Use the new discountMethylation.pl instead of theolder countMethylation.pl. (EXPERIMENTAL)
+Use the new countMethylation instead of the older countMethylation.pl. (No
+longer experimental-- this is tested and ready to use).
 
 =item  --dry 
 
