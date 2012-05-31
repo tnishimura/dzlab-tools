@@ -159,6 +159,7 @@ $pm->run_on_finish(sub{
         } 
     });
 
+# each process returns [split_read_file, { readid => pos_in_readid, ... }]
 for my $split_read (@split_read_files){
     my $bowtie_output = catfile($outdir, basename($bait_file) . "-vs-" . basename($split_read) . ".mm${flank_mismatch}.bowtie");
 
@@ -198,9 +199,12 @@ if (! -f $prefix_file){
 
     open my $prefix_out, '>', $prefix_file;
     while (my ($split_reads_file,$id_to_startpos) = each %aligned_reads) {
+        next if (keys %$id_to_startpos == 0);
+
+        # get original reads, since bowtie only keeps matching portion.
         my $fqr = FastqReader->new(file => $split_reads_file, linesper => 2);
         my $id2seq = $fqr->get_reads(keys %$id_to_startpos);
-        next if (keys %$id_to_startpos == 0);
+
 
         while (my ($id,$seq) = each %$id2seq) {
             my $whole_prefix_size = $id_to_startpos->{$id}; # position reported in bait file bowtie is size of prefix
@@ -241,20 +245,122 @@ cast("bowtie --norc -f -B 1 -v $prefix_mismatch $reference_bsrc $prefix_file > $
 
 =head1 OPTIONS
 
- --outdir <dir>              | -o <dir>          : Output directory.
- --reference <fasta>         | -r <fasta>        : Reference file
- --flank-range <start> <end> | -fr <start> <end> : This range of flank becomes range
- --flank-mismatch <n>        | -fm <n>           : align bait to reads with this many mm
- --prefix-trim5 <n>          | -p5 <n>           : trim this much from prefix 5'
- --prefix-trim3 <n>          | -p3 <n>           : trim this much from prefix 3'
- --prefix-min-size <n>       | -pmin <n>         : if trimmed is smaller, discard
- --prefix-max-size <n>       | -pmax <n>         : if trimmed is bigger, trim 3' further
- --prefix-mismatch <n>       | -tm <n>           : align prefixes to tdna/ref with this many mm
- --parallel <n>              | -p <n>
+=over
 
-=head2 INTERNALS
+=item --outdir <dir> | -o <dir>          
+ 
+Output directory. Required.
 
+=item --reference <fasta>         | -r <fasta>        
+ 
+Reference genome fasta file. Required.
 
-=head3
+=item --flank-range <start> <end> | -fr <start> <end> 
+
+This range of flank becomes the bait (see below). Default 1, 30.
+
+=item --flank-mismatch <n>        | -fm <n> 
+
+Number of mismatches to use when bowtie-ing baits against reads. (default 3)
+
+=item --prefix-trim5 <n>          | -p5 <n>
+
+Number of bases to trim from 5' of the prefix of bait alignment in reads. Default 0.
+
+=item --prefix-trim3 <n>          | -p3 <n> 
+
+Number of bases to trim from 3' of the prefix of bait alignment in reads. Default 5.
+
+=item --prefix-min-size <n>       | -pmin <n>      
+
+If prefix, after trimming (as specified by options above) are smaller than this, discard.  Default 20.
+
+=item --prefix-max-size <n>       | -pmax <n>       
+
+If prefix, after trimming (as specified by options above) are larger than this, trim 3' further.  Default 30.
+
+=item --prefix-mismatch <n>       | -tm <n>           
+
+Number of mismatches to use when bowtie-ing prefixes against genome/tdna. (default 3)
+
+=item --parallel <n>              | -p <n>
+
+Run with this many threads.
+
+=back
+
+=head2 What it does
+
+This script requires 4 files to run: the reference.fasta genome of the organism, tdna.fasta
+containing the sequence of the tdna insertion, flanks.fasta containing the downstream, and reads.fasta 
+containing the bisulfite-seq short reads. Schematically:
+
+                        |----> tdna
+                         \  /
+                          \/
+ |---------------------------------------------------------| genome
+                           |---------> flank
+                    |------------| reads that we want to find
+
+=head2 How it works
+
+=over
+
+=item 1. Create baits from flank
+
+First, we create baits from the flanks.  Baits are simply smaller subsections
+of the flanking sequences.  One bait is created from each flank by taking the
+subsection specified by --flank-range (default 1 to 30, meaning the baits will
+be the first 30 bp of the flanks).  If the flank is not long enough, as much as
+possible will be used. (If you're doing --flank-range 5 30 and the flank is
+only 25bp, 5-25 of the flank will be the bait).
+
+         bait == --flank-range
+       <----------------------->
+ 5' |---------------------------------------------------> flank
+
+=item 2. Build bowtie indices of the reads.
+
+We are going to need to align the baits against the reads, and for that we need
+to create bowtie indices (*.ebwt files) with bowtie-build.  
+
+This is the opposite of the usual usage of bowtie. 
+
+Note that the script splits reads into smaller (900 MB) chunks b/c bowtie
+doesn't handle anything larger than 4gb. 
+
+=item 3. Align baits against reads
+
+Baits are aligned against reads with --flank-mismatch mismatches (default 3)
+and --norc (so that only forward strand of reads are considered).  The reads found are
+the ones which potentially mapped to junction of tdna insertion.
+
+=item 4. Grab prefix of baited reads.
+
+For each read baited, grab the prefix (the bases BEFORE where the bait aligns).
+Mrim -p5 and -p3 from prefix (default 0 and 5).  If the prefix smaller than
+-pmin (default 20), discard. If bigger than -pmax, further trim the 3' end. 
+
+Schematically: 
+
+  -p5             -p3
+  <-->            <--> 
+ |--------------------|------------------|---------------| Baited Read
+      |-----------|           BAIT
+          Prefix              
+
+=item 5. Align prefixes against the tdna, references
+
+The tdna and reference genome fasta file are both c2t converted.  Then, prefixes
+are aligned against each with --prefix-mismatch mismatches (default 3). 
+
+=item 6. You open the bowtie files from step 5, and count them.
+
+Many hits in the -vs-tdna bowtie is evidence that the tdna was inserted.  Many
+hits in -vs-reference in addition to -vs-tdna is evidence of heterozygous
+insertion.
+
+=back
+
 
 =cut
