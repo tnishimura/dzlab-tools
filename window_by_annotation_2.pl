@@ -139,6 +139,7 @@ for my $id (sort keys %methylation) {
         default { die "unknown --report-in-score value $_" }
     }
 
+    $strand //= '.';
     say join "\t", $seq, 'win', $opt_feature, $start, $end, fmt($report_score), $strand, $lines, $attr_string;
 }
 
