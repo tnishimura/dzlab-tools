@@ -170,12 +170,6 @@ gff_explode.pl -w 50 -a input.gff
 Note that score distribution, if enabled, always distributes according to the
 real start and end of the input gff, not the aligned start/end.
 
-=back
-
-=head1 OPTIONS
-
-=over
-
 =item --help | -h
 
 =back
