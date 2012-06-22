@@ -8,8 +8,13 @@ use autodie;
 use FindBin;
 use lib "$FindBin::Bin/lib";
 use DZUtil qw/fastq_read_length/;
+use Getopt::Long;
 
-if (@ARGV == 0){
+my $result = GetOptions (
+    "no-filename|n" => \(my $no_filename),
+);
+
+if (!$result || @ARGV == 0){
     say "usage: $0 alignment.fastq .. ";
     exit 1;
 }
@@ -21,6 +26,11 @@ for my $file (@ARGV) {
     if (! defined $length){
         say "$0: fastq file $file malformed?";
     }
-    say "$file: $length";
+    if ($no_filename){
+        say "$length";
+    }
+    else{
+        say "$file: $length";
+    }
 }
 

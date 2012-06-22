@@ -7,6 +7,25 @@ use autodie;
 use List::MoreUtils qw/all/;
 use Term::ProgressBar;
 
+use Pod::Usage;
+use Getopt::Long;
+
+my $result = GetOptions (
+    "fix|f=s" => \(my $fix),
+    "max-error|e=i" => \(my $max_error = 1),
+);
+if (!$result){
+    say "$0 [-f fixed.fastq] [-e 1] input.fastq";
+    exit 1;
+}
+
+my $fix_fh;
+if ($fix){
+    open $fix_fh, '>', $fix;
+}
+my $nuc = qr/[ABCDGHKMNRSTVWY]+/i;
+my $error_count = 0;
+
 for my $file (@ARGV) {
 
     my $size = (stat($file))[7];
@@ -19,6 +38,7 @@ for my $file (@ARGV) {
 
     open my $in, '<', $file;
 
+    LOOP:
     while (! eof $in){
         my @lines = map { scalar <$in> } (1 .. 4);
         my @lens = map { length $_ } @lines;
@@ -37,8 +57,23 @@ for my $file (@ARGV) {
                 # third line could be just a lone '+', in newer fastq files
                 || ($lens[0] != $lens[2] && $lines[2] !~ /^\+$/)
                 || $lens[1] != $lens[3] 
-                ){
-                die "malformed FASTQ quad @ $.\n" . join "", @lines;
+                || $lines[1] !~ m/^$nuc$/
+            ){
+                if ($fix){
+                    if ($error_count < $max_error){
+                        $error_count++;
+                        next LOOP;
+                    }
+                    else{
+                        die "error count exceeded, last quartet was @lines";
+                    }
+                }
+                else{
+                    die "malformed FASTQ quad @ $.\n" . join "", @lines;
+                }
+            }
+            elsif ($fix){
+                print $fix_fh @lines;
             }
         }
         $pb->update(tell($in)) if ++$counter % 100_000 == 0;
@@ -47,5 +82,11 @@ for my $file (@ARGV) {
 
     close $in;
 }
-say "OK";
+if ($fix) {
+    close $fix_fh;
+    say "OK, $error_count entries skipped";
+}
+else{
+    say "OK";
+}
 exit 0;
