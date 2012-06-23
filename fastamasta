@@ -140,6 +140,25 @@ given ($cmd){
         my $fasta = shift || usage();
         FastaReader::BaseComposition::report($fasta, 3, 1);
     }
+    when ([qw/reverse-coord reverse-coordinate/]){
+        my @range;
+        my $result = GetOptions (
+            "sequence|seq=s" => \(my $sequence),
+            "range|r=i{2}"   => \@range,
+            "base|b=i"       => \(my $base = 1),
+        );
+        usage() if (
+            ! $result || 
+            ! $sequence ||
+            (@range != 0 && @range != 2)
+        );  
+
+        my $fasta = shift || usage();
+        my $r = FastaReader->new(file => $fasta, slurp => 0);
+        say 
+        $r->forward2reverse($sequence, $range[1], $base), "\t", 
+        $r->forward2reverse($sequence, $range[0], $base);
+    }
     when ([qw/get/]){
         my @range;
         my $result = GetOptions (
