@@ -40,7 +40,23 @@ for my $file (@ARGV) {
 
     LOOP:
     while (! eof $in){
-        my @lines = map { scalar <$in> } (1 .. 4);
+        my $first_line = <$in>;
+        # check alignment of quartets.
+        if ($first_line !~ /\@/){
+            if ($fix){
+                if ($error_count < $max_error){
+                    $error_count++;
+                    next LOOP;
+                }
+                else{
+                    die "error count exceeded, quartet doesn't start with @ at line: $.";
+                }
+            }
+            else{
+                die "quartet doesn't start with @ at line: $.";
+            }
+        }
+        my @lines = ($first_line, map { scalar <$in> } (2 .. 4));
         my @lens = map { length $_ } @lines;
 
         # all undef
