@@ -52,6 +52,7 @@ my %scoring_dispatch = (
     weighed_average      => \&full_weighed_average,
     half_weighed_average => \&half_weighed_average,
     locus_collector      => \&locus_collector,
+    microarray           => \&microarray_average,
 );
 
 # Check required command line parameters
@@ -693,6 +694,51 @@ COORD:
     }
 }
 
+#######################################################################
+# microarray
+
+sub microarray_average{
+    my ($brs_iterator, %opt) = @_;
+    my $targets = $opt{targets};
+
+    my ( $score_avg, $score_std, $score_var, $score_count ) = ( 0, 0, 0, 0 );
+
+
+    if (@$targets != 1){
+        die "should only be one target";
+    }
+
+    my ($tstart, $tend) = @{$targets->[0]}[0,1];
+
+    my @lines;
+    COORD:
+    while ( my $gff_line = $brs_iterator->() ) {
+        next COORD unless ref $gff_line eq 'HASH';
+        push @lines, $gff_line;
+    }
+
+    if (@lines == 1) {
+        return {
+            score => $lines[0]->{score},
+            n => 1,
+        }
+    }
+    elsif (@lines > 1){
+        my $total_overlapped = sum map { 
+            overlap($_->{start}, $_->{end}, $tstart, $tend) 
+        } @lines;
+
+        my $score = (sum map {
+            overlap($_->{start}, $_->{end}, $tstart, $tend) * $_->{score} 
+        } @lines) / $total_overlapped;
+
+        return {
+            score => $score,
+            n => scalar(@lines),
+        }
+    }
+}
+
 ##########################################################
 # binary_range_search, make_gff_iterator, read_gff 
 # same as overlap_gff.pl
@@ -869,8 +915,9 @@ sliding window interval (default: 50, integer)
 
 =item -c, --scoring     
 
-score computation scheme.  can be: meth (default), average, sum weighed_average, half_weighed_average. See SCORING
-section for enlightenment.
+score computation scheme.  can be: meth (default), average, sum
+weighed_average, half_weighed_average, or microarray. See SCORING section for
+enlightenment.
 
 =item -m, --merge       
 
@@ -950,7 +997,7 @@ the windows are arranged like so:
  Window:                |--------------------|   Length: y
  Overlap:               |------|                 Length: z
 
-Then the score contribution of the query to the window is n * (z/x) * (z/y).  This was yvonne's idea so if it doesn't
+Then the score contribution of the query to the window is n * (x/z) * (y/z).  This was yvonne's idea so if it doesn't
 make sense, blame her.
 
 =item half_weighed_average:
@@ -962,7 +1009,21 @@ the windows are arranged like so:
  Window:                |--------------------|   Length: y
  Overlap:               |------|                 Length: z
 
-Then the score contribution of the query to the window is n * (z/x).
+Then the score contribution of the query to the window is n * (x/z).
+
+=item microarray:
+
+For each window, if there is a single input query window mapping to it, use its score.
+If there are multiple input query windows mapping, take its weighed average. For example,
+
+  A:score 45        B:score 123
+ |----------|      |-----------| input queries
+          |-----------|          target window (size 50)
+
+If A overlaps with the target by 11 bases, and B overlaps by 15, the output
+score will be ((11 * 45) + (15 * 123)) / (50 - 26).  
+
+Limitation: the input query windows should not be overlapping amongst themselves.
 
 =head1 REVISION
 
