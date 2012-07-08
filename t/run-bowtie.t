@@ -15,13 +15,13 @@ use File::Copy;
 use File::Temp qw/tempdir/;
 my $tempdir = tempdir(CLEANUP => 1);
 
-BEGIN{
-    use_ok 'Run::Bowtie';
-}
+use Run::Bowtie;
+use Run::BowtieBuild;
 
 my $reads = "t/data/bs-sequel-test.fastq";
 my $dir = setup_intermediate_dir();
-my $ref = setup_reference() . '.c2t';
+my $original_ref = setup_reference();
+my ($ref) = bowtie_build(file => $original_ref, bs => 'c2t', force => 1);
 my $output = catfile($dir, "run-bowtie.out");
 
 {
@@ -53,7 +53,7 @@ my $output = catfile($dir, "run-bowtie.out");
         '-1'       => $reads,
         output     => $output,
         index      => $ref,
-        #verbose    => 1,
+        verbose    => 1,
         seed       => 12345,
         maxhits    => 10,
         splice     => [5,25],
