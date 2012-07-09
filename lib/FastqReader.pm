@@ -76,7 +76,7 @@ sub fastq_to_fasta{
         croak "bs_fastq expects methyl_pattern to be c2t or g2a";
     }
 
-    my $fqr = FastqReader(new => $input_file_or_filehandle);
+    my $fqr = FastqReader->new(file => $input_file_or_filehandle);
     while (defined(my $quartet = $fqr->next())){
         say $fh ">$quartet->[0]";
         if (defined $methyl_pattern){
