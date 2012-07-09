@@ -215,11 +215,18 @@ sub output_single_c { # and also count stats
 
             my $type = $filtered ? 'filtered' : 'unfiltered';
 
-            $stats->{$seq}{$type}{C} += $c;
-            $stats->{$seq}{$type}{T} += $t;
-            $stats->{$seq}{$type}{$context} += $c; # CG, CHG, CHH
-            substr($context, 0, 1) = 'T';
-            $stats->{$seq}{$type}{$context} += $t; # TG, THG, THH
+            (my $t_context = $context) =~ s/^C/T/;
+            $stats->{$seq}{unfiltered}{C} += $c;
+            $stats->{$seq}{unfiltered}{T} += $t;
+            $stats->{$seq}{unfiltered}{$context} += $c; # CG, CHG, CHH
+            $stats->{$seq}{unfiltered}{$t_context} += $t; # TG, THG, THH
+
+            if (! $filtered){ # yes, that's right, if its not filtered it goes into... filtered. just copying countMethyl behavior
+                $stats->{$seq}{filtered}{C} += $c;
+                $stats->{$seq}{filtered}{T} += $t;
+                $stats->{$seq}{filtered}{$context} += $c; # CG, CHG, CHH
+                $stats->{$seq}{filtered}{$t_context} += $t; # TG, THG, THH
+            }
         }
     }
 
