@@ -7,7 +7,7 @@ use Moose;
 use Carp;
 use autodie;    
 use List::MoreUtils qw/ any /;
-
+use DZUtil qw/c2t g2a/;
 
 with 'ParserRole';
 
@@ -59,6 +59,31 @@ sub next{
     }
     else{
         croak "only linesper 2,4 supported";
+    }
+}
+
+sub fastq_to_bsfasta{
+    my ($pattern, $input_file_or_filehandle, $output_file_or_filehandle) = @_;
+    my $fh;
+    if (ref $output_file_or_filehandle eq 'GLOB'){
+        $fh = $output_file_or_filehandle;
+    }
+    else{
+        open my $tmpfh, '>', $output_file_or_filehandle;
+        $fh = $tmpfh;
+    }
+    if ($pattern ne 'c2t' and $pattern ne 'g2a'){
+        croak "bs_fastq expects pattern to be c2t or g2a";
+    }
+
+    my $fqr = FastqReader(new => $input_file_or_filehandle);
+    while (defined(my $quartet = $fqr->next())){
+        say $fh ">$quartet->[0]";
+        say $fh $pattern eq 'c2t' ? c2t($quartet->[1]) : g2a($quartet->[1]);
+    }
+
+    if (ref $output_file_or_filehandle ne 'GLOB'){
+        close $fh;
     }
 }
 
