@@ -62,8 +62,8 @@ sub next{
     }
 }
 
-sub fastq_to_bsfasta{
-    my ($pattern, $input_file_or_filehandle, $output_file_or_filehandle) = @_;
+sub fastq_to_fasta{
+    my ($methyl_pattern, $input_file_or_filehandle, $output_file_or_filehandle) = @_;
     my $fh;
     if (ref $output_file_or_filehandle eq 'GLOB'){
         $fh = $output_file_or_filehandle;
@@ -72,14 +72,24 @@ sub fastq_to_bsfasta{
         open my $tmpfh, '>', $output_file_or_filehandle;
         $fh = $tmpfh;
     }
-    if ($pattern ne 'c2t' and $pattern ne 'g2a'){
-        croak "bs_fastq expects pattern to be c2t or g2a";
+    if (defined($methyl_pattern) and ($methyl_pattern ne 'c2t' and $methyl_pattern ne 'g2a')){
+        croak "bs_fastq expects methyl_pattern to be c2t or g2a";
     }
 
     my $fqr = FastqReader(new => $input_file_or_filehandle);
     while (defined(my $quartet = $fqr->next())){
         say $fh ">$quartet->[0]";
-        say $fh $pattern eq 'c2t' ? c2t($quartet->[1]) : g2a($quartet->[1]);
+        if (defined $methyl_pattern){
+            if ($methyl_pattern eq 'c2t'){
+                say $fh c2t($quartet->[1]);
+            }
+            else{
+                say $fh g2a($quartet->[1]);
+            }
+        }
+        else{
+            say $fh $quartet->[1];
+        }
     }
 
     if (ref $output_file_or_filehandle ne 'GLOB'){
