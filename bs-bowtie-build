@@ -14,7 +14,8 @@ $| = 1;
 use Getopt::Euclid qw( :vars<opt_> );
 use Pod::Usage;
 
-pod2usage(-verbose => 99,-sections => [qw/NAME SYNOPSIS OPTIONS/]) if $opt_help;
+pod2usage(-verbose => 99,-sections => [qw/NAME SYNOPSIS OPTIONS/]) 
+if $opt_help || ! $opt_reference || ! -f $opt_reference || ! ($opt_c2t xor $opt_g2a);
 
 unless ($opt_c2t xor $opt_g2a){
     say STDERR "Either -c2t and -g2a are required (but not both!)";
@@ -34,7 +35,7 @@ Usage examples:
 
  bs-bowtie-build.pl [options]...
 
-=head1 REQUIRED ARGUMENTS
+=head1 OPTIONS
 
 =over
 
@@ -43,9 +44,6 @@ Usage examples:
 =for Euclid
     reference.type:        readable
 
-=back
-
-=head1 OPTIONS
 
 =over
 

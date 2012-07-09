@@ -682,6 +682,9 @@ sub count_freq {
         $unfiltered{$context}{c} += $c;
         $unfiltered{$context}{t} += $t;
 
+        # come to think about it, this makes no sense-- filtered gets increment
+        # if filter is false? and unfiltered isn't just unfiltered, it's
+        # both. Whatever. [Toshiro 2012-06-13]
         $filtered{$context}{c} += $c unless $filter;
         $filtered{$context}{t} += $t unless $filter;
     }

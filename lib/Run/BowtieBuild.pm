@@ -19,7 +19,7 @@ our @EXPORT = qw(bowtie_build);
 
 =head2 bowtie_build(file => 'reference.fas', noref => BOOL, bs => ['c2t' | 'g2a'], rc => BOOL, force => BOOL)
 
-Returns (converted_file, index_prefix);
+Returns ($converted_file_name, $index_prefix_name, @ebwt_files);
 
 =cut
 sub bowtie_build{
