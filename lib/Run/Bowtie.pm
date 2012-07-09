@@ -8,6 +8,7 @@ use Carp;
 use autodie;
 use List::MoreUtils qw/any notall/;
 use DZUtil qw/fastq_read_length/;
+use IPC::Cmd qw/can_run run/;
 
 require Exporter;
 our @ISA = qw(Exporter);
@@ -87,6 +88,9 @@ Most basic bowtie invocation. Read from file, output to file, log returned
 =cut
 sub bowtie{
     croak "bowtie: argument error, uneven" if (@_ % 2 != 0);
+    if (! can_run('bowtie')){
+        croak "bowtie not installed?";
+    }
 
     my %opt = @_;
     my @args = _construct_common_args(%opt);
@@ -115,29 +119,22 @@ sub bowtie{
     
     #######################################################################
     # run 
+    my $bowtie_cmd = join " ", 'bowtie', @args;
     
-    say STDERR join " ", 'bowtie', @args if $verbose;
-
-    my $pid = open my $bowtie_process, '-|';
-    defined $pid or croak "couldn't fork!";
-
-    my @log;
-    if ($pid){ # parent
-        while (defined(my $logline = <$bowtie_process>)){
-            chomp $logline;
-            push @log, $logline;
-        }
-        {
-            no autodie qw/close/;
-            close $bowtie_process || croak "bowtie ended prematurely?";
-        }
-    } 
-    else{
-        close STDERR;
-        open STDERR, ">&STDOUT";
-        exec 'bowtie', @args;
+    say STDERR $bowtie_cmd if $verbose;
+    my $output_buffer;
+    if (scalar run( command => $bowtie_cmd,
+                    verbose => 0,
+                    buffer  => \$output_buffer,
+                    timeout => 20 )
+    ) {
+        say $output_buffer;
+        my @split = split /\n/, $output_buffer;
+        return _parse_bowtie_log(@split), @split;
     }
-    return _parse_bowtie_log(@log), @log;
+    else{
+        croak "running bowtie with IPC::Cmd failed";
+    }
 }
 
 sub bowtie_pipe{

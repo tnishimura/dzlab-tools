@@ -75,7 +75,7 @@ my $output = catfile($dir, "run-bowtie.out");
     is_deeply(\@loglines, \@expected_lines, "log lines");
 }
 
-dies_ok(sub{
+ok(sub{
     bowtie(
         '-1'       => $reads,
         output     => $output,
@@ -83,7 +83,7 @@ dies_ok(sub{
         seed       => 12345,
         maxhits    => 10,
         splice     => [5,25],
-    )}, "death: splice without readlength");
+    )}, "splice without readlength");
 
 dies_ok(sub{
     bowtie(
