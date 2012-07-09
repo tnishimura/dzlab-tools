@@ -54,6 +54,25 @@ sub sequence_lengths {
     } $self->sequence_list;
 }
 
+sub total_length {
+    my $self = shift;
+    my $total = 0;
+    for my $len (values %{$self->length()}) {
+        $total += $len;
+    }
+    return $total;
+}
+
+sub num_methylation_sites{
+    my $self = shift;
+    my $total = 0;
+    for my $seqid ($self->sequence_list()) {
+        next if $seqid =~ /chrc|chrm/i;
+        $total += scalar($self->get($seqid) =~ tr/CGcg//);
+    }
+    return $total;
+}
+
 sub info{
     my ($self) = @_;
     my @ret;
@@ -259,6 +278,29 @@ sub get_pretty{
     return join "\n", @accum, "\n";
 }
 
+# same as above but write directly to fh. no need to create an @accum.
+sub dump_pretty{
+    my ($self, $fh, $name, $seqid, $start, $end, %opts) = @_;
+
+    my $sequence = $self->get($seqid, $start, $end, %opts);
+
+    say $fh (
+        defined $name ? ">$name" :
+        defined $start && defined $end ? (">${seqid}_${start}_${end}") :
+        defined $start ?  (">${seqid}_${start}_end") :
+        defined $end ?  (">${seqid}_start_${end}") :
+        (">${seqid}")
+    );
+
+    my $length = length $sequence;
+
+    my $pos = 0;
+    while ($pos < $length){
+        say $fh substr $sequence, $pos, 80; 
+        $pos+=80;
+    }
+}
+
 #######################################################################
 # get_context
 
@@ -367,8 +409,8 @@ sub get{
         my $whole = $self->slurp() ? $self->_get_sequence($seqid) : $self->get($seqid, 1, $totlen);
 
         $whole = reverse_complement($whole) if $rc;
-        $whole = c2t $whole if defined $bs && $bs eq 'c2t';
-        $whole = g2a $whole if defined $bs && $bs eq 'g2a';
+        $whole = c2t($whole) if defined $bs && $bs eq 'c2t';
+        $whole = g2a($whole) if defined $bs && $bs eq 'g2a';
         return $whole;
     }
     elsif (! defined $end){

@@ -90,10 +90,12 @@ sub bsrc_fasta_on_disk{
     else {
         open $outfh, '>', $out;
     }
+    # warn "reading";
 
     for my $seq ($f->sequence_list()) {
-        print $outfh $f->get_pretty($seq, $seq, undef, undef, @bsarg);
-        print $outfh $f->get_pretty("RC_$seq", $seq, undef, undef, rc => 1, @bsarg);
+        # warn "reading $seq";
+        $f->dump_pretty($outfh, $seq, $seq, undef, undef, @bsarg);
+        $f->dump_pretty($outfh, "RC_$seq", $seq, undef, undef, rc => 1, @bsarg);
     }
     if (ref $out ne 'GLOB'){
         close $outfh;
