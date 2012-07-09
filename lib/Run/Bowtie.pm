@@ -7,6 +7,7 @@ use Data::Dumper;
 use Carp;
 use autodie;
 use List::MoreUtils qw/any notall/;
+use DZUtil qw/fastq_read_length/;
 
 require Exporter;
 our @ISA = qw(Exporter);
@@ -22,7 +23,7 @@ sub _construct_common_args{
     push @args, $opt{index};
 
     # maxhits
-    if (exists $opt{maxhits}){
+    if (defined $opt{maxhits}  and $opt{maxhits} > 0){
         if (any {exists $opt{$_}} qw/suppress reportmax strata best/){
             croak "suppress, reportmax, strata, best are set automatically with maxhits";
         }
@@ -40,7 +41,8 @@ sub _construct_common_args{
             croak "trim5, trim3 are set automatically with splice";
         }
         if (! exists $opt{readlength}){
-            croak "splice needs readlength option";
+            $opt{readlength} = fastq_read_length($opt{'-1'});
+            warn "splice needs readlength option. inferring from $opt{-1}.";
         }
         my ($left, $right) = @{$opt{splice}};
         push @args, (-5 => $left - 1, -3 => $opt{readlength} - $right);
