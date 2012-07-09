@@ -123,11 +123,7 @@ sub bowtie{
     
     say STDERR $bowtie_cmd if $verbose;
     my $output_buffer;
-    if (scalar run( command => $bowtie_cmd,
-                    verbose => 0,
-                    buffer  => \$output_buffer,
-                    timeout => 20 )
-    ) {
+    if (scalar run( command => $bowtie_cmd, verbose => 0, buffer  => \$output_buffer)) {
         say $output_buffer;
         my @split = split /\n/, $output_buffer;
         return _parse_bowtie_log(@split), @split;
