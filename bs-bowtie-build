@@ -23,7 +23,7 @@ unless ($opt_c2t xor $opt_g2a){
 }
 
 my $conversion = $opt_c2t ? 'c2t' : 'g2a';
-bowtie_build(file => $opt_reference, bs => $conversion, rc => 1);
+bowtie_build(file => $opt_reference, noref => $opt_noref, bs => $conversion, rc => 1);
 
 =head1 NAME
 
@@ -51,7 +51,16 @@ Usage examples:
 
 =item  -g2a
 
+=item --noref | -r
+
+From bowtie-build manual: 
+
+  Do not build the NAME.3.ebwt and NAME.4.ebwt portions of the index, which
+  contain a bitpacked version of the reference sequences and are used for
+  paired-end alignment.
+
 =item --help | -h
+
 
 =back
 
