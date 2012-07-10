@@ -13,16 +13,16 @@ use MethylCounter;
 use FastaReader;
 use TestUtils;
 
-my $tmpdir = setup_intermediate_dir();
-my $reference = setup_reference($tmpdir, 0);
-my $correlation = catfile($tmpdir, "correlation");
-my $cgfile = catfile($tmpdir, "cg");
-my $chgfile = catfile($tmpdir, "chg");
-my $chhfile = catfile($tmpdir, "chh");
-my $freq = catfile($tmpdir, "freq");
-my $expected_file = catfile($tmpdir, "expected");
+for my $bstype (qw/c2t g2a/) {
 
-my $mc = MethylCounter->new(genome => $reference, output_prefix => catfile($tmpdir, "meow"));
+my $tmpdir        = setup_intermediate_dir();
+my $reference     = setup_reference($tmpdir, 0);
+my $correlation   = catfile($tmpdir, "correlation");
+my $cgfile        = catfile($tmpdir, "cg");
+my $chgfile       = catfile($tmpdir, "chg");
+my $chhfile       = catfile($tmpdir, "chh");
+my $freq          = catfile($tmpdir, "freq");
+my $expected_file = catfile($tmpdir, "expected");
 
 #######################################################################
 # Create simulated correlation gff
@@ -33,6 +33,7 @@ my $simulator = FastaReader::MethylSimulator->new(
     methrate => .2,
     norc     => 0,
     readlen  => 100,
+    bstype   => $bstype,
 );
 
 {
@@ -77,6 +78,7 @@ my $methylcounter = MethylCounter->new(
     genome       => $reference,
     correlation  => $correlation,
     verbose      => 1,
+    bstype       => $bstype,
 );
 
 $methylcounter->process();
@@ -113,14 +115,16 @@ for my $file ($cgfile, $chgfile, $chhfile) {
 is_deeply(
     [sort keys %got], 
     [sort keys %expected], 
-    "expected and got same seqs",
+    "expected and got same seqs ($bstype)",
 );
 
 is_deeply(
     \%got, 
     \%expected, 
-    "expected and got same methylations",
+    "expected and got same methylations ($bstype)",
 );
+
+}
 
 __END__
 chr3	U/NM	SOLEXA2_0531_FC62W31AAXX:4:1:1804:1117#0/1:TTTTATGATGTGGTAATTTATTATTGGATGGGAAGTTTGAT	1567476	1567516	1	+	0	target=TGTCCCATGACGTGGCAACCTATTACTGGATGGGAAGTTCGACCG

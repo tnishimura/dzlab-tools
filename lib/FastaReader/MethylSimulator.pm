@@ -33,6 +33,11 @@ has 'norc' => (
     default => 0, 
 );
 
+has 'bstype' => (
+    is => 'ro',
+    default => 'c2t',
+);
+
 sub get_read{
     my $self = shift;
 
@@ -65,7 +70,7 @@ sub get_read{
     my $read = $self->get($seq, $start, $stop, base => 1, rc => $get_rc);
 
     if ($self->methrate() > 0){
-        my ($bsread, $meth) = bisulfite($read, $start, $stop, $get_rc, $self->methrate());
+        my ($bsread, $meth) = bisulfite($read, $start, $stop, $get_rc, $self->methrate(), $self->bstype());
 
         $self->record_meth($seq, $get_rc, @$meth);
 
@@ -94,7 +99,7 @@ sub record_meth{
 # $rate is methylation (protection from conversion)
 # returns bisulfite simulated sequence and the absolute positions of methylation
 sub bisulfite{
-    my ($subseq, $start, $end, $rc, $rate) = @_;
+    my ($subseq, $start, $end, $rc, $rate, $bstype) = @_;
     my @split = split //, $subseq;
     my @meth;
     for my $abspos ($start .. $end){
@@ -103,13 +108,28 @@ sub bisulfite{
             $abspos = $end - $relpos;
         }
 
-        if ($split[$relpos] eq 'C'){
-            if( rand() > $rate){
-                $split[$relpos] = 'T';
+        if ($bstype eq 'c2t'){
+            if ($split[$relpos] eq 'C'){
+                if( rand() > $rate){
+                    $split[$relpos] = 'T';
+                }
+                else{
+                    push @meth, $abspos;
+                }
             }
-            else{
-                push @meth, $abspos;
+        }
+        elsif($bstype eq 'g2a'){
+            if ($split[$relpos] eq 'G'){
+                if( rand() > $rate){
+                    $split[$relpos] = 'A';
+                }
+                else{
+                    push @meth, $abspos;
+                }
             }
+        }
+        else{
+            croak "impossible bstype";
         }
     }
     @meth = sort { $a <=> $b } @meth;

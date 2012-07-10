@@ -16,14 +16,89 @@ use File::Temp qw/mktemp tempfile/;
 use BigArray;
 use DZUtil qw/approximate_line_count/;
 use GFF::Parser::Correlated;
+use GFF::Split;
 
 use Params::Validate qw/:all/;
 # types: SCALAR ARRAYREF HASHREF CODEREF GLOB GLOBREF SCALARREF UNDEF OBJECT(blessed) BOOLEAN(UNDEF | SCALAR) HANDLE
 
+sub lookup_context{ $_[0] ? qw/CG CC CA CT/ : qw/CG CHG CHH/ }
+
+#######################################################################
+# batch
+
+my %constructor_validator = (
+    dinucleotide => {
+        type => BOOLEAN,
+        default => 0,
+    }, 
+    genome => {
+        callbacks => {
+            'genome exists' => sub { -f $_[0] and -s $_[0] },
+        },
+    },
+    correlation => {
+        callbacks => {
+            'correlation exists' => sub { -f $_[0] and -s $_[0] },
+        },
+    },
+    bstype => {
+        type => SCALAR,
+        callbacks => {
+            'c2t or g2a'  => sub { $_[0] eq 'c2t' or $_[0] eq 'g2a' },
+        },
+        default => 'c2t',
+    },
+    verbose           => 0,
+    debug             => 0,
+);
+
+sub batch{
+    my %opt = validate(@_, {
+            %constructor_validator,
+            parallel => {
+                isa => 'Parallel::ForkManager',
+                optional => 1,
+            },
+            freqfile          => 1,
+            single_c_template => 1,
+        });
+
+    my @context = lookup_context($opt{dinucleotide});
+    
+    my %sequence2file = GFF::Split::split_sequence($opt{correlation});
+    while (my ($sequence,$file) = each %sequence2file) {
+        if (! exists $opt{parallel} or $opt{parallel}->start == 0){
+            my $mc = MethylCounter->new(
+                dinucleotide => $opt{dinucleotide},
+                genome       => $opt{genome},
+                correlation  => $opt{correlation},
+                verbose      => $opt{verbose},
+                bstype       => $opt{bstype}
+            );
+
+            $mc->process();
+            $mc->output_single_c( 
+                map {
+                $_ => sprintf($opt{single_c_template}, $sequence, $_);
+                } @context,
+            );
+            $mc->print_freq($opt{freqfile});
+            if (exists $opt{parallel}){
+                $opt{parallel}->finish();
+            }
+        }
+    }
+}
+
+#######################################################################
+
 sub new {
     my $class = shift;
-    my %opt = @_;
     my $self = bless {}, $class;
+
+    my %opt = validate(@_, {
+            %constructor_validator,
+        });
 
     $self->{dinucleotide} = $opt{dinucleotide};
     $self->{verbose}      = $opt{verbose};
@@ -31,6 +106,15 @@ sub new {
     $self->{bigarrays}    = {};
     $self->{stats}        = {};
     $self->{debug}        = $opt{debug};
+
+    if ($opt{bstype} eq 'c2t'){
+        $self->{c2t} = 1;
+        $self->{g2a} = 0;
+    }
+    else {
+        $self->{c2t} = 0;
+        $self->{g2a} = 1;
+    }
 
     $self->{genome} = FastaReader->new(
         file => $opt{genome}, 
@@ -97,8 +181,23 @@ sub count_methylation{
         #my $read_base = $read_bases[$i];
         my $read_base = substr $read_seq, $i, 1;
         #if ($target_bases[$i] eq 'C' && ($read_base eq 'C' || $read_base eq 'T')){
-        if (substr($target_seq, $i, 1) eq 'C' && ($read_base eq 'C' || $read_base eq 'T')){
-            $self->record_single_methylation($seq,$abs_coord,$read_base);
+        if ($self->{c2t}){
+            if (substr($target_seq, $i, 1) eq 'C' && ($read_base eq 'C' || $read_base eq 'T')){
+                $self->record_single_methylation($seq,$abs_coord,$read_base);
+            }
+        }
+        elsif ($self->{g2a}){
+            if (substr($target_seq, $i, 1) eq 'G') {
+                if ($read_base eq 'G'){
+                    $self->record_single_methylation($seq,$abs_coord,'C');
+                }
+                if ($read_base eq 'A'){
+                    $self->record_single_methylation($seq,$abs_coord,'T');
+                }
+            }
+        }
+        else {
+            croak "impossible bstype? bug";
         }
     }
 }
@@ -205,7 +304,13 @@ sub output_single_c { # and also count stats
             next POSITION if ! defined $context; # means was not a C/G position
             $context = uc $context;
 
-            my $strand = uc($genome->get($seq, $coord, $coord)) eq 'G' ? '-' : '+';
+            my $strand = do{
+                my $b = uc($genome->get($seq, $coord, $coord));
+                ($self->{c2t} && $b eq 'C') ? '+' :
+                ($self->{c2t} && $b eq 'G') ? '-' :
+                ($self->{g2a} && $b eq 'C') ? '-' :
+                ($self->{g2a} && $b eq 'G') ? '+' : croak "impossible case. bug.";
+            };
 
             my $score = sprintf("%.4f", $c/($c+$t));
 
