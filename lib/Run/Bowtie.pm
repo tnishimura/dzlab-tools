@@ -18,7 +18,7 @@ our @EXPORT = qw(bowtie);
 sub _construct_common_args{
     my %opt = @_;
     my @args;
-    if (! exists $opt{index} || notall { -s "$opt{index}.$_" } qw/ 1.ebwt 2.ebwt 3.ebwt 4.ebwt rev.1.ebwt rev.2.ebwt/){
+    if (! exists $opt{index} || notall { -s "$opt{index}.$_" } qw/ 1.ebwt 2.ebwt rev.1.ebwt rev.2.ebwt/){ # 3.ebwt 4.ebwt not needed for single ends
         croak "need index";
     }
     push @args, $opt{index};
