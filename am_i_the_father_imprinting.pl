@@ -260,11 +260,11 @@ if (! $opt_no_fracmeth){
     # make sure reads map together
 
     if ($pm->start == 0){
-        launch("perl -S correlateSingleEnds.pl -rnd 1 -e $eland_union_c2t -f $bsrc_reference_c2t -o $gff_c2t", expected => $gff_c2t);
+        launch("perl -S correlateSingleEnds.pl -rnd 1 -e $eland_union_c2t -f $opt_reference -o $gff_c2t", expected => $gff_c2t);
         $pm->finish;
     }
     if ($pm->start == 0){
-        launch("perl -S correlateSingleEnds.pl -rnd 1 -e $eland_union_g2a -f $bsrc_reference_g2a -o $gff_g2a", expected => $gff_g2a);
+        launch("perl -S correlateSingleEnds.pl -rnd 1 -e $eland_union_g2a -f $opt_reference -o $gff_g2a", expected => $gff_g2a);
         $pm->finish;
     }
     $pm->wait_all_children;
@@ -278,10 +278,10 @@ if (! $opt_no_fracmeth){
         correlation       => $gff_c2t,
         parallel          => $pm,
         verbose           => 1,
-        c2t               => 1,
-        g2a               => 0,
+        bstype            => 'c2t',
         freqfile          => $freqfile_c2t,
         single_c_template => catfile($singlecdir_c2t, "$basename_base-c2t-%s-%s.gff"),
+        parallel          => $pm,
     );
     MethylCounter::batch(
         dinucleotide      => 0,
@@ -289,10 +289,10 @@ if (! $opt_no_fracmeth){
         correlation       => $gff_g2a,
         parallel          => $pm,
         verbose           => 1,
-        c2t               => 1,
-        g2a               => 0,
+        bstype            => 'g2a',
         freqfile          => $freqfile_g2a,
         single_c_template => catfile($singlecdir_g2a, "$basename_base-g2a-%s-%s.gff"),
+        parallel          => $pm,
     );
     $pm->wait_all_children;
 }

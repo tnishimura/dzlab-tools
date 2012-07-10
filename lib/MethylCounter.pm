@@ -67,13 +67,14 @@ sub batch{
     
     my %sequence2file = GFF::Split::split_sequence($opt{correlation});
     while (my ($sequence,$file) = each %sequence2file) {
+        carp "MethylCounter-ing $sequence $file" if $opt{verbose};
         if (! exists $opt{parallel} or $opt{parallel}->start == 0){
             my $mc = MethylCounter->new(
                 dinucleotide => $opt{dinucleotide},
                 genome       => $opt{genome},
-                correlation  => $opt{correlation},
                 verbose      => $opt{verbose},
-                bstype       => $opt{bstype}
+                bstype       => $opt{bstype},
+                correlation  => $file,
             );
 
             $mc->process();
@@ -82,8 +83,11 @@ sub batch{
                 $_ => sprintf($opt{single_c_template}, $sequence, $_);
                 } @context,
             );
+            carp "made single-c for $sequence $file" if $opt{verbose};
+
             $mc->print_freq($opt{freqfile});
             if (exists $opt{parallel}){
+                carp "done MethylCounter-ing $sequence $file" if $opt{verbose};
                 $opt{parallel}->finish();
             }
         }
@@ -146,8 +150,8 @@ sub record_single_methylation{
     $base = uc $base;
 
     if (! exists $bigarrays->{$seq}){
-        #my $len = $genome->get_length($seq);
         my $len = $self->{length}{uc $seq};
+        carp "allocating $len * 8 bytes for $seq" if $self->{verbose};
         $bigarrays->{$seq}{C} = BigArray->new(size => $len, base => 1);
         $bigarrays->{$seq}{T} = BigArray->new(size => $len, base => 1);
     }
