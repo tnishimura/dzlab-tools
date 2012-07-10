@@ -9,6 +9,10 @@ use List::Util qw(min);
 use feature 'say';
 use autodie;
 
+use FindBin;
+use lib "$FindBin::Bin/lib";
+use FastaReader;
+
 use Getopt::Euclid qw( :vars<opt_> );
 use Pod::Usage;
 
@@ -17,7 +21,8 @@ if (!$opt_reference || !$opt_eland);
 
 
 # holds name of chromosomes as keys and length of chromosomes in bp as values
-my %reference = %{ index_fasta ($opt_reference) };
+# my %reference = %{ index_fasta ($opt_reference) };
+my $fastareader = FastaReader->new(file => $opt_reference, slurp => 1);
 
 # redirects STDOUT to file if specified by user
 if ( $opt_output ne q{-} ) {
@@ -103,10 +108,13 @@ while (my $leftend = <$LEFT>) {
             $l_score   = 1;
             $l_strand  = q{-};
             $l_frame   = $left{mm0};
-            $l_attribute =
-            'target='
-            . substr( $reference{"$tmp-rc"}, $left{'coord0'} - 1,
-                      $lreadsize + 4 );
+            $l_attribute = 'target=' .
+            $fastareader->get($tmp, $left{'coord0'} - 2, $left{'coord0'} + 2 - 1 + $lreadsize, rc => 1, base => 1, coord => 'r');
+            # substr( 
+            #     $reference{"$tmp-rc"}, 
+            #     $left{'coord0'} - 1,
+            #     $lreadsize + 4 
+            # );
         }
         else { # if left sequence maps to forward strand
 
@@ -117,12 +125,13 @@ while (my $leftend = <$LEFT>) {
             $l_score     = 1;
             $l_strand    = q{+};
             $l_frame     = $left{mm0};
-            $l_attribute = 'target='
-            . substr(
-                $reference{"$tmp-seq"},
-                $left{'coord0'} - 1,
-                $lreadsize + 4
-            );
+            $l_attribute = 'target=' .
+            $fastareader->get($tmp, $left{'coord0'} - 2, $left{'coord0'} + 2 - 1 + $lreadsize, rc => 0, base => 1, coord => 'f');
+            # substr(
+            #     $reference{"$tmp-seq"},
+            #     $left{'coord0'} - 1,
+            #     $lreadsize + 4
+            # );
         }
     }
 
@@ -152,12 +161,13 @@ while (my $leftend = <$LEFT>) {
                 $l_score     = 1;
                 $l_strand    = q{-};
                 $l_frame     = $left{"mm$rnd"};
-                $l_attribute = 'target='
-                . substr(
-                    $reference{"$tmp-rc"},
-                    $left{"coord$rnd"} - 1,
-                    $lreadsize + 4
-                );
+                $l_attribute = 'target=' .
+                $fastareader->get($tmp, $left{"coord$rnd"} - 2, $left{"coord$rnd"} + 2 - 1 + $lreadsize, rc => 1, base => 1, coord => 'r');
+                # substr(
+                #     $reference{"$tmp-rc"},
+                #     $left{"coord$rnd"} - 1,
+                #     $lreadsize + 4
+                # );
             }
             else {        # if left sequence maps to forward strand
                 $l_seqname   = $tmp;
@@ -167,12 +177,13 @@ while (my $leftend = <$LEFT>) {
                 $l_score     = 1;
                 $l_strand    = q{+};
                 $l_frame     = $left{"mm$rnd"};
-                $l_attribute = 'target='
-                . substr(
-                    $reference{"$tmp-seq"},
-                    $left{"coord$rnd"} - 1,
-                    $lreadsize + 4
-                );
+                $l_attribute = 'target=' . 
+                $fastareader->get($tmp, $left{"coord$rnd"} - 2, $left{"coord$rnd"} + 2 - 1 + $lreadsize, rc => 0, base => 1, coord => 'f');
+                # substr(
+                #     $reference{"$tmp-seq"},
+                #     $left{"coord$rnd"} - 1,
+                #     $lreadsize + 4
+                # );
             }
         }
         else {
@@ -194,11 +205,19 @@ while (my $leftend = <$LEFT>) {
                         q{:},
                         $left{"chr$i"},
                         $left{"coord$i"},
-                        substr(
-                            $reference{"$tmp-rc"},
-                            $left{"coord$i"} - 1,
-                            $lreadsize + 4
+                        $fastareader->get(
+                            $tmp, 
+                            $left{"coord$i"} - 2, 
+                            $left{"coord$i"} + 2 - 1 + $lreadsize, 
+                            rc    => 1, 
+                            base  => 1, 
+                            coord => 'r'
                         )
+                        # substr(
+                        #     $reference{"$tmp-rc"},
+                        #     $left{"coord$i"} - 1,
+                        #     $lreadsize + 4
+                        # )
                     );
 
                 } else {     # if left sequence maps to reverse strand
@@ -208,11 +227,12 @@ while (my $leftend = <$LEFT>) {
                         q{:},
                         $left{"chr$i"},
                         $left{"coord$i"},
-                        substr(
-                            $reference{"$tmp-seq"},
-                            $left{"coord$i"} - 1,
-                            $lreadsize + 4
-                        )
+                        $fastareader->get($tmp, $left{"coord$i"} - 2, $left{"coord$i"} + 2 - 1 + $lreadsize, rc => 0, base => 1, coord => 'f')
+                        # substr(
+                        #     $reference{"$tmp-seq"},
+                        #     $left{"coord$i"} - 1,
+                        #     $lreadsize + 4
+                        # )
                     );
                 }
                 $l_attribute .= q{,}; # appends sub-field separator comma
@@ -337,45 +357,50 @@ sub reverseComp {
 }
 
 
-sub index_fasta {
-    my ($referencefile) = @_;
-
-    # holds name of chromosomes as keys and length of chromosomes in bp as values
-    my %reference = ();
-
-    # reads in the reference genome file into @fastaseq
-    open my $REF, '<', "$referencefile" or croak "Can't open file: $referencefile";
-    my @fastaseq = <$REF>;
-    close $REF;
-
-    # find and store indices for each chromosome change and corresponding descriptions
-    my ( @idx, @dsc ) = ();
-    for my $i ( 0 .. @fastaseq - 1 ) { ### Indexing $referencefile...  % done
-        if ( $fastaseq[$i] =~ m/^>/ ) {
-            $fastaseq[$i] =~ s/>//g;
-            $fastaseq[$i] = ( split /\s/, "$fastaseq[$i]" )[0];
-            $fastaseq[$i] =~ tr/A-Z/a-z/;
-            push @idx, $i;
-            push @dsc, $fastaseq[$i];
-        }
-    }
-
-    # gets and saves each chromosome's sequence and reverse complemented sequence
-    for my $j ( 0 .. @idx - 1 ) { ### Loading $referencefile into memory...  % done
-        my $line;
-        if ( $j == scalar @idx - 1 ) {
-            $line = join( q{}, 'NN', @fastaseq[ $idx[$j] + 1 .. @fastaseq - 1] , 'NN');
-        }
-        else {
-            $line = join( q{}, 'NN', @fastaseq[ $idx[$j] + 1 .. $idx[$j + 1] - 1] , 'NN');
-        }
-        $line =~ s/[\n\r]//g;
-        $reference{ $dsc[$j] }     = (length $line) - 4;
-        $reference{"$dsc[$j]-seq"} = $line;
-        $reference{"$dsc[$j]-rc"}  = reverseComp ($line);
-    }
-    return \%reference;
-}
+# sub index_fasta {
+#     my ($referencefile) = @_;
+# 
+#     # holds name of chromosomes as keys and length of chromosomes in bp as values
+#     my %reference = ();
+# 
+#     # reads in the reference genome file into @fastaseq
+#     open my $REF, '<', "$referencefile" or croak "Can't open file: $referencefile";
+#     my @fastaseq = <$REF>;
+#     close $REF;
+# 
+#     # find and store indices for each chromosome change and corresponding descriptions
+#     my ( @idx, @dsc ) = ();
+#     for my $i ( 0 .. @fastaseq - 1 ) { ### Indexing $referencefile...  % done
+#         # for each header
+#         if ( $fastaseq[$i] =~ m/^>/ ) {
+#             $fastaseq[$i] =~ s/>//g;
+#             $fastaseq[$i] = ( split /\s/, "$fastaseq[$i]" )[0];
+#             $fastaseq[$i] =~ tr/A-Z/a-z/; 
+# 
+#             push @idx, $i;            # store line number
+#             push @dsc, $fastaseq[$i]; # and sequence name
+#         }
+#     }
+# 
+#     # gets and saves each chromosome's sequence and reverse complemented sequence
+#     for my $j ( 0 .. @idx - 1 ) { ### Loading $referencefile into memory...  % done
+#         my $line;
+# 
+#         # last sequence in file
+#         if ( $j == scalar @idx - 1 ) {
+#             $line = join( q{}, 'NN', @fastaseq[ $idx[$j] + 1 .. @fastaseq - 1] , 'NN');
+#         }
+#         else {
+#             $line = join( q{}, 'NN', @fastaseq[ $idx[$j] + 1 .. $idx[$j + 1] - 1] , 'NN');
+#         }
+#         $line =~ s/[\n\r]//g;
+# 
+#         $reference{ $dsc[$j] }     = (length $line) - 4;  # seq length
+#         $reference{"$dsc[$j]-seq"} = $line;               # forward
+#         $reference{"$dsc[$j]-rc"}  = reverseComp ($line); # reverse
+#     }
+#     return \%reference;
+# }
 
 
 =head1 NAME
