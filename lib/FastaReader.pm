@@ -382,10 +382,12 @@ sub get_context_raw{
 #######################################################################
 # get - main sequence retrieval function
 
-# coord = 'f' if coords rel to 5', 'r' if 3'
-# base  = 1 or 0
-# rc    = whether to rc chunk
-# bs    = c2t, g2a
+# coord   = 'f' if coords rel to 5', 'r' if 3'
+# base    = 1 or 0
+# rc      = whether to rc chunk
+# bs      = c2t, g2a
+# lenient = not die when coords out of bounds?
+# pad     = not only not die, but also pad with 'N' to maintain length. for correlate. 
 sub get{
     my ($self, $seqid, $start, $end, %opt) = @_;
     my $coord     = defined $opt{coord} ? lc($opt{coord}) : 'f';
@@ -425,9 +427,17 @@ sub get{
     $start -= $base;
     $end   -= $base;
 
+    my $start_pad = '';
+    my $end_pad = '';
     if ($opt{lenient}){
-        if ($start < 0){ $start = 0; }
-        if ($lastindex < $end){ $end = $lastindex; }
+        if ($start < 0){ 
+            $start_pad = 'N' x -$start if $opt{pad};
+            $start = 0; 
+        }
+        if ($lastindex < $end){ 
+            $end_pad = 'N' x ($end - $lastindex) if $opt{pad};
+            $end = $lastindex; 
+        }
     }
 
     ###
@@ -536,7 +546,13 @@ sub get{
         $sub = c2t $sub if defined $bs && $bs eq 'c2t';
         $sub = g2a $sub if defined $bs && $bs eq 'g2a';
 
-        return $sub;
+        if ($opt{lenient} and $opt{pad}){
+            return $start_pad . $sub . $end_pad;
+        }
+        else{
+            return $sub;
+        }
+
     }
 }
 
