@@ -37,10 +37,12 @@ sub _split_name{
     return catfile($path, $filename) . "-$part" . ($ext ? ".$ext" : "");
 }
 
+# return { feature_name => $file }
 sub split_feature{
     my ($file, @groups) = @_;
     return _gff_split($file,'feature',@groups);
 }
+# return { sequence_name => $file }
 sub split_sequence{
     my ($file, @groups) = @_;
     return _gff_split($file,'sequence',@groups);
