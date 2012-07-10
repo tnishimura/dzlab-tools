@@ -9,6 +9,8 @@ use PDL;
 use Params::Validate qw/:all/;
 use Hash::Util qw/lock_keys/;
 
+$PDL::BIGPDL = 1;
+
 our %type_dispatch = (
     byte     => byte(),
     short    => short(),
