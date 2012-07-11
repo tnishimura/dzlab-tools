@@ -15,11 +15,20 @@ use lib "$FindBin::Bin/lib";
 use GFF::Parser;
 use FastaReader;
 
-END {close STDOUT}
-$| = 1;
+my $result = GetOptions ( 
+    "reference|r=s" => \my $reference,
+    "prefix|p=s"    => \(my $prefix),
+    "max=i"         => \(my $max = 50),
+);
+pod2usage(-verbose => 2, -noperldoc => 1) 
+if (!$result || ! $reference || ! -f $reference || ! $prefix );  
 
-my $result = GetOptions ( "reference|r=s" => \my $reference,);
-pod2usage(-verbose => 2, -noperldoc => 1) if (!$result || ! $reference || ! -f $reference);  
+my $output = $prefix . ".txt";
+my $svg    = $prefix . ".svg";
+my $gp     = $prefix . ".gp";
+
+open my $output_fh, '>', $output;
+open my $gp_fh, '>', $gp;
 
 say STDERR "reading in $reference";
 my $fr = FastaReader->new(file => $reference);
@@ -84,16 +93,44 @@ for my $title (keys %files) {
     say STDERR "done with gff files, adding uncounted methyl sites";
 
     $coverage_count{0} += $methsites - $line_count;
-    say "# $title";
+    say $output_fh "# $title";
     for my $c (sort { $a <=> $b } keys %coverage_count) {
-        say "$c\t$coverage_count{$c}";
+        say $output_fh "$c\t$coverage_count{$c}";
     }
     # two blank lines for gnuplot index
-    print "\n\n";
+    print $output_fh "\n\n";
 }
+close $output_fh;
+
+{
+    my $i = 0;
+    my @titles = keys %files;
+
+    my $cmd = qq{
+    set log y
+    set terminal svg size 1500, 750
+    set output "$svg"
+    plot [0:50] } .  join ", ", map { qq{"$output" i $_ u 1:2 w lp t "$titles[$_]" } } (0 .. $#titles);
+
+    say STDERR $cmd;
+
+    say $gp_fh $cmd;
+    system("gnuplot $gp");
+}
+
+close $gp_fh;
 
 =head1 NAME
 
 coverage.pl -r reference -- --Meow Meow/single-c/*.gff --Bark Bark/single-c/*.gff
 
 =cut
+__END__
+set terminal svg size 1500, 750
+set output "test.svg"
+plot [0:50] "coverage.txt" i 0 u 1:($2 / 162152310) w lp t "10%", \
+            "coverage.txt" i 1 u 1:($2 / 162152310) w lp t "20%", \
+            "coverage.txt" i 2 u 1:($2 / 162152310) w lp t "40%", \
+            "coverage.txt" i 3 u 1:($2 / 162152310) w lp t "60%", \
+            "coverage.txt" i 4 u 1:($2 / 162152310) w lp t "80%"
+
