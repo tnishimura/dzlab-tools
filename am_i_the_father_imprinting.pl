@@ -295,6 +295,18 @@ if (! $opt_no_fracmeth){
         parallel          => $pm,
     );
     $pm->wait_all_children;
+
+    for my $singlec (catfile($singlecdir_c2t, "*gff")) {
+        $pm->start and next;
+        my $window = catfile($windowdir_c2t, basename($singlec, '.gff') . 'w50.gff');
+
+        launch("perl -S window_by_fixed.pl -w $opt_window_size --reference $opt_reference --output ?? --no-skip $singlec", 
+            expected => $window);
+
+        $pm->finish; 
+    }
+    $pm->wait_all_children;
+
 }
 
 =head1 NAME
@@ -374,9 +386,14 @@ Level of forcefulness in doing jobs.  1 = Redo all run-specifics.  2 = Redo bowt
 
 =item  --merge 
 
-=item  -w | --whole
+=item  --whole
 
 =item --no-fracmeth
+
+=item  -w <width> | --window-size <width>
+
+=for Euclid
+    width.default:     50
 
 =back
 
