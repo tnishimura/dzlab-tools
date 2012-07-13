@@ -109,7 +109,7 @@ while (my $leftend = <$LEFT>) {
             $l_strand  = q{-};
             $l_frame   = $left{mm0};
             $l_attribute = 'target=' .
-            $fastareader->get($tmp, $left{'coord0'} - 2, $left{'coord0'} + 2 - 1 + $lreadsize, rc => 1, base => 1, coord => 'r');
+            $fastareader->get($tmp, $left{'coord0'} - 2, $left{'coord0'} + 2 - 1 + $lreadsize, rc => 1, base => 1, coord => 'r', lenient => 1, pad => 1);
             # substr( 
             #     $reference{"$tmp-rc"}, 
             #     $left{'coord0'} - 1,
@@ -126,7 +126,7 @@ while (my $leftend = <$LEFT>) {
             $l_strand    = q{+};
             $l_frame     = $left{mm0};
             $l_attribute = 'target=' .
-            $fastareader->get($tmp, $left{'coord0'} - 2, $left{'coord0'} + 2 - 1 + $lreadsize, rc => 0, base => 1, coord => 'f');
+            $fastareader->get($tmp, $left{'coord0'} - 2, $left{'coord0'} + 2 - 1 + $lreadsize, rc => 0, base => 1, coord => 'f', lenient => 1, pad => 1);
             # substr(
             #     $reference{"$tmp-seq"},
             #     $left{'coord0'} - 1,
@@ -162,7 +162,7 @@ while (my $leftend = <$LEFT>) {
                 $l_strand    = q{-};
                 $l_frame     = $left{"mm$rnd"};
                 $l_attribute = 'target=' .
-                $fastareader->get($tmp, $left{"coord$rnd"} - 2, $left{"coord$rnd"} + 2 - 1 + $lreadsize, rc => 1, base => 1, coord => 'r');
+                $fastareader->get($tmp, $left{"coord$rnd"} - 2, $left{"coord$rnd"} + 2 - 1 + $lreadsize, rc => 1, base => 1, coord => 'r', lenient => 1, pad => 1);
                 # substr(
                 #     $reference{"$tmp-rc"},
                 #     $left{"coord$rnd"} - 1,
@@ -178,7 +178,7 @@ while (my $leftend = <$LEFT>) {
                 $l_strand    = q{+};
                 $l_frame     = $left{"mm$rnd"};
                 $l_attribute = 'target=' . 
-                $fastareader->get($tmp, $left{"coord$rnd"} - 2, $left{"coord$rnd"} + 2 - 1 + $lreadsize, rc => 0, base => 1, coord => 'f');
+                $fastareader->get($tmp, $left{"coord$rnd"} - 2, $left{"coord$rnd"} + 2 - 1 + $lreadsize, rc => 0, base => 1, coord => 'f', lenient => 1, pad => 1);
                 # substr(
                 #     $reference{"$tmp-seq"},
                 #     $left{"coord$rnd"} - 1,
@@ -211,7 +211,8 @@ while (my $leftend = <$LEFT>) {
                             $left{"coord$i"} + 2 - 1 + $lreadsize, 
                             rc    => 1, 
                             base  => 1, 
-                            coord => 'r'
+                            coord => 'r',
+                            lenient => 1, pad => 1,
                         )
                         # substr(
                         #     $reference{"$tmp-rc"},
@@ -227,7 +228,7 @@ while (my $leftend = <$LEFT>) {
                         q{:},
                         $left{"chr$i"},
                         $left{"coord$i"},
-                        $fastareader->get($tmp, $left{"coord$i"} - 2, $left{"coord$i"} + 2 - 1 + $lreadsize, rc => 0, base => 1, coord => 'f')
+                        $fastareader->get($tmp, $left{"coord$i"} - 2, $left{"coord$i"} + 2 - 1 + $lreadsize, rc => 0, base => 1, coord => 'f', lenient => 1, pad => 1)
                         # substr(
                         #     $reference{"$tmp-seq"},
                         #     $left{"coord$i"} - 1,
