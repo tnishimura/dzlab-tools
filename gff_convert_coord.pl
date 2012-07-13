@@ -113,6 +113,8 @@ optional. Currently available are:
 
  rice-5.0-to-6.1
  rice-6.1-to-5.0
+ at-tair8-to-tair10
+ at-tair10-to-tair8
 
 =item  -c <col> | --columns <col>
 
