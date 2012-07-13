@@ -6,7 +6,7 @@ use 5.010_000;
 use Data::Dumper;
 use Carp;
 use autodie;
-use YAML qw/LoadFile DumpFile/;
+use YAML qw/LoadFile Dump/;
 use Tie::IxHash;
 
 use FastaReader;
@@ -444,7 +444,10 @@ sub print_freq{
         }
     }
 
-    DumpFile $output_file, \%out;
+
+    open my $fh, '>>', $output_file;
+    say $fh Dump(\%out);
+    close $fh;
 }
 
 sub combine{ # class method
