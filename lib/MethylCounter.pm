@@ -59,8 +59,7 @@ sub batch{
                 isa => 'Parallel::ForkManager',
                 optional => 1,
             },
-            freqfile          => 1,
-            single_c_template => 1,
+            prefix => 1,
         });
 
     my @context = lookup_context($opt{dinucleotide});
@@ -80,12 +79,12 @@ sub batch{
             $mc->process();
             $mc->output_single_c( 
                 map {
-                $_ => sprintf($opt{single_c_template}, $sequence, $_);
+                $_ => sprintf($opt{prefix}, $sequence) . "-$_.gff";
                 } @context,
             );
             carp "made single-c for $sequence $file" if $opt{verbose};
 
-            $mc->print_freq($opt{freqfile});
+            $mc->print_freq($opt{prefix} . ".freq");
             if (exists $opt{parallel}){
                 carp "done MethylCounter-ing $sequence $file" if $opt{verbose};
                 $opt{parallel}->finish();

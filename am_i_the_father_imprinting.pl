@@ -279,8 +279,7 @@ if (! $opt_no_fracmeth){
         parallel          => $pm,
         verbose           => 1,
         bstype            => 'c2t',
-        freqfile          => $freqfile_c2t,
-        single_c_template => catfile($singlecdir_c2t, "$basename_base-c2t-%s-%s.gff"),
+        prefix            => catfile($singlecdir_c2t, "$basename_base-c2t-%s"),
         parallel          => $pm,
     );
     MethylCounter::batch(
@@ -290,8 +289,7 @@ if (! $opt_no_fracmeth){
         parallel          => $pm,
         verbose           => 1,
         bstype            => 'g2a',
-        freqfile          => $freqfile_g2a,
-        single_c_template => catfile($singlecdir_g2a, "$basename_base-g2a-%s-%s.gff"),
+        prefix            => catfile($singlecdir_g2a, "$basename_base-g2a-%s"),
         parallel          => $pm,
     );
     $pm->wait_all_children;
