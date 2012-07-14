@@ -84,7 +84,7 @@ sub batch{
             );
             carp "made single-c for $sequence $file" if $opt{verbose};
 
-            $mc->print_freq($opt{prefix} . ".freq");
+            $mc->print_freq(sprintf("$opt{prefix}",$sequence) . ".freq");
             if (exists $opt{parallel}){
                 carp "done MethylCounter-ing $sequence $file" if $opt{verbose};
                 $opt{parallel}->finish();
