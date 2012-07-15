@@ -285,7 +285,7 @@ if (! $opt_no_fracmeth){
         bstype            => 'c2t',
         prefix            => catfile($singlecdir_c2t, "$basename_base-c2t-%s"),
         parallel          => $pm,
-    ) if ! $c2tdone;
+    ) if ! -f $c2tdone;
     MethylCounter::batch(
         dinucleotide      => 0,
         genome            => $opt_reference,
@@ -295,7 +295,7 @@ if (! $opt_no_fracmeth){
         bstype            => 'g2a',
         prefix            => catfile($singlecdir_g2a, "$basename_base-g2a-%s"),
         parallel          => $pm,
-    ) if ! $g2adone;
+    ) if ! -f $g2adone;
     $pm->wait_all_children;
 
     {
