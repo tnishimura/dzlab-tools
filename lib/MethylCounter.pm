@@ -63,10 +63,22 @@ sub batch{
         });
 
     my @context = lookup_context($opt{dinucleotide});
-    
+
     my %sequence2file = GFF::Split::split_sequence($opt{correlation});
+
+    SEQUENCE:
     while (my ($sequence,$file) = each %sequence2file) {
         carp "MethylCounter-ing $sequence $file" if $opt{verbose};
+
+        my %context2singlec = map { ($_ ,(sprintf($opt{prefix}, $sequence) . "-$_.gff") ) } @context;
+        my $frequency_file = sprintf("$opt{prefix}",$sequence) . ".freq";
+
+        # die Dumper $frequency_file, $opt{prefix}, $sequence, $file, \%context2singlec, \%sequence2file, \@context;
+
+        if (all { -f $_ && -s $_ > 0} $frequency_file, values %context2singlec){
+            next SEQUENCE;
+        }
+
         if (! exists $opt{parallel} or $opt{parallel}->start == 0){
             my $mc = MethylCounter->new(
                 dinucleotide => $opt{dinucleotide},
@@ -77,14 +89,10 @@ sub batch{
             );
 
             $mc->process();
-            $mc->output_single_c( 
-                map {
-                $_ => sprintf($opt{prefix}, $sequence) . "-$_.gff";
-                } @context,
-            );
+            $mc->output_single_c( %context2singlec );
             carp "made single-c for $sequence $file" if $opt{verbose};
 
-            $mc->print_freq(sprintf("$opt{prefix}",$sequence) . ".freq");
+            $mc->print_freq($frequency_file);
             if (exists $opt{parallel}){
                 carp "done MethylCounter-ing $sequence $file" if $opt{verbose};
                 $opt{parallel}->finish();

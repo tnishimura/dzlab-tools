@@ -272,10 +272,6 @@ if (! $opt_no_fracmeth){
     #######################################################################
     # count methyl
 
-    my $c2tdone = catfile($singlecdir_c2t, ".done");
-    my $g2adone = catfile($singlecdir_g2a, ".done");
-
-
     MethylCounter::batch(
         dinucleotide      => 0,
         genome            => $opt_reference,
@@ -285,7 +281,7 @@ if (! $opt_no_fracmeth){
         bstype            => 'c2t',
         prefix            => catfile($singlecdir_c2t, "$basename_base-c2t-%s"),
         parallel          => $pm,
-    ) if ! -f $c2tdone;
+    );
 
     MethylCounter::batch(
         dinucleotide      => 0,
@@ -296,17 +292,8 @@ if (! $opt_no_fracmeth){
         bstype            => 'g2a',
         prefix            => catfile($singlecdir_g2a, "$basename_base-g2a-%s"),
         parallel          => $pm,
-    ) if ! -f $g2adone;
+    );
     $pm->wait_all_children;
-
-    {
-        open my $f1, '>', $c2tdone;
-        open my $f2, '>', $g2adone;
-        say $f1 "done";
-        say $f2 "done";
-        close $f1;
-        close $f2;
-    }
 
     for my $singlec (glob catfile($singlecdir_c2t, "*gff")) {
         $pm->start and next;
