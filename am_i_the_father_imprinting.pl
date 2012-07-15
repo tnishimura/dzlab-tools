@@ -286,6 +286,7 @@ if (! $opt_no_fracmeth){
         prefix            => catfile($singlecdir_c2t, "$basename_base-c2t-%s"),
         parallel          => $pm,
     ) if ! -f $c2tdone;
+
     MethylCounter::batch(
         dinucleotide      => 0,
         genome            => $opt_reference,
@@ -309,11 +310,16 @@ if (! $opt_no_fracmeth){
 
     for my $singlec (glob catfile($singlecdir_c2t, "*gff")) {
         $pm->start and next;
-        my $window = catfile($windowdir_c2t, basename($singlec, '.gff') . 'w50.gff');
-
+        my $window = catfile($windowdir_c2t, basename($singlec, '.gff') . '.w50.gff');
         launch("perl -S window_by_fixed.pl -w $opt_window_size --reference $opt_reference --output ?? --no-skip $singlec", 
             expected => $window);
-
+        $pm->finish; 
+    }
+    for my $singlec (glob catfile($singlecdir_g2a, "*gff")) {
+        $pm->start and next;
+        my $window = catfile($windowdir_g2a, basename($singlec, '.gff') . '.w50.gff');
+        launch("perl -S window_by_fixed.pl -w $opt_window_size --reference $opt_reference --output ?? --no-skip $singlec", 
+            expected => $window);
         $pm->finish; 
     }
     $pm->wait_all_children;
