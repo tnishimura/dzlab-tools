@@ -20,11 +20,11 @@ while (defined(my $line = <DATA>)){
     push @{$assembly{$seqid}}, [$type, $pos8, $bases];
 }
 
-my %alignment8to9 = map { $_ => [] } @seqid_list;
-my %alignment9to8 = map { $_ => [] } @seqid_list;
+my %alignment8to10 = map { $_ => [] } @seqid_list;
+my %alignment10to8 = map { $_ => [] } @seqid_list;
 
-$alignment8to9{Chrc} = [[(1, $tair8{Chrc}) x 2]];
-$alignment8to9{Chrm} = [[(1, $tair8{Chrm}) x 2]];
+$alignment10to8{Chrc} =$alignment8to10{Chrc} = [[(1, $tair8{Chrc}) x 2]];
+$alignment10to8{Chrm} =$alignment8to10{Chrm} = [[(1, $tair8{Chrm}) x 2]];
 
 for my $seqid (sort @seqid_list) {
     my $cursor8 = 1;
@@ -39,8 +39,8 @@ for my $seqid (sort @seqid_list) {
         my $length = ($pos8 - 1) - $cursor8 + 1;
         for ($type){
             when ('insertion'){
-                push @{$alignment8to9{$seqid}}, [$cursor8,  $cursor8 + $length - 1,  $cursor10, $cursor10 + $length - 1];
-                push @{$alignment9to8{$seqid}}, [$cursor10, $cursor10 + $length - 1, $cursor8,  $cursor8 + $length - 1];
+                push @{$alignment8to10{$seqid}}, [$cursor8,  $cursor8 + $length - 1,  $cursor10, $cursor10 + $length - 1];
+                push @{$alignment10to8{$seqid}}, [$cursor10, $cursor10 + $length - 1, $cursor8,  $cursor8 + $length - 1];
                 $cursor8  += $length;
                 $cursor10 += $length + $numbases;
             }
@@ -49,8 +49,8 @@ for my $seqid (sort @seqid_list) {
                     $cursor8 += $numbases;
                     next;
                 }
-                push @{$alignment8to9{$seqid}}, [$cursor8,  $cursor8 + $length - 1,  $cursor10, $cursor10 + $length - 1];
-                push @{$alignment9to8{$seqid}}, [$cursor10, $cursor10 + $length - 1, $cursor8,  $cursor8 + $length - 1];
+                push @{$alignment8to10{$seqid}}, [$cursor8,  $cursor8 + $length - 1,  $cursor10, $cursor10 + $length - 1];
+                push @{$alignment10to8{$seqid}}, [$cursor10, $cursor10 + $length - 1, $cursor8,  $cursor8 + $length - 1];
                 $cursor8  += $length + $numbases;
                 $cursor10 += $length;
             }
@@ -65,8 +65,8 @@ for my $seqid (sort @seqid_list) {
 }
 
 use YAML qw/Load Dump LoadFile DumpFile/;
-DumpFile 'conf/at-tair8-to-tair10.alignment', {alignment =>  \%alignment8to9, left => 'tair8', right => 'tair9'};
-DumpFile 'conf/at-tair10-to-tair8.alignment', {alignment =>  \%alignment9to8, left => 'tair9', right => 'tair8'};
+DumpFile 'conf/at-tair8-to-tair10.alignment', {alignment =>  { map { uc $_ => $alignment8to10{$_} } keys %alignment8to10}, left => 'tair8', right => 'tair10'};
+DumpFile 'conf/at-tair10-to-tair8.alignment', {alignment =>  { map { uc $_ => $alignment10to8{$_} } keys %alignment10to8}, left => 'tair10', right => 'tair8'};
 
 =head2 Insertion @ X means:
 
