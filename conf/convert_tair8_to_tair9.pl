@@ -62,6 +62,11 @@ for my $seqid (sort @seqid_list) {
             }
         }
     }
+
+    if ($cursor8 < $tair8{$seqid} && $cursor10 < $tair10{$seqid}){
+        push @{$alignment8to10{$seqid}}, [$cursor8,  $tair8{$seqid},  $cursor10, $tair10{$seqid}];
+        push @{$alignment10to8{$seqid}}, [$cursor10, $tair10{$seqid}, $cursor8,  $tair8{$seqid}];
+    }
 }
 
 use YAML qw/Load Dump LoadFile DumpFile/;
