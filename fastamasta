@@ -92,7 +92,7 @@ END
 
 my $cmd = shift;
 
-given ($cmd){
+for ($cmd){
     when ([qw/lengths length len l/]){
         my $result = GetOptions (
             "gff|g" => \(my $gff),
@@ -244,6 +244,48 @@ given ($cmd){
         else{
             say STDERR "not equal: $msg";
             exit 1;
+        }
+    }
+    # like eq but with 
+    when ('geteq'){
+        my @range1;
+        my @range2;
+        my $result = GetOptions (
+            "sequence-1|s1=s" => \(my $sequence1),
+            "sequence-2|s2=s" => \(my $sequence2),
+            "range-1|r1=i{2}"   => \@range1,
+            "range-2|r2=i{2}"   => \@range2,
+            "coordinate|c=s" => \(my $coordinate = 'f'),
+            "base|b=i"       => \(my $base = 1),
+            "c2t"            => \(my $c2t),
+            "g2a"            => \(my $g2a),
+        );
+        usage() if (
+            ! $result || 
+            ! $sequence1 ||
+            ! $sequence2 ||
+            (@range1 != 0 && @range2 != 2) ||
+            (@range2 != 0 && @range2 != 2) ||
+            ($coordinate ne 'f' && $coordinate ne 'r') ||
+            ($base != 0 && $base != 1) || 
+            ($c2t && $g2a)
+        );  
+
+        my ($f1, $f2) = @ARGV;
+        usage() unless defined $f1 && defined $f2;
+
+        my $f1r = FastaReader->new(file => $f1, slurp => 0);
+        my $f2r = FastaReader->new(file => $f2, slurp => 0);
+
+        my @bsarg = ($c2t ? (bs => 'c2t') : $g2a ? (bs => 'g2a') : ());
+
+        my $s1 = $f1r->get($sequence1, @range1, @bsarg, coord => $coordinate, base => $base);
+        my $s2 = $f2r->get($sequence2, @range2, @bsarg, coord => $coordinate, base => $base);
+        if ($s1 eq $s2){ 
+            say "equal"; 
+        }
+        else { 
+            say "not equal"; 
         }
     }
     when ('find'){
