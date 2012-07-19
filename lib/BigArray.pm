@@ -1,3 +1,33 @@
+=head2 BigArray
+
+ my $ba = BigArray(
+                size        => NUM,
+                type        => [ byte | short | ushort | long* | longlong | float | double ],
+                base        => [ 0* | 1 ],
+                buffer_size => 10000,
+          );
+
+increment given positions by 1 (buffered):
+
+ $b->push_increment(1, 4, 3, 10); # these indices incremeted by one
+
+increment by key/val pair (buffered):
+
+ $b->push_pair(5, 123, 0, 454); # add 123 to position 5, 454 to pos 0.
+
+increment a range by a value (not buffer):
+
+ $b->increment_range($start, $end, $val);
+
+get a position, a range, or entire thing (as a PDL).  All these commit buffers automatically:
+
+ $b->get($position);
+ $b->get_range($start, $end);
+ $b->get_pdl();
+
+commiting should be unnecessary.
+
+=cut
 package BigArray;
 use strict;
 use warnings;
@@ -64,6 +94,10 @@ sub new {
     # buffers for push_pair/commit_pair
     $self->{pbuffer_indices} = [];
     $self->{pbuffer_values}  = [];
+
+    $self->{dirty_pair} = 0; 
+    $self->{dirty_increment} = 0; 
+
     lock_keys %$self;
 
     return $self;
@@ -77,11 +111,14 @@ sub info{
 
 sub get{
     my ($self, $coord) = @_;
+    $self->commit();
     $self->{pdl}->at($coord - $self->{base});
 }
 
 sub get_range{
     my ($self, $start, $end) = @_;
+    $self->commit();
+
     $start -= $self->{base};
     $end -= $self->{base};
     $self->{pdl}->slice("$start:$end");
@@ -94,9 +131,17 @@ sub increment_range{
     $self->{pdl}->slice("$start:$end") += $val//1;
 }
 
-sub get_pdl              { return $_[0]->{pdl}; }
-sub get_buffer           { return $_[0]->{buffer}; }
+sub get_pdl{ 
+    my ($self) = @_;
+    $self->commit;
+    return $self->{pdl}; 
+}
+
+# 
 sub get_size             { return $_[0]->{size}; }
+
+# mostly for testing/debugging
+sub get_buffer           { return $_[0]->{buffer}; }
 sub get_buffer_residence { return scalar @{$_[0]->{ buffer}}; }
 sub get_buffer_size      { return $_[0]->{buffer_size}; }
 
@@ -107,11 +152,13 @@ sub get_buffer_size      { return $_[0]->{buffer_size}; }
 # a) I didn't know indadd could handle pdls for values
 # b) it's 30-40% faster, which is important for MethylCounter
 
+
 sub commit_increment{
     my $self = shift;
     my $indices = pdl $self->{buffer};
     indadd(1, $indices, $self->{pdl});
     undef(@{$self->{buffer}});
+    $self->{dirty_increment} = 0;
 }
 
 # return 1 if commited
@@ -131,12 +178,14 @@ sub push_increment{
         #    croak "increment out-of-bounds error!";
         #}
     }
+    $self->{dirty_increment} = 1;
 
     if (@$buffer >= $self->{buffer_size}){ 
         $self->commit_increment();
         return 1; 
     }
     return 0;
+
 }
 
 #######################################################################
@@ -153,6 +202,7 @@ sub commit_pair{
     indadd($values, $indices, $self->{pdl});
     undef(@{$self->{pbuffer_values}});
     undef(@{$self->{pbuffer_indices}});
+    $self->{dirty_pair} = 0;
 }
 
 sub push_pair{
@@ -169,6 +219,7 @@ sub push_pair{
         push @$pbuffer_indices, shift(@_) - $base;
         push @$pbuffer_values, shift(@_);
     }
+    $self->{dirty_pair} = 1;
 
     if (@$pbuffer_indices >= $self->{buffer_size}){
         $self->commit_pair();
@@ -181,8 +232,8 @@ sub push_pair{
 
 sub commit{
     my $self =shift;
-    $self->commit_increment;
-    $self->commit_pair;
+    $self->commit_increment if ($self->{dirty_increment});
+    $self->commit_pair if ($self->{dirty_pair});
 }
 
 #######################################################################

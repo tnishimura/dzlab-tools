@@ -35,7 +35,7 @@ SKIP: {
         }
         #$ba->commit_increment();
         #$ba->commit_pair();
-        $ba->commit();
+        #$ba->commit();
         push @success, sum_square($ba->get_pdl(), pdl($aref)) == 0;
     }
     all_ok(\@success, "randomized assignments");
