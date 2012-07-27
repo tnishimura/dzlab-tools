@@ -13,19 +13,34 @@ use 5.010;
 use FindBin;
 use lib "$ENV{HOME}/dzlab-tools/lib";
 
+our $TRY_XS;
 
 BEGIN {
-    eval 'require Inline::C';
+    # disabling XS temporary b/c problems on windows
+    # need some more sophisticated mechanism to allow disabling XS in case something not working.
+    $TRY_XS = 0; 
 
     my $pkg;
-    if ($@) {
+    if ($TRY_XS){
+        eval 'require Inline::C';
+
+        if ($@) {
+            # say "couldn't load Inline::C";
+            require Tree::Range::Overlap_PP;
+            $pkg = "Tree::Range::Overlap_PP";
+        }
+        else {
+            # say "could load Inline::C";
+            require Tree::Range::Overlap_XS;
+            $pkg = "Tree::Range::Overlap_XS";
+        }
+    }
+    else{
+        # say "not trying Inline::C/XS";
         require Tree::Range::Overlap_PP;
         $pkg = "Tree::Range::Overlap_PP";
     }
-    else {
-        require Tree::Range::Overlap_XS;
-        $pkg = "Tree::Range::Overlap_XS";
-    }
+    # say "using $pkg";
     no strict 'refs';
     my $class = __PACKAGE__;
     *{"$class\::_overlap"} = *{"$pkg\::_overlap"};
