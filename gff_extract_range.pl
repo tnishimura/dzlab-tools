@@ -20,8 +20,13 @@ if ($opt_output ne '-'){
 }
 my $p = GFF::Parser->new(file => $opt_input);
 
-#my $counter = 0;
+LOOP:
 while (defined(my $gff = $p->next())){
+    if (defined $opt_sequence){
+        next LOOP if ! defined $gff->sequence();
+        next LOOP if uc($gff->sequence()) ne uc($opt_sequence);
+    }
+
     if ( $gff->start <= $gff->end ){
         #die "asdf" if $counter++ == 100; 
         my $overlap   = overlap([$gff->start, $gff->end], [$opt_range{start}, $opt_range{end}]);
@@ -53,6 +58,12 @@ gff_extract_range.pl
 =head1 OPTIONS
 
 =over
+
+=item  -s <seqid> | --sequence <seqid>
+
+If given, match sequence ID (column 1) as well as range. If not given
+(default), return all matching ranged regardless of sequence.  If you are
+working with a single-chromosome file, you don't need to specify this.
 
 =item  -r <start> <end> | --range <start> <end> 
 
