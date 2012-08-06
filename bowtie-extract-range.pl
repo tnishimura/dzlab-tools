@@ -59,9 +59,7 @@ while (defined(my $bt = $p->next(1))){
         $range[0] <= $pos && $pos <= $range[1] ? ([$read_length - ($pos - $read_pos) - 1, $original, $new]) : ();
     } @$mismatches;
 
-    if (@$mismatches){
-        say join "\t", $readid, $strand, $chr, $read_pos, $read, $quality, $foobar, join ",", map { "$_->[0]:$_->[1]>$_->[2]" } @$mismatches; 
-    }
+    say join "\t", $readid, $strand, $chr, $read_pos, $read, $quality, $foobar, join ",", map { "$_->[0]:$_->[1]>$_->[2]" } @$mismatches; 
 }
 
 =head1 NAME
