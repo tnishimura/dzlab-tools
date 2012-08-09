@@ -35,3 +35,19 @@ for my $seqid (sort keys %set) {
         }
     }
 }
+
+=head1 NAME
+
+gff_symdiff.pl - given a list of GFF files (say a.gff, b.gff, c.gff), will
+create files with the .UNIQ prefix (a.gff.UNIQ, b.gff.UNIQ, c.gff.UNIQ) which
+contain entries that are unique to each.  Equality is determined by comparing
+the sequence, start and end coordinate.  
+
+=head1 SYNOPSIS
+
+Usage examples:
+
+ gff_symdiff.pl a.gff b.gff c.gff
+
+=cut
+
