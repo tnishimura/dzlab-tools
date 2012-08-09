@@ -173,6 +173,11 @@ sub as_array{
     ];
 }
 
+sub is_reverse{
+    my ($self) = @_;
+    return defined $self->strand && $self->strand eq '-';
+}
+
 no Moose;
 __PACKAGE__->meta->make_immutable;
 
