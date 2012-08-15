@@ -47,7 +47,15 @@ sub bowtie_build{
                 optional => 1
             },
             force => 0,
+            version => {
+                optional => 1,
+                default => 1, 
+                regex => qr/^1|2$/,
+            },
         });
+
+    my $executable = $opt{version} == 1 ? 'bowtie-build' : 'bowtie2-build';
+    my $suffix     = $opt{version} == 1 ? 'ebwt' : 'bt2';
 
     if ($opt{bs} && $opt{rc}){
         my $bsrc_file = "$opt{file}.$opt{bs}";
@@ -66,11 +74,11 @@ sub bowtie_build{
 
     $opt{index} //= $opt{file};
 
-    my @expected_files = map { "$opt{index}.$_" } (qw/1.ebwt 2.ebwt rev.1.ebwt rev.2.ebwt/, $opt{noref} ? () : (qw/3.ebwt 4.ebwt/));
+    my @expected_files = map { "$opt{index}.$_" } ("1.$suffix","2.$suffix","3.$suffix","4.$suffix", $opt{noref} ? () : ("3.$suffix", "4.$suffix"));
 
     my $norefarg = $opt{noref} ? '--noref' : '';
     if ($opt{force} or notall { -f && -s } @expected_files){
-        cast "bowtie-build $norefarg $opt{file} $opt{index}";
+        cast "$executable $norefarg $opt{file} $opt{index}";
     }
     return ($opt{file}, $opt{index}, @expected_files);
 }

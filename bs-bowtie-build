@@ -23,7 +23,13 @@ unless ($opt_c2t xor $opt_g2a){
 }
 
 my $conversion = $opt_c2t ? 'c2t' : 'g2a';
-bowtie_build(file => $opt_reference, noref => $opt_noref, bs => $conversion, rc => 1);
+bowtie_build(
+    file => $opt_reference, 
+    noref => $opt_noref, 
+    bs => $conversion, 
+    rc => 1,
+    version => $opt_version,
+);
 
 =head1 NAME
 
@@ -50,6 +56,15 @@ Usage examples:
 =item  -c2t
 
 =item  -g2a
+
+=item  -v <ver> | --version <ver>
+
+bowtie version. default 1.
+
+=for Euclid
+    ver.default:     1
+    ver.type:        readable
+    ver.type:        int, ver >= 1 && ver <= 2
 
 =item --noref | -r
 
