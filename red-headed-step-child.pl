@@ -8,7 +8,7 @@ use File::Basename qw/basename/;
 use File::Path qw/make_path/;
 use File::Spec::Functions qw/catdir catfile/;
 use Getopt::Long qw/:config no_ignore_case/;
-use List::MoreUtils qw/ any notall/;
+use List::MoreUtils qw/any/;
 use List::Util qw/sum/;
 use Pod::Usage;
 
@@ -31,11 +31,9 @@ my $result = GetOptions (
     "output-directory|d=s" => \(my $output_directory),
     "flank-prefix|fp=i"    => \(my $flank_prefix_length),
     "tdna-prefix|tp=i"     => \(my $tdna_prefix_length),
-
     "splice|s=i{2}"        => \@splice,
-
     # 4 necessary files
-    "reference-file|r=s"   => \(my $reference_file),            # reference file
+    "reference-file|r=s"   => \(my $reference_file),
     "tdna-file|T=s"        => \(my $tdna_file),
     "flank-file|F=s"       => \(my $flank_file),
     "reads-file|R=s"       => \(my $reads_file),
@@ -44,16 +42,10 @@ my $result = GetOptions (
 usage("malformed arguments") if (!$result);
 usage("reference, tdna, flank, reads file all need to exist") 
 if any { ! defined $_ || ! -f $_ } ($reference_file, $tdna_file, $flank_file, $reads_file);
-
-LOG("tdna_file: $tdna_file");
-LOG("reference_file: $reference_file");
-LOG("flank_file: $flank_file");
-LOG("reads_file: $reads_file");
-
 usage("need --output-directory (-d)") if ! $output_directory;
 
-sub usage { pod2usage(scalar(@_) ? (-msg => shift()) : (), -verbose => 2, -noperldoc => 1); }
-
+#######################################################################
+# setup output directory and files
 
 make_path $output_directory;
 
@@ -63,8 +55,11 @@ my $scaffold_file = do{
     catdir $output_directory, "scaffold-$tdna_file_basename-$flank_file_basename.fasta";
 };
 
-my $output_file  = catfile $output_directory, basename($reads_file, qw{.fq .fastq}) . "_vs_" .  basename($scaffold_file, '.fasta') . ".sam";
-#my $summary_file = catfile $output_directory, basename($output_file, ".sam") . ".summary.txt");
+my $output_file = catfile $output_directory, basename($reads_file, qw{.fq .fastq}) . "_vs_" .  basename($scaffold_file, '.fasta') . ".sam";
+my $log_file    = catfile $output_directory, basename($output_file, ".sam") . ".log.txt";
+
+#######################################################################
+# read length and splice params
 
 my $full_read_len = fastq_read_length($reads_file);
 my $read_len      = @splice == 2 ? $splice[1] - $splice[0] + 1 : $full_read_len;
@@ -75,25 +70,40 @@ my $trim3 = @splice ? $full_read_len - $splice[1] : 0;
 $flank_prefix_length //= int($read_len * .75);
 $tdna_prefix_length  //= int($read_len * .75);
 
-LOG("read lengths: $full_read_len ($read_len used)");
-LOG("read splice: @splice (which is trim5 $trim5 trim3 $trim3)");
-LOG("flank_prefix_length: $flank_prefix_length");
-LOG("tdna_prefix_length:  $tdna_prefix_length");
+#######################################################################
+# aux function
 
 sub LOG { 
     my $msg = shift;
     say STDERR "LOG: $msg";
+    open my $logfh, '>>', $log_file;
+    say $logfh "LOG: $msg";
+    close $logfh;
+}
+sub usage { 
+    pod2usage(scalar(@_) ? (-msg => shift()) : (), -verbose => 2, -noperldoc => 1); 
 }
 
 #######################################################################
+# log params
 
-my %scaffold;
+LOG("tdna_file: $tdna_file");
+LOG("reference_file: $reference_file");
+LOG("flank_file: $flank_file");
+LOG("reads_file: $reads_file");
+LOG("read lengths: $full_read_len ($read_len used)");
+LOG("read splice: @splice (which is trim5 $trim5 trim3 $trim3)");
+LOG("flank_prefix_length: $flank_prefix_length");
+LOG("tdna_prefix_length:  $tdna_prefix_length");
+LOG("additional bowtie2 options: @ARGV");
 
-# 0. Read reference
+#######################################################################
+# 0. Read reference, bowtie build
 
 my $reference_fr = FastaReader->new(file => $reference_file, slurp => 1);
 bowtie_build( file => $reference_file, version => 2);
 
+#######################################################################
 # 1. Find where the flanks are from
 
 LOG "aligning each flank to genome";
@@ -115,6 +125,7 @@ for my $s ($flank_fr->sequence_list()) {
     }
 }
 
+#######################################################################
 # 2. Get tDNA's left border's prefix, rc'd.
 
 my $tdna_fr  = FastaReader->new(file => $tdna_file);
@@ -123,7 +134,10 @@ die "$tdna_file has more than one sequence?" if $tdna_fr->sequence_count != 1;
 my $tdna_prefix = $tdna_fr->get($tdna_fr->first_sequence(), 1, $tdna_prefix_length, rc => 1);
 LOG "tdna_prefix is $tdna_prefix";
 
+#######################################################################
 # 3. Combine tdna prefix with flanks.
+
+my %scaffold;
 
 for my $f (keys %flanks) {
     my $flank_prefix = $flank_fr->get($f, 1, $flank_prefix_length);
@@ -154,6 +168,7 @@ for my $f (keys %flanks) {
     }
 }
 
+#######################################################################
 # 4. Print scaffold and build index
 
 LOG("producing scaffold file $scaffold_file");
@@ -173,10 +188,12 @@ LOG("building bisulfite bowtie index for $scaffold_file");
 
 my ($scaffold_bsrc_file) = bowtie_build( file => $scaffold_file, bs => 'c2t', rc => 1, version => 2,);
 
+#######################################################################
 # 5. Convert reads 
 
-my $cmd = "perl -S fastq2rcfasta.pl --c2t $reads_file | bowtie2 --norc -x $scaffold_bsrc_file -U - -f -S $output_file -5 $trim5 -3 $trim3 @ARGV";
+my $cmd = "perl -S fastq2rcfasta.pl --c2t $reads_file | bowtie2 --norc -x $scaffold_bsrc_file -U - -f -S $output_file -5 $trim5 -3 $trim3 @ARGV 2>> $log_file";
 LOG("running: $cmd");
+
 system($cmd);
 
 #######################################################################
@@ -184,40 +201,8 @@ system($cmd);
 
 =head1 USAGE
 
- red-headed-step-child.pl [options] -r reference.fasta tdna.fasta flanks.fasta reads.fasta 
+ red-headed-step-child.pl -s START END -fp FLANKPRE -tp TDNAPRE -R READS.fastq -T tDNA.FASTA -F FLANKS.FASTA -r REF.FASTA -d OUTDIR -- BOWTIE2OPTS
 
-=head1 OPTIONS
-
-=over
-
-=item --outdir <dir> | -o <dir>          
- 
-Output directory. Required.
-
-=item --reference <fasta>         | -r <fasta>        
- 
-Reference genome fasta file. Required.
-
-=item --flank-range <start> <end> | -fr <start> <end> 
-
-This range of flank becomes the bait (see below). Default 1, 30.
-
-=back
-
-=head2 What it does
-
-This script requires 4 files to run: the reference.fasta genome of the organism, tdna.fasta
-containing the sequence of the tdna insertion, flanks.fasta containing the downstream, and reads.fasta 
-containing the bisulfite-seq short reads. Schematically:
-
-                        |----> tdna
-                         \  /
-                          \/
- |---------------------------------------------------------| genome
-                           |---------> flank
-                    |------------| reads that we want to find
-
-
-
+ red-headed-step-child.pl -R reads.fastq -T tdna.fa -F flank.fasta -r ref.fasta -d out -- --very-sensitive --rdg 2,2
 
 =cut
