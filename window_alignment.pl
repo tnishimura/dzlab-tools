@@ -137,17 +137,17 @@ for my $seq (sort $fasta_reader->sequence_list()) {
 
 =head1 NAME
 
- alignment_window.pl - given an alignment file, return a gff file of windows
+ window_alignment.pl - given an alignment file, return a gff file of windows
  scores showing how many reads overlap that window.  
 
 =head1 SYNOPSIS
 
 Usage examples:
 
- alignment_window.pl -r genome.fasta -w 1 -f bowtie alignment.bowtie
- alignment_window.pl -r genome.fasta -k -w 50 -f bowtie alignment.bowtie
- alignment_window.pl -r genome.fasta -k -w 50 -f gff bowtie_converted_to_gff.gff
- alignment_window.pl -r genome.fasta -k -w 50 -f eland bowtie_converted_to_eland.eland3
+ window_alignment.pl -r genome.fasta -w 1 -f bowtie alignment.bowtie
+ window_alignment.pl -r genome.fasta -k -w 50 -f bowtie alignment.bowtie
+ window_alignment.pl -r genome.fasta -k -w 50 -f gff bowtie_converted_to_gff.gff
+ window_alignment.pl -r genome.fasta -k -w 50 -f eland bowtie_converted_to_eland.eland3
 
 =head1 OPTIONS
 
