@@ -82,7 +82,19 @@ for my $file (@files, sort keys %accum) {
 $total_size /= 1024*1024;
 say STDERR "Total size: $total_size MB";
 
-if (defined $copy && -d $copy){
+use File::Path qw/make_path/;
+
+
+if (defined $copy){
+    if (! -e $copy){
+        say "$copy doesn't exist, creating";
+        make_path $copy;
+    }
+    elsif (-e $copy && ! -d $copy){
+        say "$copy exists, not a directory? aborting";
+        exit 1;
+    }
+
     open my $rsync, '|-', "rsync -avWP --files-from=- . \"$copy\"";
     for my $file (@files, sort keys %accum) {
         say $rsync $file;
