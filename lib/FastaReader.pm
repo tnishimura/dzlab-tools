@@ -123,6 +123,12 @@ sub sequence_list{
     return sort values %{$self->original_name};
 }
 
+sub first_sequence{
+    my $self = shift;
+    my @seqs = $self->sequence_list();
+    return $seqs[0];
+}
+
 sub sequence_count{
     my $self = shift;
     my @seqs = $self->sequence_list;
