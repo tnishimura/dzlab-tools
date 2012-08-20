@@ -20,13 +20,26 @@ if ($opt_output ne '-'){
     select $fh; 
 }
 
-my $gt = GFF::Tree->new(file => $opt_gff);
-my $p  = GFF::Parser->new(file => $opt_input);
+my $gt = GFF::Tree->new(file => $opt_gff, lenient => 1);
+my $p  = GFF::Parser->new(file => $opt_input, normalize => 0);
+
+my %annotation_has_seq;
 
 while (defined(my $gff = $p->next())){
     my ($seq, $start, $end) = ($gff->sequence, $gff->start, $gff->end);
-    my @results = $gt->search_overlap($seq,$start,$end);
+
+    if (! exists $annotation_has_seq{uc $seq}){ 
+        # first time seeing $seq
+        $annotation_has_seq{uc $seq} = $gt->has_tree(uc $seq);
+        if (! $annotation_has_seq{uc $seq}){
+            say STDERR "warning: annotation does not have any entries for $seq";
+        }
+    }
+
     my $outputted;
+
+    if ($annotation_has_seq{uc $seq}){
+    my @results = $gt->search_overlap($seq,$start,$end);
 
     for my $result (@results){
         my $overlap = $result->{overlap};
@@ -52,9 +65,10 @@ while (defined(my $gff = $p->next())){
             last;
         }
     }
+    }
 
     if (! $outputted && $opt_no_skip){
-        $gff->score(undef);
+        #$gff->score(undef); # don't remember why this was desired...
         $gff->attribute_string(undef) if $opt_tag_only;
         say $gff;
     }
@@ -90,7 +104,7 @@ Annotation file.
 
 =item  -k | --no-skip
 
-Print line from input.gff even if no overlap is found.
+Print line from input.gff even if no overlap is found.  
 
 =item  -t <tag> | --tag <tag>
 
