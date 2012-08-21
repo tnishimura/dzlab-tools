@@ -64,10 +64,22 @@ around 'next' => sub{
         }
 
         croak "strand should be + or -" unless $strand ~~ [qw/+ -/];
-        croak "can't get read sequence from column 3" if ! defined $read_seq;
-        croak "can't get target sequence from column 3" if ! defined $target_seq;
-        croak "read seq is not the right length" if (length($read_seq) != ($end-$start+1));
-        croak "target seq is not length(read)+4" if (length $target_seq != 4 + length $read_seq);
+        croak "can't get read sequence from column 3 ($.)" if ! defined $read_seq;
+        croak "can't get target sequence from column 3 ($.)" if ! defined $target_seq;
+        croak "read seq is not the right length ($.)" if (length($read_seq) != ($end-$start+1));
+        my $target_len = length($target_seq);
+        my $read_len = length($read_seq);
+
+        if ($target_len != 4 + $read_len){
+            # at the ends of the chromosomes, it could be that
+            # read_len <= target_len < read_len + 4
+            if ($read_len <= $target_len &&  $target_len < $read_len + 4){
+                next LOOP;
+            }
+            else{
+                croak "target seq is not length(read)+4 ($.)\n$gff\n$target_seq\n$read_seq" 
+            }
+        }
 
         if ($self->debug and ! only_c2t_changes($read_seq, $target_seq)){
             $self->inc_correlation_error_counter();
