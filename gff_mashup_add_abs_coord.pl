@@ -46,7 +46,8 @@ while (defined(my $line = <ARGV>)){
     my $coord = $orig_coord + $offset;
 
     say join "\t", $seq, $orig_coord, @rest, $coord;
-    $last = [$seq, $orig_coord, @rest];
+
+    $last = [$seq, $coord, @rest];
 }
 
 =head1 NAME
