@@ -12,8 +12,11 @@ while (defined(my $line = <ARGV>)){
     chomp $line;
     my @split = split /\t/, $line;
 
-    if ($split[8] =~ s/;n=(\d+)//){
+    if ($split[8] =~ s/;?n=(\d+)//){
         ($split[5], $split[8]) = ($1, $split[8] . ";n=" . int($split[5]));
+
+        $split[8] =~ s/^;//;
+        $split[8] =~ s/;$//;
     }
     say join "\t", @split;
 }
