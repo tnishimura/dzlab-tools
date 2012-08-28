@@ -57,6 +57,7 @@ my $scaffold_file = do{
 
 my $output_file = catfile $output_directory, basename($reads_file, qw{.fq .fastq}) . "_vs_" .  basename($scaffold_file, '.fasta') . ".sam";
 my $log_file    = catfile $output_directory, basename($output_file, ".sam") . ".log.txt";
+my $gff_file    = catfile $output_directory, basename($output_file, ".sam") . ".gff";
 
 #######################################################################
 # read length and splice params
@@ -138,6 +139,7 @@ LOG "tdna_prefix is $tdna_prefix";
 # 3. Combine tdna prefix with flanks.
 
 my %scaffold;
+$scaffold{"tdna_whole"} = $tdna_fr->get($tdna_fr->first_sequence());
 
 for my $f (keys %flanks) {
     my $flank_prefix = $flank_fr->get($f, 1, $flank_prefix_length);
@@ -163,7 +165,7 @@ for my $f (keys %flanks) {
             my $upstream_end = $leftmost - 1;
 
             $scaffold{"flank_upstream_${seqid}_${upstream_start}_${upstream_end}_${strand}+$f"} = 
-            $reference_fr->get($seqid, $upstream_start, $upstream_end, rc => 1) . $flank_prefix;
+            $reference_fr->get($seqid, $upstream_start, $upstream_end) . $flank_prefix;
         }
     }
 }
@@ -197,7 +199,13 @@ LOG("running: $cmd");
 system($cmd);
 
 #######################################################################
-# split the reads in smaller chunks (while converting to fasta/c2t)
+# 6. Convert Sam to GFF
+
+LOG("converting sam to gff");
+
+system("sam2gff.pl $output_file > $gff_file 2>> $log_file");
+
+LOG("DONE!");
 
 =head1 USAGE
 
