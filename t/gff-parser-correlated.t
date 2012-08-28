@@ -110,15 +110,25 @@ dies_ok {
     $parser->next();
 } "bad strand";
 
-dies_ok {
+lives_ok {
     my $seq = "chr3	U/NM	SOLEXA2_0531_FC62W31AAXX:4:1:1804:1117#0/1:TTTTATGATGTGGTAATTTATTATTGGATGGGAAGTTTGAT	1567476	1567516	1	+	0	target=TGTCCCATGACGTGGCAACCTATTACTGGATGGGAAGTTCGACC";
+    #TTTTATGATGTGGTAATTTATTATTGGATGGGAAGTTTGAT	
+    #TGTCCCATGACGTGGCAACCTATTACTGGATGGGAAGTTCGACC
     open my $fh, "<", \$seq;
     my $parser = GFF::Parser::Correlated->new(file => $fh, normalize => 0);
     $parser->next();
-} "bad target seq len";
+} "bad target seq len, but lives b/c readlen <= targetlen < readlen + 4, to allow for edge cases, which are skipped";
 
 dies_ok {
-    my $seq = "chr3	U/NM	SOLEXA2_0531_FC62W31AAXX:4:1:1804:1117#0/1:TTTTATGATGTGGTAATTTATTATTGGATGGGAAGTTTGAT	1567476	1567516	1	+	0	target=TGTCCCATGACGTGGCAACCTATTACTGGATGGGAAGTTCGACCG";
+    my $seq = "chr3	U/NM	SOLEXA2_0531_FC62W31AAXX:4:1:1804:1117#0/1:TTTATGATGTGGTAATTTATTATTGGATGGGAAGTTTGAT	1567476	1567516	1	+	0	target=TGTCCCATGACGTGGCAACCTATTACTGGATGGGAAGTTCGACC";
+    #TTTATGATGTGGTAATTTATTATTGGATGGGAAGTTTGAT	
+    #TGTCCCATGACGTGGCAACCTATTACTGGATGGGAAGTTCGACC
+    open my $fh, "<", \$seq;
+    my $parser = GFF::Parser::Correlated->new(file => $fh, normalize => 0);
+    $parser->next();
+} "bad target seq len, dies b/c !(readlen <= targetlen < readlen + 4)";
+
+dies_ok {
     my $seq = "chr3	U/NM	SOLEXA2_0531_FC62W31AAXX:4:1:1804:1117#0/1:TTTATGATGTGGTAATTTATTATTGGATGGGAAGTTTGAT	1567476	1567516	1	+	0	target=TGTCCCATGACGTGGCAACCTATTACTGGATGGGAAGTTCGACCG";
     open my $fh, "<", \$seq;
     my $parser = GFF::Parser::Correlated->new(file => $fh, normalize => 0);
