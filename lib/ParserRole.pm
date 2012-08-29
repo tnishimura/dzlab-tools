@@ -30,7 +30,7 @@ has filehandle => (
 );
 
 sub BUILD{
-    warn "parser role constructor called";
+    # warn "parser role constructor called";
     my ($self) = @_;
     if (ref $self->filename_or_handle eq 'GLOB'){
         $self->filehandle($self->filename_or_handle);

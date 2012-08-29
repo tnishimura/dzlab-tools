@@ -21,7 +21,7 @@ has csv => (
 );
 
 sub BUILD{
-    warn "GFF::Parser::XS constructor called";
+    # warn "GFF::Parser::XS constructor called";
     my ($self) = @_;
 
     $self->csv(
