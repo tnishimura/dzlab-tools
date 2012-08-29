@@ -102,6 +102,7 @@ sub parse_sam_line{
             readid    => $qname,
             seq       => $seq,
             cigar     => $cigar,
+            mapq      => $mapq,
         }, "SAMLINE");
     }
 }
