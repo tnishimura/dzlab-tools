@@ -151,7 +151,7 @@ my %files = (
 );
 
 # convert reads
-run_cmd ("perl -S fq_all2std.pl fq2fa $left_read > $files{lfa}")  unless file_exists($files{lfa});
+run_cmd ("perl -S fq2fa.pl $left_read > $files{lfa}")  unless file_exists($files{lfa});
 run_cmd ("perl -S convert.pl c2t $files{lfa} > $files{lc2t}")     unless file_exists($files{lc2t});
 unless ($single_ends) {
     run_cmd ("perl -S fq_all2std.pl fq2fa $right_read > $files{rfa}") unless file_exists($files{rfa});
