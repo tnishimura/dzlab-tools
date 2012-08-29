@@ -19,48 +19,47 @@ my $p = GFF::Parser::XS->new(file => \*DATA, skip => 0);
 
 {
     my $gff = $p->next();
-    not_gff_has( $gff,
-        sequence         => 'ctg123-meow',
-        source           => undef,
-        feature          => 'mRNA',
-        start            => 1050,
-        end              => 9000,
-        frame            => undef,
-        strand           => '+',
-        score            => undef,
-        attribute_string => "ID=mRNA00001;Parent=gene00001;Name=EDEN.1",
-        "gff line 1- should NOT be equal");
+    not_gff_has( $gff, {
+            sequence         => 'ctg123-meow',
+            source           => undef,
+            feature          => 'mRNA',
+            start            => 1050,
+            end              => 9000,
+            frame            => undef,
+            strand           => '+',
+            score            => undef,
+            attribute_string => "ID=mRNA00001;Parent=gene00001;Name=EDEN.1",
+        }, "gff line 1- should NOT be equal");
 }
 
 {
     my $gff = $p->next();
-    gff_has($gff,
-            sequence => 'ctg123', 
-            source => undef,
-            feature => 'mRNA', 
-            start => 1050, 
-            end => 9000, 
-            frame => undef,
-            strand => '+',
-            score => undef,
+    gff_has($gff,{ 
+            sequence         => 'ctg123',
+            source           => undef,
+            feature          => 'mRNA',
+            start            => 1050,
+            end              => 9000,
+            frame            => undef,
+            strand           => '+',
+            score            => undef,
             attribute_string => "ID=mRNA00001;Parent=gene00001;Name=EDEN.1,123",
-            "gff line 2- no attr"
-        );
+        }, "gff line 2- no attr");
 }
 
 {
     my $gff = $p->next();
-    gff_has($gff,
-            sequence => 'ctg123', 
-            source => undef, 
-            feature => 'mRNA', 
-            start => 1050, 
-            end => 9000, 
-            frame => undef,
-            strand => '+',
-            score => undef,
+    gff_has($gff,{
+            sequence         => 'ctg123',
+            source           => undef,
+            feature          => 'mRNA',
+            start            => 1050,
+            end              => 9000,
+            frame            => undef,
+            strand           => '+',
+            score            => undef,
             attribute_string => "mRNA00001",
-            "gff line 3- no attr");
+        }, "gff line 3- no attr");
 }
 
 
@@ -68,102 +67,102 @@ my $p = GFF::Parser::XS->new(file => \*DATA, skip => 0);
 
 {
     my $gff = $p->next();
-    gff_has($gff,
-            sequence => 'ctg123', 
-            source => undef, 
-            feature => 'mRNA', 
-            start => 1050, 
-            end => 9000, 
-            frame => undef,
-            strand => '+',
-            score => undef,
-            ID => "mRNA00001",
-            Parent => "gene00001",
-            Name => "EDEN.1",
-            "gff with  attributes line 1");
+    gff_has($gff,{
+            sequence => 'ctg123',
+            source   => undef,
+            feature  => 'mRNA',
+            start    => 1050,
+            end      => 9000,
+            frame    => undef,
+            strand   => '+',
+            score    => undef,
+            ID       => "mRNA00001",
+            Parent   => "gene00001",
+            Name     => "EDEN.1",
+        }, "gff with  attributes line 1");
 }
 
 {
     my $gff = $p->next();
-    gff_has($gff,
-            sequence => 'ctg123', 
-            source => undef, 
-            feature => 'mRNA', 
-            start => 1050, 
-            end => 9000, 
-            frame => undef,
-            strand => '+',
-            score => undef,
-            ID => "mRNA00001",
-            Parent => "gene00001",
-            Name => "EDEN.1,123",
-            "gff with  attributes line 2");
+    gff_has($gff,{
+            sequence => 'ctg123',
+            source   => undef,
+            feature  => 'mRNA',
+            start    => 1050,
+            end      => 9000,
+            frame    => undef,
+            strand   => '+',
+            score    => undef,
+            ID       => "mRNA00001",
+            Parent   => "gene00001",
+            Name     => "EDEN.1,123",
+        }, "gff with  attributes line 2");
 }
 
 {
     my $gff = $p->next();
-    gff_has($gff,
-            sequence => 'ctg123', 
-            source => undef, 
-            feature => 'mRNA', 
-            start => 1050, 
-            end => 9000, 
-            frame => undef,
-            strand => '+',
-            score => undef,
-            Note => "mRNA00001",
-            "gff with  attributes line 3");
+    gff_has($gff,{
+            sequence => 'ctg123',
+            source   => undef,
+            feature  => 'mRNA',
+            start    => 1050,
+            end      => 9000,
+            frame    => undef,
+            strand   => '+',
+            score    => undef,
+            Note     => "mRNA00001",
+        }, "gff with  attributes line 3");
 }
 
 {
     my $gff = $p->next();
-    not_gff_has($gff,
-            sequence => 'hello', 
-            source => undef, 
-            feature => 'exon', 
-            start => 199, 
-            end => 1233, 
-            frame => 2,
-            strand => '-',
-            score => 1.2,
-            c => 123,
-            n => 666,
-            t => 4,
-            "gff with  attributes line 4- should NOT be equal");
+    not_gff_has($gff,{
+            sequence => 'hello',
+            source   => undef,
+            feature  => 'exon',
+            start    => 199,
+            end      => 1233,
+            frame    => 2,
+            strand   => '-',
+            score    => 1.2,
+            c        => 123,
+            n        => 666,
+            t        => 4,
+        }, "gff with  attributes line 4- should NOT be equal");
 }
 
 {
     my $gff = $p->next();
-    gff_has($gff,
-            sequence => 'hello', 
-            source => undef, 
-            feature => 'exon', 
-            start => 199, 
-            end => 1233, 
-            frame => 2,
-            strand => '-',
-            score => 1.2,
-            c => 123,
-            n => 1234,
-            t => 4,
-            "gff with  attributes line 5- trailing whitespace");
+    gff_has($gff,{
+            sequence => 'hello',
+            source   => undef,
+            feature  => 'exon',
+            start    => 199,
+            end      => 1233,
+            frame    => 2,
+            strand   => '-',
+            score    => 1.2,
+            c        => 123,
+            n        => 1234,
+            t        => 4,
+        }, "gff with  attributes line 5- trailing whitespace");
 }
 
 {
     my $gff = $p->next();
-    gff_has($gff,
-            sequence => 'hello', 
-            source => undef, 
-            feature => 'exon', 
-            start => 199, 
-            end => 1233, 
-            frame => 2,
-            strand => '-',
-            score => 1.2,
-            c => "123",
-            n => 1234,
-            t => "4",
-            "gff with  attributes line 5- trailing && embedded whitespace");
+    gff_has($gff,{
+            sequence => 'hello',
+            source   => undef,
+            feature  => 'exon',
+            start    => 199,
+            end      => 1233,
+            frame    => 2,
+            strand   => '-',
+            score    => 1.2,
+            c        => "123",
+            n        => 1234,
+            t        => "4",
+        }, "gff with  attributes line 5- trailing && embedded whitespace");
 }
 
 {

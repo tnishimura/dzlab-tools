@@ -15,12 +15,14 @@ my $CLASS = __PACKAGE__;
 
 sub _check{
     my $gff = shift;
-    my %expected = @_;
+    my %expected = %{shift()};
 
     my @errors;
 
     while (my ($key,$exp) = each %expected) {
         my $got = $gff->get_column($key);
+        $got = uc $got if ($key eq 'sequence' and defined $got);
+        $exp = uc $exp if ($key eq 'sequence' and defined $exp);
         if (defined $exp && ! defined $got){
             push @errors, "$key expected defined, got undefined\n";
         }
