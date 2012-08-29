@@ -30,13 +30,14 @@ has filehandle => (
 );
 
 sub BUILD{
+    warn "parser role constructor called";
     my ($self) = @_;
     if (ref $self->filename_or_handle eq 'GLOB'){
         $self->filehandle($self->filename_or_handle);
     }
     elsif (!ref $self->filename_or_handle && -f $self->filename_or_handle ){
-        open my $fh, '<', $self->filename_or_handle
-            or croak "cannot open $self->filename_or_handle";
+        open my $fh, '<:crlf', $self->filename_or_handle
+            or croak "cannot open " .  $self->filename_or_handle;
         $self->filehandle($fh);
     } elsif (! -f $self->filename_or_handle){
         croak $self->filename_or_handle . " doesn't exist?";
