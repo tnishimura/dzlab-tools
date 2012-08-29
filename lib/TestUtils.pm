@@ -15,7 +15,7 @@ use File::Path qw/make_path/;
 require Exporter;
 our @ISA = qw(Exporter);
 our @EXPORT_OK = qw();
-our @EXPORT = qw(setup_intermediate_dir exists_and_nonempty setup_reference);
+our @EXPORT = qw(setup_intermediate_dir exists_and_nonempty setup_reference test_gff);
 our $intermediate_dir = 't_intermediate';
 
 sub setup_intermediate_dir{
@@ -47,6 +47,38 @@ sub setup_reference{
 sub exists_and_nonempty{
     my $file = shift;
     return defined $file &&  -f $file && [stat($file)]->[7];
+}
+
+sub test_gff{
+    my $line_count = shift // 1_000_000;
+    my $file = shift // catfile(setup_intermediate_dir(), 'test.gff');
+    if (-s $file){
+        return $file;
+    }
+
+    open my $fh, '>', $file ;
+    for (1 .. $line_count) {
+        my $chr   = 'chr' . int(rand(100));
+        my $start = int(rand(10_000_000));
+        my $end   = $start + int(rand(10_000));
+        my $c     = int(rand(1000));
+        my $t     = int(rand(1000));
+        my $n     = int(rand(1000));
+        say $fh join "\t", 
+            $chr,
+            q{.},
+            q{.},
+            $start, 
+            $end,
+            rand(1000),
+            (rand() > .5 ? q{+} : q{-}),
+            q{.},
+            "c=$c;t=$t;n=$n"
+        ;
+    }
+    close $fh;
+
+    return $file;
 }
 
 1;
