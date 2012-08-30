@@ -26,7 +26,7 @@ our @EXPORT_OK = qw(localize reverse_complement common_suffix common_prefix
 mfor basename_prefix fastq_read_length timestamp datestamp overlap chext
 split_names open_maybe_compressed fastq_convert_read_header c2t g2a rc_c2t rc_g2a
 numdiff safediv safemethyl clean_basename open_cached close_cached_all downsample
-approximate_line_count memofile memodo gimmetmpdir split_file);
+approximate_line_count memofile memodo gimmetmpdir split_file combine_csv);
 our @EXPORT = qw();
 
 sub clean_basename{
@@ -558,6 +558,55 @@ sub split_file{
 
     return @split;
 
+}
+
+# combine multiple CSV files so that only the first one has a header.
+# croak when the # of columns mismatch.
+sub combine_csv{
+    my ($outfile, @infiles) = @_;
+    my $first_file = 1;
+
+    my $colcount;
+
+    my $tmpout = $outfile . ".tmp";
+
+    open my $outfh, '>:crlf', $tmpout;
+
+    for my $inf (@infiles) {
+        open my $infh, '<:crlf', $inf;
+        my $first_line = 1;
+
+        while (defined(my $line = <$infh>)){
+            chomp $line;
+
+            # check that it has correct number of columns
+            if ($first_line){
+                my $file_colcount = scalar(split /\t/, $line);
+                $colcount = $colcount // $file_colcount;
+                if ($colcount != $file_colcount){
+                    croak "$inf colcount mismatch?";
+                }
+
+                # and print it if its also the first file
+                if ($first_file){
+                    say {$outfh} $line;
+                }
+            }
+            else{
+                # if its not first line, always print
+                say {$outfh} $line;
+            }
+
+            $first_line = 0;
+            $first_file = 0;
+        }
+
+        close $infh;
+    }
+
+    close $outfh;
+
+    rename $tmpout, $outfile;
 }
 
 1;
