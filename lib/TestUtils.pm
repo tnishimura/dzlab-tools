@@ -50,11 +50,10 @@ sub exists_and_nonempty{
 }
 
 sub test_gff{
+    state $counter = 1;
     my $line_count = shift // 1_000_000;
-    my $file = shift // catfile(setup_intermediate_dir(), 'test.gff');
-    if (-s $file){
-        return $file;
-    }
+    my $file = shift // catfile(setup_intermediate_dir(), "test$counter.gff");
+    $counter++;
 
     open my $fh, '>', $file ;
     for (1 .. $line_count) {
