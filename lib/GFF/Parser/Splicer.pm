@@ -104,7 +104,7 @@ sub next{
             }
             ++$index;
         }
-        return @splice;
+        return \@splice;
     }
     return;
 }
