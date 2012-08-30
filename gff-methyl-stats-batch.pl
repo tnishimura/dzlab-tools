@@ -26,7 +26,7 @@ for my $dir (@ARGV) {
     for my $infile (glob("$dir/single-c/*all*.gff")) {
         $pm->start and next;
         pdo{
-            my $methfile = $infile =~ s/gff$/methsites.txt/r;
+            my $methfile = $infile =~ s/gff$/methstats.txt/r;
             my $cmd = "gff-methyl-stats.pl -d mstats $infile > $methfile";
             say $cmd;
             system($cmd);
