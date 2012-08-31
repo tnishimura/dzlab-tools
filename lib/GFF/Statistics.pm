@@ -7,6 +7,7 @@ use Data::Dumper;
 use Carp;
 use autodie;
 use GFF::Parser;
+use GFF::Parser::Splicer;
 use Scalar::Util qw/looks_like_number/;
 use List::MoreUtils qw/all/;
 use Statistics::Descriptive;
@@ -276,20 +277,19 @@ sub methylation_stats{
     my $mit_methyl = make_averager();
     my ($mit_c, $mit_t, $chr_c, $chr_t, $nuc_c, $nuc_t) = (0) x 6;
 
-    my $parser = GFF::Parser->new(file => $singlec);
+    my $parser = GFF::Parser::Splicer->new(file => $singlec, columns => [qw/seq c t/]);
 
     my $counter = 0;
     PARSE:
     while (defined(my $gff = $parser->next())){
         say STDERR $counter if $counter++ % 50000 == 0;
-        my $c = $gff->get_column('c');
-        my $t = $gff->get_column('t');
+        my ($seq, $c, $t) = @$gff;
         next PARSE if ! (defined $c && defined $t);
         my $ct = $c+$t;
 
         my $methyl = ($ct == 0) ? 0 : $c / ($ct);
 
-        given ($gff->sequence){
+        given ($seq){
             when (/chrc/i){
                 $chr_methyl->($methyl);
                 ++$chr_ct{$ct};
