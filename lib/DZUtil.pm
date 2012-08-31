@@ -26,7 +26,8 @@ our @EXPORT_OK = qw(localize reverse_complement common_suffix common_prefix
 mfor basename_prefix fastq_read_length timestamp datestamp overlap chext
 split_names open_maybe_compressed fastq_convert_read_header c2t g2a rc_c2t rc_g2a
 numdiff safediv safemethyl clean_basename open_cached close_cached_all downsample
-approximate_line_count memofile memodo gimmetmpdir split_file combine_csv);
+approximate_line_count memofile memodo gimmetmpdir split_file combine_csv
+open_filename_or_handle);
 our @EXPORT = qw();
 
 sub clean_basename{
@@ -607,6 +608,31 @@ sub combine_csv{
     close $outfh;
 
     rename $tmpout, $outfile;
+}
+
+sub open_filename_or_handle{
+    my $filename_or_handle = shift;
+    my $filename;
+    my $filehandle;
+
+    if (ref $filename_or_handle eq 'GLOB'){
+        binmode($filename_or_handle, ':crlf');
+        $filehandle = $filename_or_handle;
+    }
+    elsif (!ref $filename_or_handle && -f $filename_or_handle ){
+        open my $fh, '<:crlf', $filename_or_handle
+            or croak "cannot open " .  $filename_or_handle;
+        $filehandle = $fh;
+        $filename = $filename_or_handle;
+    } elsif (! -f $filename_or_handle){
+        croak $filename_or_handle . " doesn't exist?";
+    }
+    else {
+        croak "file argument to GFF::Parser needs to be file handle or file name";
+    }
+
+    return ($filename, $filehandle);
+
 }
 
 1;
