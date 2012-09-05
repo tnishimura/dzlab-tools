@@ -371,10 +371,22 @@ else{
 
     chdir $single_c_dir;
     for my $cont (@contexts) {
-        my @files = glob("*$cont*.merged");
+        my @files = glob("*$cont*");
         launch("single_c_concat.pl " . join(" ", @files), dryrun => $dry);
     }
 }
+
+
+if ($opt_stats){
+    my $threads = $opt_parallel * 2 || 1;
+    launch("perl -S gff-methyl-stats-batch.pl -p $threads $opt_out_directory", dryrun => $dry);
+}
+
+if ($opt_ends){
+    my $threads = $opt_parallel * 2 || 1;
+    launch("perl -S ends_analysis_batch.pl -p $threads -c $opt_ends -d $opt_out_directory", dryrun => $dry);
+}
+
 
 =head1 NAME
 
@@ -548,7 +560,7 @@ Skip the windowing after single-c file generation.
 =item --parallel <threads>
 
 Number of subprocesses the script is allowed to run.  Default 0 (meaning no
-subprocesses).  Will use up to 3.
+subprocesses).  
 
 =for Euclid
     threads.default:     0
@@ -567,6 +579,17 @@ Downsample reads by given fraction.
 =for Euclid
     fraction.type:        number, fraction >= 0 && fraction <= 1
     fraction.type.error:  <fraction> must be between 0 and 1.
+
+=item  --ends <config>
+
+Produces ends-analysis via ends_analysis_batch.pl with config file and --parallel * 2 threads.
+
+=for Euclid
+    config.type:        readable
+
+=item --stats
+
+Produces stats via gff-methyl-stats-batch.pl
 
 =item --verbose
 
