@@ -37,6 +37,7 @@ my $result = GetOptions (
     "tdna-file|T=s"        => \(my $tdna_file),
     "flank-file|F=s"       => \(my $flank_file),
     "reads-file|R=s"       => \(my $reads_file),
+    "whole|w" => \(my $do_whole),
 );
 
 usage("malformed arguments") if (!$result);
@@ -110,7 +111,7 @@ bowtie_build( file => $reference_file, version => 2);
 LOG "aligning each flank to genome";
 
 my $flank_fr = FastaReader->new(file => $flank_file);
-my %flanks;
+my %flanks; # flank_seqid => [ sam alignments ]
 
 for my $s ($flank_fr->sequence_list()) {
     my $flank_seq = $flank_fr->get($s);
@@ -126,6 +127,13 @@ for my $s ($flank_fr->sequence_list()) {
     }
 }
 
+# ok that flanks didn't map to reference, though we don't know where any
+# junction spanning reads come from
+# if (0 == keys %flanks){
+#     LOG "no flanks (that mapped and were of sufficient size)!";
+#     exit 1;
+# }
+
 #######################################################################
 # 2. Get tDNA's left border's prefix, rc'd.
 
@@ -139,11 +147,16 @@ LOG "tdna_prefix is $tdna_prefix";
 # 3. Combine tdna prefix with flanks.
 
 my %scaffold;
-$scaffold{"tdna_whole"} = $tdna_fr->get($tdna_fr->first_sequence());
+$scaffold{"tdna_whole"} = $tdna_fr->get($tdna_fr->first_sequence()) if $do_whole;
 
-for my $f (keys %flanks) {
+# get list of flanks from $flank_fr instead of %flanks b/c want to create a tdna+flank for all 
+# flanks, even if it didn't map or was too short.
+for my $f ($flank_fr->sequence_list()) {
     my $flank_prefix = $flank_fr->get($f, 1, $flank_prefix_length);
     $scaffold{"tdna+$f"} = $tdna_prefix . $flank_prefix;
+
+    # means $f was too short or didn't map any where in reference.
+    next if ! exists $flanks{$f};
 
     # for each flank alignment, get the upstream region in the genome
     # and add to scaffold
@@ -193,7 +206,8 @@ my ($scaffold_bsrc_file) = bowtie_build( file => $scaffold_file, bs => 'c2t', rc
 #######################################################################
 # 5. Convert reads 
 
-my $cmd = "perl -S fastq2rcfasta.pl --c2t $reads_file | bowtie2 --norc -x $scaffold_bsrc_file -U - -f -S $output_file -5 $trim5 -3 $trim3 @ARGV 2>> $log_file";
+my $cmd = "perl -S fastq2rcfasta.pl --c2t $reads_file | " . 
+          "bowtie2 --norc -x $scaffold_bsrc_file -U - -f -S $output_file -5 $trim5 -3 $trim3 @ARGV 2>> $log_file";
 LOG("running: $cmd");
 
 system($cmd);
