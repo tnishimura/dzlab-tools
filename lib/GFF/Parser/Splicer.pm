@@ -86,6 +86,7 @@ sub next{
             next GFFLOOP;
         }
 
+        my $star_removed = 0;
         my $index = 0;
         for my $spec (@colspecs) {
             if (ref $spec eq q{}){
@@ -98,6 +99,10 @@ sub next{
                 }
             }
             else { # $spec is qr//
+                if (! $star_removed){
+                    $split[8] =~ s/\*$//;
+                    $star_removed = 1;
+                }
                 if ($split[8] =~ $spec){
                     $splice[$index] = $1;
                 }
