@@ -14,11 +14,11 @@ our @EXPORT_OK = qw();
 our @EXPORT = qw();
 
 sub where_is{
-    my ($ref, $seq) = @_;
+    my ($ref, $seq, @opt) = @_;
 
     my @results;
 
-    open my $pipe, "-|", "bowtie2", "-x", $ref, "-U", $seq, "-c";
+    open my $pipe, "-|", "bowtie2", "-x", $ref, "-U", $seq, "-c", @opt;
     while (defined(my $line = <$pipe>)){
         chomp $line;
         if (ref(my $sam = parse_sam_line($line)) eq "SAMLINE"){
