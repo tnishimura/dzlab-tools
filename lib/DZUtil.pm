@@ -324,14 +324,15 @@ sub rc_g2a{
 use LWP::Simple;
 use File::Temp qw/tempdir mktemp/;
 
+# should refactor this 
 sub localize{
-    my ($file_or_url, $dir, $overwrite) = @_;
-    if (!defined $dir || ! -d $dir){
-        $dir = tempdir(CLEANUP => 1);
-    }
+    my ($file_or_url, $dir, $overwrite, $storefile) = @_;
 
     if ($file_or_url =~ m{^(http|ftp)://}){
-        my $storefile = catfile($dir,basename($file_or_url));
+        if (!defined $dir || ! -d $dir){
+            $dir = tempdir(CLEANUP => 1);
+        }
+        $storefile //= catfile($dir,basename($file_or_url));
         my $tmpfile = mktemp($storefile . "XXXX");
         if (-f $storefile){
             if ($overwrite){
