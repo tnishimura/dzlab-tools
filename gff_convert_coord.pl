@@ -12,7 +12,17 @@ use lib "$FindBin::Bin/lib";
 use GFF::Parser;
 
 pod2usage(-verbose => 99,-sections => [qw/NAME SYNOPSIS OPTIONS/]) 
-if $opt_help || ! $opt_output || !$opt_input || !$opt_dictionary;
+if $opt_help || ! $opt_output || !$opt_dictionary;
+
+if (! $opt_input){
+    if (-t STDIN){
+        pod2usage(-verbose => 99,-sections => [qw/NAME SYNOPSIS OPTIONS/]) ;
+    }
+    else{
+        $opt_input = \*ARGV;
+    }
+}
+
 
 if ($opt_output ne '-'){
     open my $fh, '>', $opt_output;
