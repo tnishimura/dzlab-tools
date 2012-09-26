@@ -215,8 +215,22 @@ sub parse_alignment{
     }
 }
 
+sub reverse_sam{
+    # rname: remove RC_
+    # leftmost/rightmost: swap and convert
+    # cigar: reverse_cigar
+    # seq,qual: reverse complement
+    # pnext: not sure
+    # rnext: not sure
+    # opt/MD: like cigar
+}
+
 sub reverse_cigar{
-    my ($self, $seq, $cig) = @_;
+    #my ($self, $seq, $cig) = @_;
+}
+
+sub reverse_md{
+    #my ($self, $seq, $cig) = @_;
 }
 
 1;
