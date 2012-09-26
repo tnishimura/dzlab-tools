@@ -14,7 +14,6 @@ my $samfiles = Load(do {local $/; scalar <DATA>});
 {
     my $contents = $samfiles->{length};
     my $parser = Sam::Parser->new(file => \$contents);
-    $parser->next(); # need to do this for now to force reading
     is($parser->{sam_version}, "1.0", "sam_version");
     is($parser->{sort_order},  "unsorted", "unsorted");
     is($parser->{program_name},  "Bowtie", "program_name");
@@ -31,7 +30,6 @@ my $samfiles = Load(do {local $/; scalar <DATA>});
 {
     my $contents = $samfiles->{rc_length};
     my $parser = Sam::Parser->new(file => \$contents, convert_rc => 1);
-    $parser->next(); # need to do this for now to force reading
     is($parser->{sam_version}, "1.0", "sam_version");
     is($parser->{sort_order},  "unsorted", "unsorted");
     is($parser->{length}{chr1}, $parser->{length}{RC_chr1}, 'chr1 forward/reverse matches');

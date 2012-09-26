@@ -29,10 +29,23 @@ sub new {
     $self->{sam_version}     = undef;
     $self->{convert_rc}      = $convert_rc // 0;
     $self->{skip_unmapped}   = $skip_unmapped // 1;
+    $self->{putback}         = undef; # during constructor, read until first alignment and putback here
+                                      # want to use seek(), but doesn't work on stdin properly (?)
 
     lock_keys(%$self);
 
-    # note to self: parse header lines here, not in next()
+    # read headers, putback first alignment line into $self->{putback}
+    HEADER:
+    while (defined(my $line = readline $self->{handle})){
+        chomp $line;
+        if ($line =~ /^@/){
+            $self->parse_header($line);
+        }
+        else{
+            $self->{putback} = $line;
+            last HEADER;
+        }
+    }
 
     return $self;
 }
@@ -40,16 +53,20 @@ sub new {
 sub next{
     my $self = shift;
 
+    # process putback
+    if (defined (my $pb = $self->{putback})){
+        undef $self->{putback};
+        my $align = $self->parse_alignment($pb);
+        if ($align->{mapped} || ! $self->{skip_unmapped}){
+            return $align;
+        }
+    }
+
     while (defined(my $line = readline $self->{handle})){
         chomp $line;
-        if ($line =~ /^@/){
-            $self->parse_header($line);
-        }
-        else{
-            my $align = $self->parse_alignment($line);
-            if ($align->{mapped} || ! $self->{skip_unmapped}){
-                return $align;
-            }
+        my $align = $self->parse_alignment($line);
+        if ($align->{mapped} || ! $self->{skip_unmapped}){
+            return $align;
         }
     }
 
@@ -214,6 +231,9 @@ sub parse_alignment{
         return $samline;
     }
 }
+
+#######################################################################
+# reversal code
 
 sub reverse_sam{
     # rname: remove RC_
