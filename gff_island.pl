@@ -11,6 +11,7 @@ use GFF::Parser;
 use Getopt::Euclid qw( :vars<opt_> );
 use Pod::Usage;
 use Log::Log4perl qw/:easy/;
+use Scalar::Util qw/looks_like_number/;
 Log::Log4perl->easy_init( { 
     level    => $DEBUG,
     #file     => ">run.log",
@@ -36,7 +37,11 @@ sub land{
     #if (defined $gff->score){
     #die Dumper $gff;
     #}
-    return defined $gff->score && $gff->score >= $opt_threshold;
+    my $sc = $gff->score;
+    if ($opt_absolute_threshold and lln $sc){
+        $sc = abs($sc);
+    }
+    return defined $sc && $sc >= $opt_threshold;
 }
 sub unknown{
     my $gff = shift;
@@ -44,7 +49,11 @@ sub unknown{
 }
 sub sea{
     my $gff = shift;
-    return defined $gff->score && $gff->score < $opt_threshold;
+    my $sc = $gff->score;
+    if ($opt_absolute_threshold and lln $sc){
+        $sc = abs($sc);
+    }
+    return defined $sc && $sc < $opt_threshold;
 }
 
 my $previous;
@@ -201,6 +210,12 @@ default .01.
 
 =for Euclid
     threshold.default:     0.01
+
+=item -a | --absolute-threshold
+
+If --threshold if given, absolute values of all scores are compared to it.
+Therefore, '-t .1 -a' would mean all scores between -.1 and .1 are consider
+below the threshold and therefore empty. Added by request from Yvonne.
 
 =item -s | --just-scores
 
