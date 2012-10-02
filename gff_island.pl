@@ -68,12 +68,12 @@ while (my $gff = $p->next()){
 
     if ($opt_just_scores){
         $current_n = ($current_end - $current_start + 1); # with just_scores, $n is base counter
-        $current_just_score = $gff->score * $current_n;
+        $current_just_score = ($gff->score // 0) * $current_n;
     }
     else{
-        $current_c = $gff->get_attribute('c');
-        $current_t = $gff->get_attribute('t');
-        $current_n = $gff->get_attribute('n');
+        $current_c = $gff->get_attribute('c') // 0;
+        $current_t = $gff->get_attribute('t') // 0;
+        $current_n = $gff->get_attribute('n') // 1;
     }
 
     if (!$current_end || !$current_start){
@@ -167,7 +167,7 @@ sub blit{
     } else {
         my $score = $c + $t > 0 ? $c / ($c + $t) : 0;
 
-        say join "\t", $gff->sequence, $gff->source, $gff->feature,
+        say join "\t", $gff->sequence // '.', $gff->source // '.', $gff->feature // '.',
         $start, $end, $score, $gff->strand // '.', '.', "n=$n;c=$c;t=$t";
     }
 }
@@ -177,7 +177,7 @@ if ($opt_output ne '-'){
 
 =head1 NAME
  
-gff_island.pl - find islands of 
+gff_island.pl - find contiguous blocks in GFF meeting certain score threshold.
  
 =head1 SYNOPSIS
 
