@@ -4,7 +4,7 @@ use warnings;
 use Data::Dumper;
 use feature 'say';
 use autodie;
-use List::MoreUtils qw/all/;
+use List::MoreUtils qw/all any/;
 use Term::ProgressBar;
 
 use Pod::Usage;
@@ -92,6 +92,9 @@ for my $file (@ARGV) {
             }
             elsif ($lines[1] !~ m/^$nuc$/){
                 increment_error("second should begin with $nuc", @lines);
+            }
+            elsif (any { m{[^[:ascii:]]} } @lines){
+                increment_error("nonascii characters found", @lines);
             }
             elsif ($fix){
                 print $fix_fh @lines;
