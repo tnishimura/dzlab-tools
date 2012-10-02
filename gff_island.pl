@@ -38,7 +38,7 @@ sub land{
     #die Dumper $gff;
     #}
     my $sc = $gff->score;
-    if ($opt_absolute_threshold and lln $sc){
+    if ($opt_absolute_threshold and looks_like_number $sc){
         $sc = abs($sc);
     }
     return defined $sc && $sc >= $opt_threshold;
@@ -50,7 +50,7 @@ sub unknown{
 sub sea{
     my $gff = shift;
     my $sc = $gff->score;
-    if ($opt_absolute_threshold and lln $sc){
+    if ($opt_absolute_threshold and looks_like_number $sc){
         $sc = abs($sc);
     }
     return defined $sc && $sc < $opt_threshold;
