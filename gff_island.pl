@@ -71,9 +71,9 @@ while (my $gff = $p->next()){
         $current_just_score = ($gff->score // 0) * $current_n;
     }
     else{
-        $current_c = $gff->get_attribute('c') // 0;
-        $current_t = $gff->get_attribute('t') // 0;
-        $current_n = $gff->get_attribute('n') // 1;
+        $current_c = $gff->get_attribute('c');
+        $current_t = $gff->get_attribute('t');
+        $current_n = $gff->get_attribute('n');
     }
 
     if (!$current_end || !$current_start){
@@ -131,7 +131,7 @@ while (my $gff = $p->next()){
     elsif ($start && (unknown($gff) || ($opt_bermuda && sea($gff)))){
         if ($gap >= $opt_max_gap){
             blit($gff,$start,$end,$c,$t, $n, $just_score);
-            ($c, $t, $n, $gap) = (0,0,0,0);
+            ($c, $t, $n, $just_score, $gap) = (0,0,0,0,0);
             undef $start;
             undef $end;
         } else {
