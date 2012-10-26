@@ -6,8 +6,9 @@ use Data::Dumper;
 use Moose;
 use Carp;
 use autodie;    
+use open IO  => ":crlf"; # for ARGV...
 
-with 'ParserRole';
+extends 'Parser';
 
 # my ($readid, $strand, $chr, $pos, $read, $quality, $mystery_quantity_that_nobody_understands, $mismatch_string, [PARSED_MATCHES])
 # PARSED_MATCHES is [ABS_COORD, ORIGINAL, NEW]
