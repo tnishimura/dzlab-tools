@@ -617,7 +617,15 @@ sub open_filename_or_handle{
     my $filehandle;
 
     if (ref $filename_or_handle eq 'GLOB'){
-        binmode($filename_or_handle, ':crlf');
+        if (Scalar::Util::openhandle($filename_or_handle)){
+            binmode($filename_or_handle, ':crlf');
+        }
+        # else {
+        #     filehandle is most likely \*ARGV... can't binmode it b/c ARGV is
+        #     not opened until first read.  not sure if there is a way around 
+        #     this besides putting [use open IO  => ":crlf";] in the modules 
+        #     that actually read from the file handle.  
+        # }
         $filehandle = $filename_or_handle;
     }
     elsif (!ref $filename_or_handle && -f $filename_or_handle ){
@@ -629,7 +637,7 @@ sub open_filename_or_handle{
         croak $filename_or_handle . " doesn't exist?";
     }
     else {
-        croak "file argument to GFF::Parser needs to be file handle or file name";
+        croak "file argument to open_filename_or_handle needs to be file handle or file name";
     }
 
     return ($filename, $filehandle);
