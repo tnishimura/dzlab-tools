@@ -19,6 +19,7 @@ use Data::Dumper;
 use Moose;
 use Carp;
 use autodie;    
+use DZUtil qw/open_filename_or_handle/;
 
 has filename_or_handle => (
     is => 'ro',
@@ -31,34 +32,28 @@ has filehandle => (
     init_arg => undef,
 );
 
+has file => (
+    is => 'rw',
+    init_arg => undef,
+);
+
 # note the :crlf PerlIO layer!
 
 sub BUILD{
     # warn "parser role constructor called";
     my ($self) = @_;
-    if (ref $self->filename_or_handle eq 'GLOB'){
-        binmode($self->filename_or_handle, ':crlf');
-        $self->filehandle($self->filename_or_handle);
-    }
-    elsif (!ref $self->filename_or_handle && -f $self->filename_or_handle ){
-        open my $fh, '<:crlf', $self->filename_or_handle
-            or croak "cannot open " .  $self->filename_or_handle;
-        $self->filehandle($fh);
-    } elsif (! -f $self->filename_or_handle){
-        croak $self->filename_or_handle . " doesn't exist?";
-    }
-    else {
-        croak "file argument to GFF::Parser needs to be file handle or file name" 
-        . Dumper $self;
-    }
+    my ($file, $fh) = open_filename_or_handle($self->filename_or_handle);
+
+    $self->file($file);
+    $self->filehandle($fh);
 }
 
 sub DEMOLISH{
     my ($self) = @_;
-    if (!ref $self->filename_or_handle){
-        close $self->filehandle
-            or croak "cannot close $self->filename_or_handle";
+    if (defined $self->file()){
+        close $self->filehandle;
     }
 }
 
 1;
+
