@@ -22,7 +22,9 @@ sub eland_single_stat{
     my $p = Eland::Parser->new(file => $file_or_fh);
     my $counter = 0;
     while (defined(my $eland = $p->next())){
-        my (undef, undef, @matches) = @$eland;
+        # [read_id, read_sequence, [[seq_id, mismatch, reverse?, coord_start, coord_end], ...]
+        my (undef, undef, $matches_ref) = @$eland;
+        my @matches = @$matches_ref;
         say STDERR $counter if ++$counter % 50000 == 0;
 
         ++$total_count;

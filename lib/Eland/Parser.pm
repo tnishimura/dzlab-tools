@@ -6,8 +6,9 @@ use Data::Dumper;
 use Moose;
 use Carp;
 use autodie;    
+use open IO  => ":crlf"; # for ARGV...
 
-with 'ParserRole';
+extends 'Parser';
 
 has 'fastareader' => (
     is => 'ro',

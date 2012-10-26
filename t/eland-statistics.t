@@ -15,14 +15,15 @@ my ($total_count, $nm_count, $stats) = Eland::Statistics::eland_single_stat(\*DA
 
 is($total_count, 100, "total count");
 is($nm_count, 64, "nm count");
+
 is_deeply($stats,
     {
-        'chr3' => { '0' => 4 },
-        'chr1' => { '0' => 8 },
-        'chr4' => { '0' => 5 },
-        'chrc' => { '0' => 17 },
-        'chr2' => { '0' => 3 },
-        'chr5' => { '0' => 9 }
+        'chr3' => { total => 4, '0' => 4 },
+        'chr1' => { total => 8, '0' => 8 },
+        'chr4' => { total => 5, '0' => 5 },
+        'chrc' => { total => 17, '0' => 17 },
+        'chr2' => { total => 3, '0' => 3 },
+        'chr5' => { total => 9, '0' => 9 }
     },
     "stats deeply");
 
