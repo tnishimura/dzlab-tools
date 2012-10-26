@@ -14,7 +14,7 @@ our @EXPORT = qw(get_reads);
 
 sub _extract_id{
     my $id_line = shift;
-    $id_line =~ s/\@([^#\s]*).*/$1/;
+    $id_line =~ s/\@?([^#\s]*).*/$1/;
     return uc $id_line;
 }
 
