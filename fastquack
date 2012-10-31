@@ -16,6 +16,7 @@ use FastqReader::Convert;
 use FastqReader::CheckIntegrity;
 use FastqReader::CheckPairedIntegrity;
 use FastqReader::GetReads;
+use FastqReader::IsBS;
 
 $0 = basename $0;
 
@@ -55,12 +56,13 @@ Get particular reads from fastq file. :
   $0 get -f read-id data.fasta output.fasta
 
   # or for just a single read:
-  $0 get -s 'HS2:90:B09PCABXX:1:1202:13382:194746' > output.fasta
+  $0 get 'HS2:90:B09PCABXX:1:1202:13382:194746' > output.fasta
+
+Grep 
   
 Check if fastq file is bisulfite treated:
 
-  $0 bs data.fastq
-
+  $0 isbs data.fastq
 
 Check a fastq file's integrity:
 
@@ -68,7 +70,8 @@ Check a fastq file's integrity:
 
 Check a paired end sequencing fastq files' integrity:
 
-  $0 check dash-1.fastq dash-2.fastq
+  $0 check-paired dash-1.fastq dash-2.fastq
+  $0 paired dash-1.fastq dash-2.fastq
 END
 
     exit 1;
@@ -86,6 +89,16 @@ for ($cmd){
         my $file = shift // \*STDIN;
         usage() if (!$file);
         say count_reads($file);
+    }
+    when ([qw/isbs/]){
+        my $file = shift // \*STDIN;
+        usage() if (!$file);
+        my ($is_bs, %compo) = is_bs($file);
+        say $is_bs ? "probably bisulfite treated" : "probably not bisulfite treated";
+        say "A: $compo{a}";
+        say "C: $compo{c}";
+        say "G: $compo{g}";
+        say "T: $compo{t}";
     }
     when ([qw/convert/]){
         my $result = GetOptions (
@@ -120,6 +133,40 @@ for ($cmd){
         );
         usage() if ! $result;
         check_integrity(fix => $fix, maxerror => $maxerror, files => \@ARGV);
+    }
+    when ([qw/check-paired paired/]){
+        my $left = shift;
+        my $right = shift;
+        usage() if ! $left || ! $right;
+        check_paired_integrity($left, $right);
+    }
+    when ([qw/get-reads get/]){
+        my $result = GetOptions (
+            "read-id-file|f=s" => \(my $read_id_file),
+            "max-error|e=i" => \(my $maxerror = 1),
+        );
+        usage() if ! $result;
+        my @query_ids;
+        if ($read_id_file && -f $read_id_file){
+            open my $fh, '<:crlf', $read_id_file;
+            while (defined(my $line = <ARGV>)){
+                chomp $line;
+                push @query_ids, $line;
+            }
+            close $fh;
+        }
+        else{
+            push @query_ids, shift;
+        }
+
+        my $file = shift // \*STDIN;
+        usage() if (!$file);
+
+        my $results = get_reads($file, @query_ids);
+
+        for my $r (@$results) {
+            say join "\n", $r->[0], $r->[1], '+', $r->[2];
+        }
     }
     default{
         usage();

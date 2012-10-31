@@ -5,6 +5,7 @@ use 5.010_000;
 use Data::Dumper;
 use Carp;
 use autodie;
+use FastqReader;
 
 require Exporter;
 our @ISA = qw(Exporter);

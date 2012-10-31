@@ -12,15 +12,15 @@ our @ISA = qw(Exporter);
 our @EXPORT_OK = qw();
 our @EXPORT = qw(get_reads);
 
+# @HS2:90:B09PCABXX:1:1202:13269:194742 1:N:0: 
+# to 
+# HS2:90:B09PCABXX:1:1202:13269:194742
 sub _extract_id{
     my $id_line = shift;
     $id_line =~ s/\@?([^#\s]*).*/$1/;
     return uc $id_line;
 }
 
-# @HS2:90:B09PCABXX:1:1202:13269:194742 1:N:0: 
-# to 
-# HS2:90:B09PCABXX:1:1202:13269:194742
 # given a list of read ids, return a hash of { id => sequence }
 sub get_reads{
     my $file = shift;
