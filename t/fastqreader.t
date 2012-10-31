@@ -27,15 +27,15 @@ my $fq_g2a = "t_intermediate/g2a.fastq";
 my $fq_c2t_rc = "t_intermediate/c2t.rc.fastq";
 my $fq_g2a_rc = "t_intermediate/g2a.rc.fastq";
 
-fastq_to_fasta($fq, $fa);
-fastq_to_fasta_c2t($fq, $fa_c2t);
-fastq_to_fasta_g2a($fq, $fa_g2a);
-fastq_to_fastq_c2t($fq, $fq_c2t);
-fastq_to_fastq_g2a($fq, $fq_g2a);
-fastq_to_fasta_c2t_rc($fq, $fa_c2t_rc);
-fastq_to_fasta_g2a_rc($fq, $fa_g2a_rc);
-fastq_to_fastq_c2t_rc($fq, $fq_c2t_rc);
-fastq_to_fastq_g2a_rc($fq, $fq_g2a_rc);
+fastq_convert(in => $fq, out => $fa);
+fastq_convert(methyl => 'c2t',                         in => $fq, out => $fa_c2t);
+fastq_convert(methyl => 'g2a',                         in => $fq, out => $fa_g2a);
+fastq_convert(methyl => 'c2t', to_fasta => 0,          in => $fq, out => $fq_c2t);
+fastq_convert(methyl => 'g2a', to_fasta => 0,          in => $fq, out => $fq_g2a);
+fastq_convert(methyl => 'c2t',                rc => 1, in => $fq, out => $fa_c2t_rc);
+fastq_convert(methyl => 'g2a',                rc => 1, in => $fq, out => $fa_g2a_rc);
+fastq_convert(methyl => 'c2t', to_fasta => 0, rc => 1, in => $fq, out => $fq_c2t_rc);
+fastq_convert(methyl => 'g2a', to_fasta => 0, rc => 1, in => $fq, out => $fq_g2a_rc);
 
 my $fqr = FastqReader->new(file => \*DATA, fasta => 0);
 
@@ -104,7 +104,7 @@ sub check_conversion{
 seek \*DATA, 0,0;
 
 {
-    my $reads = get_reads(\*DATA, "HS2:90:B09PCABXX:1:1202:13292:194744",);
+    my $reads = get_reads(\*DATA, '@HS2:90:B09PCABXX:1:1202:13292:194744#/1 1:@:3',);
     is(scalar(@$reads), 1, "get_reads len = 1");
     is($reads->[0][1], "GTTTAGATGTAGTGGTTGTGAAAGTTAAAATGTAGAAGGTTGATAATTTATTTGAATTAATTTGATTTTGTTGGAAGTTTGATATTTTTGGAAAAAAGTG", "read seq");
 }
