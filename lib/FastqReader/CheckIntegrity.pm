@@ -1,19 +1,22 @@
 package FastqReader::CheckIntegrity;
-#!/usr/bin/env perl
 use strict;
 use warnings;
+use 5.010_000;
 use Data::Dumper;
-use feature 'say';
+use Carp;
 use autodie;
 use List::MoreUtils qw/all any/;
 use Term::ProgressBar;
 use Params::Validate qw/:all/;
-# types: SCALAR ARRAYREF HASHREF CODEREF GLOB GLOBREF SCALARREF UNDEF OBJECT(blessed) BOOLEAN(UNDEF | SCALAR) HANDLE
+
+require Exporter;
+our @ISA = qw(Exporter);
+our @EXPORT_OK = qw();
+our @EXPORT = qw(check_integrity);
 
 sub check_integrity{
     my %opt = validate(@_, {
             fix => {
-                type => SCALAR,
                 optional => 1,
             }, 
             maxerror => {
@@ -21,7 +24,6 @@ sub check_integrity{
                 regex => qr/^\d+$/,
                 optional => 1,
             }, 
-            debug => 0,
             files => {
                 type => ARRAYREF,
                 optional => 0,
@@ -29,33 +31,34 @@ sub check_integrity{
         });
     my $fix = $opt{fix};
     my $max_error = $opt{maxerror};
-    my $debug = $opt{debug};
+    my $debug = 1;
     my $files = $opt{files};
 
     my $nuc = qr/[ABCDGHKMNRSTVWY]+/i;
-    my $error_count = 0;
-    my $increment_error = sub {
-        my $error_msg = shift;
-        if ($fix){
-            if ($error_count < $max_error){
-                $error_count++;
-                say STDERR "WARNING: $error_msg at line $.: @_" if $debug;
-            }
-            else{
-                die "error count exceeded, $error_msg at line $.: @_";
-            }
-        }
-        else{
-            die "$error_msg at line $.: @_";
-        }
-    };
-
-    my $fix_fh;
-    if ($fix){
-        open $fix_fh, '>', $fix;
-    }
 
     for my $file (@$files) {
+        my $error_count = 0;
+        my $increment_error = sub {
+            my $error_msg = shift;
+            if ($fix){
+                if ($error_count < $max_error){
+                    $error_count++;
+                    say STDERR "WARNING: $error_msg at line $.:\n @_" if $debug;
+                }
+                else{
+                    die "error count exceeded, $error_msg at line $.:\n @_";
+                }
+            }
+            else{
+                die "$error_msg at line $.: @_";
+            }
+        };
+
+        my $fix_fh;
+        my $fix_file = "$file.FIXED";
+        if ($fix){
+            open $fix_fh, '>', $fix_file;
+        }
 
         my $size = (stat($file))[7];
 
@@ -75,7 +78,7 @@ sub check_integrity{
             }
             # check alignment of quartets.
             if ($first_line !~ /\@/){
-                increment_error("quartet doesn't start with @", $first_line);
+                $increment_error->("quartet doesn't start with @", $first_line);
             }
             my @lines = ($first_line, map { scalar <$in> } (2 .. 4));
             my @lens = map { length $_ } @lines;
@@ -90,22 +93,22 @@ sub check_integrity{
                     die "uneven number of lines @ around $."
                 }
                 elsif ($lines[0] !~ /^@/){
-                    increment_error("first line in quartet doesn't start with \@", @lines);
+                    $increment_error->("first line in quartet doesn't start with \@", @lines);
                 }
                 elsif ($lines[2] !~ /^\+/){
-                    increment_error("third line in quartet doesn't start with +", @lines);
+                    $increment_error->("third line in quartet doesn't start with +", @lines);
                 }
                 elsif ($lens[0] != $lens[2] && $lines[2] !~ /^\+$/){
-                    increment_error("third line should either be a lone + or same length as line 1", @lines);
+                    $increment_error->("third line should either be a lone + or same length as line 1", @lines);
                 }
                 elsif ($lens[1] != $lens[3] ){
-                    increment_error("second and fourth line should be same length", @lines);
+                    $increment_error->("second and fourth line should be same length", @lines);
                 }
                 elsif ($lines[1] !~ m/^$nuc$/){
-                    increment_error("second should begin with $nuc", @lines);
+                    $increment_error->("second should begin with $nuc", @lines);
                 }
                 elsif (any { m{[^[:ascii:]]} } @lines){
-                    increment_error("nonascii characters found", @lines);
+                    $increment_error->("nonascii characters found", @lines);
                 }
                 elsif ($fix){
                     print $fix_fh @lines;
@@ -116,13 +119,19 @@ sub check_integrity{
         $pb->update($size);
 
         close $in;
-    }
-    if ($fix) {
-        close $fix_fh;
-        say "OK, $error_count entries skipped";
-    }
-    else{
-        say "OK";
+        if ($fix) {
+            close $fix_fh;
+            if ($error_count == 0){
+                say "$file OK, no errors, fixing not necessary";
+                unlink $fix_file;
+            }
+            else{
+                say "$file had $error_count errors, fixed and created $fix_file";
+            }
+        }
+        else{
+            say "$file OK";
+        }
     }
 }
 

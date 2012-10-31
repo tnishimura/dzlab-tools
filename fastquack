@@ -1,0 +1,127 @@
+#!/usr/bin/env perl
+use strict;
+use warnings FATAL => "all";
+use 5.010_000;
+use Data::Dumper;
+use autodie;
+use Pod::Usage;
+use Getopt::Long;
+use File::Basename qw/basename/;
+use FindBin;
+use lib "$FindBin::Bin/lib";
+use DZUtil qw/fastq_read_length/;
+use FastqReader;
+use FastqReader::CountReads;
+use FastqReader::Convert;
+use FastqReader::CheckIntegrity;
+use FastqReader::CheckPairedIntegrity;
+use FastqReader::GetReads;
+
+$0 = basename $0;
+
+sub usage{
+    print <<"END";
+usage:
+
+Try to determine read length (all 4 are the same):
+
+  $0 read-length data.fastq
+  $0 length data.fastq
+  $0 len data.fastq
+  $0 l data.fastq
+
+Get the number of reads in a fastq file:
+
+  $0 count data.fastq               
+
+Convert fastq file:
+
+  $0 convert -c2t from.fastq > to.fasta     # to c2t fasta
+  $0 convert -c2t from.fastq to.fasta       # alternate output file notation
+  $0 convert -g2a from.fastq > to.fasta     # to g2a fasta
+
+  $0 convert -c2t -fq from.fastq > to.fasta # to c2t FASTQ
+  $0 convert -g2a -fq from.fastq > to.fasta # to g2a FASTQ
+
+  $0 convert -c2t -rc from.fastq to.fasta   # to c2t fasta, reverse complement
+
+  $0 convert from.fastq to.fasta            # from fastq to fasta, no other conversion
+
+Get particular reads from fastq file. :
+
+  # provide reads in read-id, one per line:
+  $0 get-reads -f read-id data.fasta > output.fasta
+  $0 get -f read-id data.fasta > output.fasta
+  $0 get -f read-id data.fasta output.fasta
+
+  # or for just a single read:
+  $0 get -s 'HS2:90:B09PCABXX:1:1202:13382:194746' > output.fasta
+  
+Check if fastq file is bisulfite treated:
+
+  $0 bs data.fastq
+
+
+Check a fastq file's integrity:
+
+  $0 check data.fastq               
+
+Check a paired end sequencing fastq files' integrity:
+
+  $0 check dash-1.fastq dash-2.fastq
+END
+
+    exit 1;
+}
+
+my $cmd = shift;
+
+for ($cmd){
+    when ([qw/read-length length len l/]){
+        my $file = shift // \*STDIN;
+        usage() if (!$file);
+        say fastq_read_length($file);
+    }
+    when ([qw/count/]){
+        my $file = shift // \*STDIN;
+        usage() if (!$file);
+        say count_reads($file);
+    }
+    when ([qw/convert/]){
+        my $result = GetOptions (
+            "c2t|c2t" => \(my $c2t),
+            "g2a|g2a" => \(my $g2a),
+            "rc|rc"   => \(my $rc),
+            "output-is-fastq|ofq"   => \(my $ofq),
+            "input-is-fasta|ifa"   => \(my $ifa),
+        );
+        usage() if ! $result;
+
+        my $in = shift // \*STDIN;
+        my $out = shift // \*STDOUT;
+        
+        if ($c2t && $g2a){
+            die "can't convert c2t and g2a at the same time";
+        }
+
+         fastq_convert(
+             in         => $in,
+             out        => $out,
+             rc         => $rc,
+             to_fasta   => ! $ofq,
+             from_fasta => $ifa,
+             methyl     => $c2t ? 'c2t' : $g2a ? 'g2a' : undef,
+         );
+    }
+    when ([qw/check-integrity check/]){
+        my $result = GetOptions (
+            "fix|f"    => \my $fix,
+            "max-error|e=i" => \(my $maxerror = 1),
+        );
+        usage() if ! $result;
+        check_integrity(fix => $fix, maxerror => $maxerror, files => \@ARGV);
+    }
+    default{
+        usage();
+    }
+}
