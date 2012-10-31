@@ -1,3 +1,4 @@
+package FastqReader::CheckIntegrity;
 #!/usr/bin/env perl
 use strict;
 use warnings;

@@ -44,10 +44,22 @@ sub fastq_convert{
     my     ($from_fasta, $to_fasta, $reverse_comp, $methyl_pattern, $input_file_or_filehandle, $output_file ) = 
     @opt{qw/ from_fasta   to_fasta   rc             methyl           in                      out        /};
 
-    open my $outfh, '>', $output_file;;
+    my $outfh;
+    if (ref $output_file eq 'GLOB'){
+        $outfh = $output_file;
+    }
+    elsif (ref $output_file eq ''){
+        open $outfh, '>', $output_file;
+    }
+    else{
+        $outfh = \*STDOUT;
+    }
 
     if (defined($methyl_pattern) and ($methyl_pattern ne 'c2t' and $methyl_pattern ne 'g2a')){
         croak "bs_fastq expects methyl_pattern to be c2t or g2a";
+    }
+    if ($from_fasta && ! $to_fasta){
+        croak "won't convert from a fasta to fastq";
     }
     if (! defined $methyl_pattern && ! $reverse_comp){
         croak "why are you converting from fastq to fastq without any transformation?" if (!$from_fasta && !$to_fasta);
@@ -69,6 +81,7 @@ sub fastq_convert{
              : $methyl_pattern eq 'g2a'  &&   $reverse_comp ? g2a(reverse_complement($seq))
              : croak "BUG";
         if ($to_fasta){
+            $readid =~ s/^@/>/;
             say $outfh $readid;
             say $outfh $seq;
         }
@@ -80,7 +93,9 @@ sub fastq_convert{
         }
     }
 
-    close $outfh
+    if (-f $output_file){
+        close $outfh;
+    }
 }
 
 1;

@@ -1,4 +1,4 @@
-package FastqReader;
+package FastqReader::CheckPairedIntegrity;
 use strict;
 use warnings;
 use 5.010_000;
