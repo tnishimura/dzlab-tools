@@ -1,3 +1,5 @@
+# I have no idea what this script is supposed to do
+# -Toshiro (2012-10-31)
 #!/usr/bin/env perl
 # ___UNDOCUMENTED___
 
