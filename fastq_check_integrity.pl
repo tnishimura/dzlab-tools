@@ -33,7 +33,6 @@ sub increment_error{
         if ($error_count < $max_error){
             $error_count++;
             say STDERR "WARNING: $error_msg at line $.: @_" if $debug;
-            next LOOP;
         }
         else{
             die "error count exceeded, $error_msg at line $.: @_";
