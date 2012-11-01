@@ -27,7 +27,7 @@ mfor basename_prefix fastq_read_length timestamp datestamp overlap chext
 split_names open_maybe_compressed fastq_convert_read_header c2t g2a rc_c2t rc_g2a
 numdiff safediv safemethyl clean_basename open_cached close_cached_all downsample
 approximate_line_count memofile memodo gimmetmpdir split_file combine_csv
-open_filename_or_handle);
+open_filename_or_handle deprecation_message);
 our @EXPORT = qw();
 
 sub clean_basename{
@@ -613,6 +613,10 @@ sub combine_csv{
 
 sub open_filename_or_handle{
     my $filename_or_handle = shift;
+    my $mode = shift // 'r';
+    if ($mode ne 'r' and $mode ne 'w'){
+        croak "mode must be 'r' (default) or 'w'";
+    }
     my $filename;
     my $filehandle;
 
@@ -628,12 +632,19 @@ sub open_filename_or_handle{
         # }
         $filehandle = $filename_or_handle;
     }
-    elsif (!ref $filename_or_handle && -f $filename_or_handle ){
+    elsif (!ref $filename_or_handle && -f $filename_or_handle && $mode eq 'r'){
         open my $fh, '<:crlf', $filename_or_handle
             or croak "cannot open " .  $filename_or_handle;
         $filehandle = $fh;
         $filename = $filename_or_handle;
-    } elsif (! -f $filename_or_handle){
+    } 
+    elsif (!ref $filename_or_handle && $mode eq 'w'){
+        open my $fh, '>', $filename_or_handle
+            or croak "cannot open " .  $filename_or_handle;
+        $filehandle = $fh;
+        $filename = $filename_or_handle;
+    } 
+    elsif (! -f $filename_or_handle){
         croak $filename_or_handle . " doesn't exist?";
     }
     else {
@@ -642,6 +653,11 @@ sub open_filename_or_handle{
 
     return ($filename, $filehandle);
 
+}
+
+sub deprecation_message{
+    my $alternate = shift;
+    say STDERR "This script will be deprecated and removed soon.  Please use '$alternate' instead.";
 }
 
 1;
