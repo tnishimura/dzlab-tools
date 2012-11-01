@@ -17,6 +17,7 @@ use FastqReader::CheckIntegrity;
 use FastqReader::CheckPairedIntegrity;
 use FastqReader::GetReads;
 use FastqReader::IsBS;
+use FastqReader::Grep;
 
 $0 = basename $0;
 
@@ -58,7 +59,9 @@ Get particular reads from fastq file. :
   # or for just a single read:
   $0 get 'HS2:90:B09PCABXX:1:1202:13382:194746' > output.fasta
 
-Grep 
+Grep:
+
+  "$0 grep" is the same as "grep --no-group-separator -B1 -A2" 
   
 Check if fastq file is bisulfite treated:
 
@@ -167,6 +170,13 @@ for ($cmd){
         for my $r (@$results) {
             say join "\n", $r->[0], $r->[1], '+', $r->[2];
         }
+    }
+    when ([qw/grep/]){
+        my $pattern = shift;
+        my $infile = shift;
+        my $outfile = shift;
+
+        fastq_grep($pattern, $infile, $outfile);
     }
     default{
         usage();
