@@ -7,6 +7,12 @@ use autodie;
 use List::MoreUtils qw/all any/;
 use Term::ProgressBar;
 
+use FindBin;
+use lib "$FindBin::Bin/lib";
+use DZUtil qw/deprecation_message/;
+
+deprecation_message("fastquack check");
+
 use Pod::Usage;
 use Getopt::Long;
 
