@@ -77,6 +77,7 @@ sub gff_info{
 =head2 gff_detect_width "file", N
 
 Try to guess the window width of a file from its first N lines, default 100.
+If uneven or not determinable, returns undef.
 
 =cut
 
@@ -98,7 +99,7 @@ sub gff_detect_width{
     }
 
     if ($counter == 0){
-        return 0;
+        return;
     }
     elsif ($counter == 1){
         return $widths[0];
@@ -109,7 +110,9 @@ sub gff_detect_width{
         if (all { $first == $_ } @widths){
             return $first;
         }
-        return 0;
+        else{
+            return;
+        }
     }
 }
 
