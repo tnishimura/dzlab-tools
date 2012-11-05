@@ -18,7 +18,6 @@ sub fastq_grep{
     my $outfile = shift;
 
     my $cmd = "grep --no-group-separator -B1 -A2";
-    say $cmd;
 
     if ($infile && $outfile){
         system("$cmd $pattern $infile > $outfile");
