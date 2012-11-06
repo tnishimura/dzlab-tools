@@ -9,11 +9,15 @@ use File::Basename qw/basename/;
 use GFF::Statistics qw/gff_detect_width/;
 use Params::Validate qw/:all/;
 use File::Which;
+use Parallel::ForkManager;
+use File::Path qw/make_path/;
+use File::Spec::Functions qw/catfile/;
+use List::MoreUtils qw/notall/;
 
 require Exporter;
 our @ISA = qw(Exporter);
 our @EXPORT_OK = qw();
-our @EXPORT = qw(gff_to_wig);
+our @EXPORT = qw(gff_to_wig load_mysql_config);
 
 sub gff_to_wig{
     my %opt = validate(@_, {
@@ -22,6 +26,10 @@ sub gff_to_wig{
             compile => 0,
             bed     => 0,
             ctscore => 0,
+            parallel => {
+                default => 0,
+                optional => 1,
+            },
         });
 
     my $file    = $opt{file};
@@ -29,12 +37,14 @@ sub gff_to_wig{
     my $compile = $opt{compile};
     my $bed     = $opt{bed};
     my $ctscore = $opt{ctscore};
+    my $parallel = $opt{parallel};
     my $suffix  = $bed ? 'bed' : 'wig';
 
     # basename
     my $basename_template;
     if ($dir){
-        $basename_template = catfile($dir, basename($file, '.gff')) . "-%s.%s.$suffix";
+        $basename_template = catfile($dir, basename($file, '.gff')) . "-%s-%s.%s.$suffix";
+        make_path $dir;
     } 
     else{
         $basename_template = ($file =~ s/(.*)\.gff$/$1/r) . "-%s.%s.$suffix";
@@ -51,8 +61,8 @@ sub gff_to_wig{
     my $p = GFF::Parser->new(file => $file, normalize => 0);
 
     while (defined(my $gff = $p->next())){
-        my ($seq, $start, $end, $score, $c, $t) 
-        = (lc($gff->sequence()), $gff->start(), $gff->end(), $gff->score(), $gff->get_column('c') // 0, $gff->get_column('t') // 0,);
+        my ($seq, $start, $feature, $end, $score, $c, $t) 
+        = (lc($gff->sequence()), $gff->start(), $gff->feature(), $gff->end(), $gff->score(), $gff->get_column('c') // 0, $gff->get_column('t') // 0,);
 
         my $width = $end - $start + 1;
 
@@ -67,49 +77,70 @@ sub gff_to_wig{
 
         # create wigs if ! exist and write header
         for my $type (qw/methyl coverage/) {
-            if (!exists $files{$seq}{$type}){
-                my $filename = sprintf($basename_template, $seq, $type);
+            if (!exists $files{$seq}{$type}{$feature}){
+                my $filename = sprintf($basename_template, $seq, $feature, $type);
                 open my $fh, '>', $filename;
-                $files{$seq}{$type}{name} = $filename;
-                $files{$seq}{$type}{handle} = $fh;
+                $files{$seq}{$type}{$feature}{name} = $filename;
+                $files{$seq}{$type}{$feature}{handle} = $fh;
+                $files{$seq}{$type}{$feature}{feature} = "$feature-$type";
 
                 say STDERR "created $filename";
 
                 if (! $bed and defined $detected_width){
-                    say $fh "variableStep  chrom=$seq  span=$detected_width";
+                    # say $fh qq{variableStep name="$feature-$type" chrom=$seq  span=$detected_width};
+                    say $fh qq{variableStep chrom=$seq  span=$detected_width};
                 }
                 elsif (! $bed and ! defined $detected_width){
                     say $fh "variableStep  chrom=$seq";
                 }
                 else{
-                    say $fh qq{track type=wiggle_0 name="$filename $seq $type" };
+                    say $fh qq{track type=wiggle_0 name="Bed Format" description="BED format" visibility=full color=200,100,0 altColor=0,100,200 priority=20};
                 }
             }
         }
 
         if ($bed){
-            say {$files{$seq}{methyl}{handle}}   sprintf("%d\t%d\t%4f", $start, $end, $score);
-            say {$files{$seq}{coverage}{handle}} "$start\t$end\t", $c + $t;
+            say {$files{$seq}{methyl}{$feature}{handle}}   sprintf("%s\t%d\t%d\t%4f", $seq, $start, $end, $score);
+            say {$files{$seq}{coverage}{$feature}{handle}} sprintf("%s\t%d\t%d\t%d", $seq, $start, $end, $c + $t);
         }
         else{
-            say {$files{$seq}{methyl}{handle}}   sprintf("%d\t%4f", $start, $score);
-            say {$files{$seq}{coverage}{handle}} "$start\t", $c + $t;
+            say {$files{$seq}{methyl}{$feature}{handle}}   sprintf("%d\t%4f", $start, $score);
+            say {$files{$seq}{coverage}{$feature}{handle}} "$start\t", $c + $t;
         }
     }
+
+    my $pm = Parallel::ForkManager->new($parallel);
 
     # close and compile if necessary
     for my $seq (keys %files){
         for my $type (qw/methyl coverage/) {
-            close $files{$seq}{$type}{handle};
+            for my $feature (keys %{$files{$seq}{$type}}){
+                close $files{$seq}{$type}{$feature}{handle};
 
-            if ($compile){
-                my $filename = $files{$seq}{$type}{name};
-                say STDERR "compiling $filename";
-                system("$wiggle2gff3 $filename > $filename.meta ");
+                if ($compile){
+                    $pm->start and next;
+                    my $filename = $files{$seq}{$type}{$feature}{name};
+                    say STDERR "compiling $filename";
+                    # system("$wiggle2gff3 --trackname=$feature-$type --method=$feature-$type $filename > $filename.meta ");
+                    system("$wiggle2gff3 --method=$feature-$type $filename > $filename.meta ");
+                    $pm->finish; 
+                }
             }
         }
     }
+    
+    $pm->wait_all_children;
 }
 
+use YAML qw/LoadFile/;
+# my ($user, $pass, $database, $host) = load_mysql_config();
+sub load_mysql_config{
+    my $file = shift // "$ENV{HOME}/.bioperl";
+    my $config = LoadFile($file);
+    # if (notall { exists $config->{$_} } qw/user pass database host/){
+    #     croak "$file doesn't contain all of user, pass, database, host";
+    # }
+    return @{$config}{qw/user pass database host/};
+}
 
 1;
