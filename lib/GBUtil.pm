@@ -13,11 +13,12 @@ use Parallel::ForkManager;
 use File::Path qw/make_path/;
 use File::Spec::Functions qw/catfile/;
 use List::MoreUtils qw/notall/;
+use FastaReader;
 
 require Exporter;
 our @ISA = qw(Exporter);
 our @EXPORT_OK = qw();
-our @EXPORT = qw(gff_to_wig load_mysql_config);
+our @EXPORT = qw(gff_to_wig load_mysql_config prepare_fasta);
 
 # Bed output is probably not correct (at least gbrowse won't show it properly).
 # leaving it in for now, but bed == GFF without binary compilation, so probably useless
@@ -144,6 +145,51 @@ sub load_mysql_config{
     #     croak "$file doesn't contain all of user, pass, database, host";
     # }
     return @{$config}{qw/user pass database host/};
+}
+
+# normalize fasta header lines, create associated GFF.
+# my ($output_file_name, $meta_file_name) = prepare_fasta($input_file_name);
+# perl -I$HOME/dzlab-tools/lib/ -MGBUtil -wle 'prepare_fasta("TAIR_reference.fa")'
+sub prepare_fasta{
+    my ($input_file_name, $output_file_name, $meta_file_name) = @_;
+    croak "no such file $input_file_name" unless -f $input_file_name;
+    $output_file_name //= $input_file_name . ".normalized";
+    $meta_file_name //= $output_file_name . ".meta";
+
+    {
+        open my $outfh, '>', $output_file_name;
+        open my $infh, '<:crlf', $input_file_name;
+        while (defined(my $line = <$infh>)){
+            chomp $line;
+            if ($line =~ /^>(\w+)/){
+                say $outfh ">$1";
+            }
+            else{
+                say $outfh $line;
+            }
+        }
+        close $infh;
+        close $outfh;
+    }
+    
+    my $fr = FastaReader->new(file => $output_file_name, normalize => 0, slurp => 0);
+    my %seqlen = $fr->sequence_lengths;
+
+    open my $metafh, '>', $meta_file_name;
+    say $metafh "##gff-version 3\n";
+    for my $seqid (sort keys %seqlen) {
+        say $metafh join "\t", 
+        $seqid, 
+        qw/./, # ? 
+        'chromosome',
+        1,
+        $seqlen{$seqid},
+        qw/. . ./,
+        "ID=$seqid;Name=$seqid",
+    }
+    close $metafh;
+
+    return ($output_file_name, $meta_file_name);
 }
 
 1;
