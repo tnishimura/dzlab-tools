@@ -140,6 +140,8 @@ use YAML qw/LoadFile/;
 # my ($user, $pass, $database, $host) = load_mysql_config();
 sub load_mysql_config{
     my $file = shift // "$ENV{HOME}/.bioperl";
+    croak "no such file $file" unless -f $file;
+
     my $config = LoadFile($file);
     # if (notall { exists $config->{$_} } qw/user pass database host/){
     #     croak "$file doesn't contain all of user, pass, database, host";
