@@ -17,16 +17,9 @@ my $result = GetOptions (
     "compile|c"  => \(my $compile),
     "bed|b"      => \(my $bed),
     "ctscore|ct" => \(my $ctscore),
+    "parallel|p=i" => \(my $parallel = 0),
 );
 pod2usage(-verbose => 2, -noperldoc => 1) if (!$result || !$file);  
-
-say Dumper {
-    file    => $file,
-    dir     => $dir,
-    compile => $compile,
-    bed     => $bed,
-    ctscore => $ctscore,
-};
 
 gff_to_wig(
     file    => $file,
@@ -34,6 +27,7 @@ gff_to_wig(
     compile => $compile,
     bed     => $bed,
     ctscore => $ctscore,
+    parallel => $parallel,
 );
 
 =head1 gff2wig.pl 
