@@ -19,6 +19,9 @@ our @ISA = qw(Exporter);
 our @EXPORT_OK = qw();
 our @EXPORT = qw(gff_to_wig load_mysql_config);
 
+# Bed output is probably not correct (at least gbrowse won't show it properly).
+# leaving it in for now, but bed == GFF without binary compilation, so probably useless
+# without fixing.
 sub gff_to_wig{
     my %opt = validate(@_, {
             file    => 1,
