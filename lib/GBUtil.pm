@@ -14,11 +14,12 @@ use File::Path qw/make_path/;
 use File::Spec::Functions qw/catfile/;
 use List::MoreUtils qw/notall/;
 use FastaReader;
+use GFF::Parser;
 
 require Exporter;
 our @ISA = qw(Exporter);
 our @EXPORT_OK = qw();
-our @EXPORT = qw(gff_to_wig load_mysql_config prepare_fasta);
+our @EXPORT = qw(gff_to_wig load_mysql_config prepare_fasta prepare_gff);
 
 # Bed output is probably not correct (at least gbrowse won't show it properly).
 # leaving it in for now, but bed == GFF without binary compilation, so probably useless
@@ -60,7 +61,7 @@ sub gff_to_wig{
     my $detected_width = gff_detect_width $file;
 
     my %done;
-    my %files;
+    my %files; # $files{$seq}{methyl | coverage}{name | handle | feature} 
 
     my $p = GFF::Parser->new(file => $file, normalize => 0);
 
@@ -120,6 +121,7 @@ sub gff_to_wig{
         for my $type (qw/methyl coverage/) {
             for my $feature (keys %{$files{$seq}{$type}}){
                 close $files{$seq}{$type}{$feature}{handle};
+                delete $files{$seq}{$type}{$feature}{handle};
 
                 if ($compile){
                     $pm->start and next;
@@ -192,6 +194,26 @@ sub prepare_fasta{
     close $metafh;
 
     return ($output_file_name, $meta_file_name);
+}
+# normalize gff. currently just under line., create associated GFF.
+# my ($output_file_name, $meta_file_name) = prepare_fasta($input_file_name);
+# perl -I$HOME/dzlab-tools/lib/ -MGBUtil -wle 'prepare_gff("foo.bar.gff")'
+sub prepare_gff{
+    my ($input_file_name, $output_file_name) = @_;
+    croak "no such file $input_file_name" unless -f $input_file_name;
+    $output_file_name //= $input_file_name . ".normalized";
+
+    {
+        open my $outfh, '>', $output_file_name;
+        my $p = GFF::Parser->new(file => $input_file_name);
+        while (defined(my $gff = $p->next)){
+            $gff->sequence(lc($gff->sequence() // '.'));
+            say $outfh $gff;
+        }
+        close $outfh;
+    }
+    
+    return $output_file_name;
 }
 
 1;
