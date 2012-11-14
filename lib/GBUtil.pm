@@ -7,6 +7,7 @@ use Carp;
 use autodie;
 use File::Basename qw/basename/;
 use Params::Validate qw/:all/;
+use Hash::Util qw/lock_keys/;
 use File::Which;
 use Parallel::ForkManager;
 use File::Path qw/make_path/;
@@ -36,58 +37,49 @@ sub load_mysql_config{
     return @{$config}{qw/user pass database host/};
 }
 
-# Bed output is probably not correct (at least gbrowse won't show it properly).
+# <old>Bed output is probably not correct (at least gbrowse won't show it properly).
 # leaving it in for now, but bed == GFF without binary compilation, so probably useless
-# without fixing.
+# without fixing.</old> 
+# took out bed support b/c bed can support multiple seqids per file... should
+# be in another subroutine.
 # return hash ($files{$seq}{$feature}{methyl | coverage}) 
 sub prepare_gff_to_wig{
     my %opt = validate(@_, {
-            file    => 1,
-            dir     => 0,
-            ctscore => 0,
-            source  => 0, 
-            compile => {
-                default => 1,
-                optional => 1,
-            },
-            bed => {
-                default => 0,
-                optional => 1,
-            },
-            parallel => {
-                default => 0,
-                optional => 1,
-            },
+            file     => 1,
+            dir      => 0,
+            wigdir   => 0,
+            ctscore  => 0,
+            source   => 0,
+            compile  => { default => 1, optional => 1, },
+            parallel => { default => 0, optional => 1, },
         });
-
-    my $file    = $opt{file};
-    my $dir     = $opt{dir};
-    my $compile = $opt{compile};
-    my $bed     = $opt{bed};
-    my $ctscore = $opt{ctscore};
-    my $parallel = $opt{parallel};
-    my $suffix  = $bed ? 'bed' : 'wig';
+    lock_keys(%opt);
 
     # basename
     my $basename_template;
-    if ($dir){
-        $basename_template = catfile($dir, basename($file, '.gff')) . "-%s-%s.%s.$suffix";
-        make_path $dir;
+    if ($opt{dir}){
+        $basename_template = catfile($opt{dir}, basename($opt{file}, '.gff')) . "-%s-%s.%s.wig";
+        make_path $opt{dir};
     } 
     else{
-        $basename_template = ($file =~ s/(.*)\.gff$/$1/r) . "-%s.%s.%s.$suffix";
+        $basename_template = ($opt{file} =~ s/(.*)\.gff$/$1/r) . "-%s.%s.%s.wig";
     }
 
     # wiggle2gff3 binary
     my $wiggle2gff3 = which('wiggle2gff3.pl') // which('wiggle2gff3') // undef;
 
-    my $detected_width = gff_detect_width $file;
+    # binary wiggle output dir
+    $opt{wigdir} //= $opt{dir};
+    my $wiggle_path = defined $opt{wigdir} ? "--path=$opt{wigdir}" : "";
+
+    my $detected_width = gff_detect_width $opt{file};
 
     my %done;
     my %files; # $files{$seq}{$feature}{methyl | coverage}{name | handle} 
 
-    my $p = GFF::Parser->new(file => $file, normalize => 0);
+    my $p = GFF::Parser->new(file => $opt{file}, normalize => 0);
 
+    # convert gff to wig 
     while (defined(my $gff = $p->next())){
         my ($seq, $start, $feature, $end, $score, $c, $t) 
         = (lc($gff->sequence()), $gff->start(), $gff->feature(), $gff->end(), $gff->score(), $gff->get_column('c') // 0, $gff->get_column('t') // 0,);
@@ -95,13 +87,13 @@ sub prepare_gff_to_wig{
         my $width = $end - $start + 1;
 
         # okay for a single window to be different size b/c the last one may be smaller
-        # if (defined $detected_width and $width != $detected_width){
-        #     if (exists $done{$seq}){ die "uneven widths. line $.\n$gff"; }
-        #     else{ $done{$seq} = 1; }
-        # }
+        if (defined $detected_width and $width != $detected_width){
+            if (exists $done{$seq}){ die "uneven widths. line $.\n$gff"; }
+            else{ $done{$seq} = 1; }
+        }
 
         $score //= "0";
-        if ($ctscore and defined($c) and defined($t)){ $score = ($c + $t) == 0 ? 0 : $c / ($c + $t); }
+        if ($opt{ctscore} and defined($c) and defined($t)){ $score = ($c + $t) == 0 ? 0 : $c / ($c + $t); }
 
         # create wigs if ! exist and write header
         for my $type (qw/methyl coverage/) {
@@ -113,44 +105,35 @@ sub prepare_gff_to_wig{
 
                 say STDERR "created $filename";
 
-                if (! $bed and defined $detected_width){
+                if (defined $detected_width){
                     # say $fh qq{variableStep name="$feature-$type" chrom=$seq  span=$detected_width};
                     say $fh qq{variableStep chrom=$seq  span=$detected_width};
                 }
-                elsif (! $bed and ! defined $detected_width){
+                elsif (! defined $detected_width){
                     say $fh "variableStep  chrom=$seq";
-                }
-                else{
-                    say $fh qq{track type=wiggle_0 name="Bed Format" description="BED format" visibility=full color=200,100,0 altColor=0,100,200 priority=20};
                 }
             }
         }
 
-        if ($bed){
-            say {$files{$seq}{$feature}{methyl}{handle}}   sprintf("%s\t%d\t%d\t%4f", $seq, $start, $end, $score);
-            say {$files{$seq}{$feature}{coverage}{handle}} sprintf("%s\t%d\t%d\t%d", $seq, $start, $end, $c + $t);
-        }
-        else{
-            say {$files{$seq}{$feature}{methyl}{handle}}   sprintf("%d\t%4f", $start, $score);
-            say {$files{$seq}{$feature}{coverage}{handle}} "$start\t", $c + $t;
-        }
+        say {$files{$seq}{$feature}{methyl}{handle}}   sprintf("%d\t%4f", $start, $score);
+        say {$files{$seq}{$feature}{coverage}{handle}} "$start\t", $c + $t;
     }
 
-    my $pm = Parallel::ForkManager->new($parallel);
+    my $pm = Parallel::ForkManager->new($opt{parallel});
 
-    # close and compile if necessary
+    # close handles and compile with wiggle2gff3 if necessary
     for my $seq (keys %files){
         for my $feature (keys %{$files{$seq}}){
             for my $type (qw/methyl coverage/) {
                 close $files{$seq}{$feature}{$type}{handle};
                 delete $files{$seq}{$feature}{$type}{handle};
 
-                if ($compile){
+                if ($opt{compile}){
                     $pm->start and next;
                     my $filename = $files{$seq}{$feature}{$type}{name};
                     say STDERR "compiling $filename";
                     # system("$wiggle2gff3 --trackname=$feature-$type --method=$feature-$type $filename > $filename.meta ");
-                    system("$wiggle2gff3 --method=$feature-$type $filename > $filename.meta ");
+                    system("$wiggle2gff3 $wiggle_path --method=$feature-$type $filename > $filename.meta ");
                     $pm->finish; 
                 }
             }
@@ -271,6 +254,7 @@ sub prepare_gff{
 __END__
 
 parallel: 8
+stagingdir: /tmp
 wiggledir: /tmp
 fasta:
   - filename:
