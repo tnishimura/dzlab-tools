@@ -46,7 +46,7 @@ sub load_mysql_config{
 sub prepare_gff_to_wig{
     my %opt = validate(@_, {
             file     => 1,
-            stagedir => 1,
+            stagingdir => 1,
             wigdir   => 0,
             ctscore  => 0,
             source   => { default => undef, optional => 1, },
@@ -56,14 +56,14 @@ sub prepare_gff_to_wig{
     lock_keys(%opt);
 
     # name for staging files
-    my $staging_filename_template = catfile($opt{stagedir}, basename($opt{file}, '.gff')) . "-%s-%s.%s.wig";
-    make_path $opt{stagedir};
+    my $staging_filename_template = catfile($opt{stagingdir}, basename($opt{file}, '.gff')) . "-%s-%s.%s.wig";
+    make_path $opt{stagingdir};
 
     # wiggle2gff3 binary
     my $wiggle2gff3 = which('wiggle2gff3.pl') // which('wiggle2gff3') // undef;
 
     # binary wiggle output dir
-    $opt{wigdir} //= $opt{stagedir};
+    $opt{wigdir} //= $opt{stagingdir};
     my $wiggle_path = defined $opt{wigdir} ? "--path=$opt{wigdir}" : "";
 
     my $detected_width = gff_detect_width $opt{file};
@@ -150,7 +150,7 @@ sub prepare_fasta{
                 required => 1,
                 callbacks => { 'exists' => sub { -f shift }, },
             },
-            stagedir => 1,
+            stagingdir => 1,
             meta     => { default => undef, optional => 1, },
         });
     lock_keys(%opt);
@@ -159,7 +159,7 @@ sub prepare_fasta{
 
     # setup file names
     croak "no such file $input_file_name" unless -f $input_file_name;
-    my $staging_file_name = catfile($opt{stagedir}, basename($input_file_name) . ".normalized");
+    my $staging_file_name = catfile($opt{stagingdir}, basename($input_file_name) . ".normalized");
     my $meta_file_name = $opt{meta} // $staging_file_name . ".meta";
 
     say "+++ $staging_file_name";
@@ -211,7 +211,7 @@ sub prepare_gff{
                 required => 1,
                 callbacks => { 'exists' => sub { -f shift }, },
             },
-            stagedir => 1,
+            stagingdir => 1,
             source => {
                 default => undef,
                 optional => 1,
@@ -220,7 +220,7 @@ sub prepare_gff{
     lock_keys(%opt);
 
     my $input_file_name = $opt{file};
-    my $staging_file_name = catfile($opt{stagedir}, basename($input_file_name) . ".normalized");
+    my $staging_file_name = catfile($opt{stagingdir}, basename($input_file_name) . ".normalized");
 
     my $source = $opt{source} // basename($input_file_name, '.gff');
 

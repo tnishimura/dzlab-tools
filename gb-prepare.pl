@@ -6,8 +6,7 @@ use Data::Dumper;
 use autodie;
 use YAML qw/LoadFile/;
 use Parallel::ForkManager;
-use List::Util qw/first max min shuffle sum/;
-use List::MoreUtils qw/all any notall uniq/;
+use List::MoreUtils qw/notall/;
 use File::Path qw/make_path/;
 use FindBin;
 use lib "$FindBin::Bin/lib";
@@ -17,36 +16,36 @@ my $config_file = shift // usage();
 my $config = LoadFile($config_file);
 my $pm = Parallel::ForkManager->new($config->{parallel});
 
-my $stagedir = $config->{stagedir};
+my $stagingdir = $config->{stagingdir};
 my $wigdir = $config->{wigdir};
 
-if (notall { defined $_ } qw/stagedir wigdir/){
+if (notall { defined $_ } qw/stagingdir wigdir/){
     usage();
 }
 
-say Dumper $config;
-
+# FASTA files
 for my $fasta_file (@{$config->{fasta}}) {
     msg($fasta_file);
     $pm->start and next;
-    say Dumper $fasta_file;
     prepare_fasta(
         file     => $fasta_file->{file},
-        stagedir => $stagedir,
+        stagingdir => $stagingdir,
     );
     $pm->finish; 
 }
 
+# GFF lower-density annotation files
 for my $gff_file (@{$config->{gff}}) {
     msg($gff_file);
     $pm->start and next;
     prepare_gff(
         file     => $gff_file->{file},
-        stagedir => $stagedir,
+        stagingdir => $stagingdir,
     );
     $pm->finish; 
 }
 
+# GFF high-density single-c/windows files
 for my $gffwig_file (@{$config->{gffwig}}) {
     msg($gffwig_file);
     $pm->start and next;
@@ -54,7 +53,7 @@ for my $gffwig_file (@{$config->{gffwig}}) {
         file     => $gffwig_file->{file},
         ctscore  => $gffwig_file->{ctscore},
         source   => $gffwig_file->{source},
-        stagedir => $stagedir,
+        stagingdir => $stagingdir,
         wigdir   => $wigdir,
     );
     $pm->finish; 
@@ -73,7 +72,7 @@ __DATA__
 # example
 
 parallel:    4
-stagedir:    /home/toshiro/demeter/staging
+stagingdir:  /home/toshiro/demeter/staging
 wigdir:      /home/toshiro/demeter/wig
 fasta:
   - file:    /home/toshiro/genomes/AT/TAIR_reference.fas
