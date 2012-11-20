@@ -55,9 +55,9 @@ for my $gff_file (@{$config->{gff}}) {
         stagingdir => $stagingdir,
     );
     $pm->finish(0, ['gff', {
-            staging  => $staging,
-            features => [@features],
-            source   => $gff_file->{source},
+            staging => $staging,
+            feature => [@features],
+            source  => $gff_file->{source},
         }]);
 }
 
