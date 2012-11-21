@@ -66,17 +66,14 @@ for my $gffwig_file (@{$config->{gffwig}}) {
     msg($gffwig_file);
     $pm->start and next;
 
-    my %meta = prepare_gff_to_wig(
+    my @meta = prepare_gff_to_wig(
         file       => $gffwig_file->{file},
         ctscore    => $gffwig_file->{ctscore},
         source     => $gffwig_file->{source},
         stagingdir => $stagingdir,
         wigdir     => $wigdir,
     );
-    $pm->finish(0, ['gffwig', { 
-                source  => $gffwig_file->{source},
-                feature => \%meta,
-        }]);
+    $pm->finish(0, ['gffwig', \@meta]);
 }
 
 $pm->wait_all_children;
@@ -85,12 +82,17 @@ $pm->wait_all_children;
 
 my %info;
 sub collect_staging_files{ # call before calling start()
-    my ($pid, $exit_code, $ident, $exit_signal, $core_dump, $collected) = @_;
+    my $collected = $_[5];
 
     die "bug, nothing collected?" unless (ref $collected eq 'ARRAY');
-    my ($type, $infohash) = @$collected;
+    my ($type, $inforef) = @$collected;
 
-    push @{$info{$type}}, $infohash;
+    if (ref $inforef eq 'ARRAY'){
+        push @{$info{$type}}, @$inforef;
+    }
+    else{
+        push @{$info{$type}}, $inforef;
+    }
 };
 say Dump(\%info);
 DumpFile($config->{output}, \%info);

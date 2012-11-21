@@ -143,12 +143,13 @@ sub prepare_gff{
 #######################################################################
 # methylation gff
 
-sub wiggle2gff3{
+# compile wiggle to base_directory and write write meta file
+sub compile_wiggle{
     my %opt = validate(@_, {
-            method         => 1,
+            feature        => 1, 
             source         => 1,
-            track          => 1,
-            base_directory => 1,
+            track          => 1, # not sure what this is
+            base_directory => 1, # where binary wiggles are placed
             meta_file      => 1,
             files => {
                 type => ARRAYREF,
@@ -167,13 +168,19 @@ sub wiggle2gff3{
         $loader->load($fh);
     }
     open my $metafh, '>', $opt{meta_file};
-    print {$metafh} $loader->featurefile('gff3',$opt{method},$opt{source});
+    print {$metafh} $loader->featurefile('gff3',$opt{feature},$opt{source});
     close $metafh;
 }
 
+my @types = qw{methyl coverage};
+
 # took out bed support b/c bed can support multiple seqids per file... should
 # be in another subroutine.
-# return hash ($meta_files{$feature}{methyl | coverage}) 
+# returns
+#   [ 
+#     { feature => 'CG', type => 'methyl | coverage', meta => 'meta.gff },
+#     ...
+#   ]
 sub prepare_gff_to_wig{
     my %opt = validate(@_, {
             file       => 1,
@@ -192,12 +199,10 @@ sub prepare_gff_to_wig{
     my $wig_filename_template = catfile($opt{stagingdir}, basename($opt{file}, '.gff')) . "-%s-%s.%s.wig";
     my $meta_filename_template = catfile($opt{stagingdir}, basename($opt{file}, '.gff')) . "-%s-%s.meta.gff";
 
-    my $wiggle2gff3 = which('wiggle2gff3.pl') // which('wiggle2gff3') // undef;
-
     my $detected_width = gff_detect_width $opt{file};
 
     my %done_sequences;
-    my %wig_files;  # $wig_files{$seq}{$feature}{methyl | coverage}{name | handle} 
+    my %wig_files;  # $wig_files{$seq}{$feature}{methyl | coverage}{wig | handle} 
     my %meta_files; # $meta_files{$feature}{methyl | coverage}
 
     my $p = GFF::Parser->new(file => $opt{file}, normalize => 0);
@@ -219,7 +224,7 @@ sub prepare_gff_to_wig{
         if ($opt{ctscore} and defined($c) and defined($t)){ $score = ($c + $t) == 0 ? 0 : $c / ($c + $t); }
 
         # create wigs if ! exist and write header
-        for my $type (qw/methyl coverage/) {
+        for my $type (@types) {
             if (!exists $meta_files{$feature}{$type}){
                 $meta_files{$feature}{$type} = sprintf($meta_filename_template, $feature, $type);
             }
@@ -245,25 +250,37 @@ sub prepare_gff_to_wig{
         say {$wig_files{$feature}{coverage}{$seq}{handle}} "$start\t", $c + $t;
     }
 
-    # close handles and compile with wiggle2gff3 
+    # close handles and compile with compile_wiggle 
     for my $feature (keys %wig_files){
         for my $type (qw/methyl coverage/) {
             my @seqs = keys %{$wig_files{$feature}{$type}};
 
             close $wig_files{$feature}{$type}{$_}{handle} for @seqs;
 
-            wiggle2gff3(
+            compile_wiggle(
                 files          => [map { $wig_files{$feature}{$type}{$_}{name} } @seqs],
                 source         => $opt{source},
                 track          => "$opt{source}-$feature-$type",
-                method         => $feature,
+                feature        => "$feature-$type",
                 base_directory => $opt{wigdir},
                 meta_file      => $meta_files{$feature}{$type},
             );
         }
     }
 
-    return %meta_files;
+    return map 
+    {
+        my $feature = $_;
+        map 
+        { 
+            {
+                feature => $feature,
+                type    => $_,
+                meta    => $meta_files{$feature}{$_},
+                source  => $opt{source},
+            },
+        } @types;
+    } keys %meta_files;
 }
 
 
