@@ -56,7 +56,7 @@ sub prepare_fasta{
 
     # setup file names
     croak "no such file $input_file_name" unless -f $input_file_name;
-    my $staging_file_name = catfile($opt{stagingdir}, basename($input_file_name) . ".normalized");
+    my $staging_file_name = catfile($opt{stagingdir}, basename($input_file_name) . ".normalized.fasta");
     my $meta_file_name = $opt{meta} // $staging_file_name . ".meta";
 
     say "+++ $staging_file_name";
@@ -118,7 +118,7 @@ sub prepare_gff{
     lock_keys(%opt);
 
     my $input_file_name = $opt{file};
-    my $staging_file_name = catfile($opt{stagingdir}, basename($input_file_name) . ".normalized");
+    my $staging_file_name = catfile($opt{stagingdir}, basename($input_file_name) . ".normalized.gff");
     my %features;
 
     {
