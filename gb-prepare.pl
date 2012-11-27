@@ -96,7 +96,7 @@ sub collect_staging_files{ # call before calling start()
     }
 };
 say Dump(\%info);
-DumpFile($config->{output}, \%info);
+DumpFile($config->{stagingconf}, \%info);
 
 #######################################################################
 
