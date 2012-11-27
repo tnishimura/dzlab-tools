@@ -53,6 +53,7 @@ for my $gff_file (@{$config->{gff}}) {
     my ($staging, @features) = prepare_gff(
         file       => $gff_file->{file},
         stagingdir => $stagingdir,
+        source     => $gff_file->{source},
     );
     $pm->finish(0, ['gff', {
             staging => $staging,
