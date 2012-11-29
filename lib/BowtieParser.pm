@@ -11,9 +11,14 @@ use open IO  => ":crlf"; # for ARGV...
 extends 'Parser';
 
 # my ($readid, $strand, $chr, $pos, $read, $quality, $mystery_quantity_that_nobody_understands, $mismatch_string, [PARSED_MATCHES])
-# PARSED_MATCHES is [ABS_COORD, ORIGINAL, NEW]
+# PARSED_MATCHES is [ABS_COORD, BASE_IN_REF, BASE_IN_READ] (everything w.r.t. positive strand).
 
-# my ($readid, $strand, $chr, $pos, undef, undef, undef, undef, [PARSED_MATCHES])
+# while (defined(my $alignment = $p->next(1))){
+#     my ($readid, $strand, $seqid, $start, $read, $quality, $mystery, $mismatches) = @$alignment;
+#     for my $mm (@$mismatches) {
+#         my ($abs_coord, $base_in_ref, $base_in_read) = @$mm;
+#     }
+# }
 sub next{
     my $self = shift;
     my $parse_mismatches = shift;
@@ -28,22 +33,35 @@ sub next{
         # BBBBBBBBBBBBBB_hhhhhhhefhghhhhehhhgfffff	
         # 0	
         # 29:C>N,30:C>N,33:C>N
-        my @parts = split /\t/, $line, 8;
+
+        my ($readid, $strand, $seqid, $start, $read, $quality, $mystery, $mismatches_string) = split /\t/, $line, 8;
+
+        $start++; # convert from base-0 to base-1
 
         if ($parse_mismatches){
+            my $rc = $strand eq '+' ? 0 : 1;
+            my $len = length($read);
+
             my @mismatches = map { 
                 if (/(\d+):(\w)>(\w)/){
+                    # 0 based from 5' end. relative offset can be from 0 to $len - 1
+                    my $relative_offset = $1; 
+                    my $absolute_offset = $rc ? ($len - $relative_offset - 1): $relative_offset;
+
+                    my $in_ref = $2;
+                    my $in_read = $3;
+
                     # coordinates of mismatches are absolute
-                    [$parts[3] + $1, $2, $3];
+                    ([$absolute_offset + $start, $in_ref, $in_read]);
                 }
                 else{
                     ();
                 }
-            } split /,/, $parts[7];
-            return [@parts, \@mismatches];
+            } split /,/, $mismatches_string;
+            return [$readid, $strand, $seqid, $start, $read, $quality, $mystery, \@mismatches];
         }
         else{
-            return \@parts;
+            return [$readid, $strand, $seqid, $start, $read, $quality, $mystery];
         }
     }
     return;
