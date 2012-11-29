@@ -12,6 +12,7 @@ extends 'Parser';
 
 # my ($readid, $strand, $chr, $pos, $read, $quality, $mystery_quantity_that_nobody_understands, $mismatch_string, [PARSED_MATCHES])
 # PARSED_MATCHES is [ABS_COORD, BASE_IN_REF, BASE_IN_READ] (everything w.r.t. positive strand).
+# all coordinates are base-1
 
 # while (defined(my $alignment = $p->next(1))){
 #     my ($readid, $strand, $seqid, $start, $read, $quality, $mystery, $mismatches) = @$alignment;
