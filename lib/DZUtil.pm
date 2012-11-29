@@ -27,7 +27,7 @@ mfor basename_prefix fastq_read_length timestamp datestamp overlap chext
 split_names open_maybe_compressed fastq_convert_read_header c2t g2a rc_c2t rc_g2a
 numdiff safediv safemethyl clean_basename open_cached close_cached_all downsample
 approximate_line_count memofile memodo gimmetmpdir split_file combine_csv
-open_filename_or_handle deprecation_message);
+open_filename_or_handle deprecation_message single_c_concat);
 our @EXPORT = qw();
 
 sub clean_basename{
@@ -658,6 +658,28 @@ sub open_filename_or_handle{
 sub deprecation_message{
     my $alternate = shift;
     say STDERR "This script will be deprecated and removed soon.  Please use '$alternate' instead.";
+}
+
+sub single_c_concat{
+    my @contextual_files = @_;
+
+    my $prefix = common_prefix(@contextual_files);
+    my $suffix = common_suffix(@contextual_files);
+    $prefix =~ s/\.$|\_$//; # remove final dot/underscore
+    $suffix =~ s/^\.|\^_//; # remove leading dot/underscore
+    my $concat  = $prefix . ".all." . $suffix;
+    
+    open my $outfh, '>', $concat;
+    for my $f (@contextual_files) {
+        open my $infh, '<', $f;
+        while (defined(my $line = <$infh>)){
+            chomp $line;
+            say $outfh $line;
+        }
+        close $infh;
+    }
+    close $outfh;
+    return $concat;
 }
 
 1;

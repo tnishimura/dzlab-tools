@@ -20,6 +20,7 @@ our @EXPORT_OK = qw(gff_info methyl_stats gff_detect_width);
 our @EXPORT = qw();
 
 our @wanted_percentiles = qw/.05 .25 .50 .75 .95/;
+our $DEBUG = 1;
 
 #######################################################################
 #                       gff_info
@@ -406,7 +407,7 @@ sub collect_stats{
     my $counter = 0;
     PARSE:
     while (defined(my $gff = $parser->next())){
-        say STDERR $counter if $counter++ % 50000 == 0;
+        say STDERR $counter if $counter++ % 50000 == 0 and $DEBUG == 1;
         my ($seq, $c, $t) = @$gff;
         next PARSE if ! (defined $c && defined $t);
 
