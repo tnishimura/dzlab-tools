@@ -4,59 +4,63 @@ use warnings FATAL => "all";
 use 5.010_000;
 use Data::Dumper;
 use autodie;
-
 use Getopt::Long;
-use Parallel::ForkManager;
 use Pod::Usage;
-use YAML qw/Dump/;
+use IO::All;
+use File::Basename qw/basename/;
 
 use FindBin;
 use lib "$FindBin::Bin/lib";
-use DZUtil qw/memodo memofile gimmetmpdir/;
-use GFF::Statistics qw/methylation_stats/;
-
-END {close STDOUT}
-$| = 1;
+use GFF::Statistics qw/methyl_stats/;
+# use YAML qw/Dump/;
 
 my $result = GetOptions (
-    "tmp-dir|d=s"  => \my $tmpdir,
-    "parallel|p=i" => \(my $parallel=1),
-    "force|f"      => \(my $force),
-    "wp=s" => \(my $wanted_percentiles = ".05,.25,.50,.75,.95"),
+    "triplet|t"   => \(my $is_triplet),
+    "feature|f=s" => \(my $feature),
+    "output|o=s"  => \(my $output_file),
 );
+usage() if ! $result || ! @ARGV;
 
-pod2usage(-verbose => 99) if (!$result || !@ARGV);  
+my %files;
 
-$tmpdir = gimmetmpdir($tmpdir);
-my %all_stats;
-
-my $pm = Parallel::ForkManager->new($parallel);
-$pm->run_on_finish(sub{ 
-        my ($pid, $exit_code, $ident, $exit_signal, $core_dump, $ref) = @_;
-        if (defined($ref)) {  
-            my ($file, $stats) = %$ref;
-            $all_stats{$file} = $stats;
-        } 
-    });
-
-for my $file (@ARGV) {
-    $pm->start and next;
-    my $memo = memofile($file, $tmpdir);
-
-    my $stats = memodo($memo, sub{
-            my ($stats) = methylation_stats($file, split /,/, $wanted_percentiles);
-            return $stats;
-        }, $force);
-
-    $pm->finish(0, {$file => $stats}); 
+if ($is_triplet){
+    if (@ARGV != 3 ){
+        usage();
+    }
+    %files = (
+        cg => $ARGV[0],
+        chg => $ARGV[1],
+        chh => $ARGV[2],
+    );
 }
-$pm->wait_all_children;
+elsif ($feature){
+    %files = (
+        $feature => $ARGV[0],
+    );
+    if (@ARGV != 1){
+        usage();
+    }
+}
+else{
+    %files = map {
+        basename($_,'.gff') => $_
+    } @ARGV;
+}
 
-say Dump \%all_stats;
+my ($stats, $output) = methyl_stats(%files);
+
+if ($output_file){
+    io($output_file)->print("$output\n");
+}
+else{
+    say $output;
+}
+
+sub usage{ pod2usage(-verbose => 2, -noperldoc => 1); }
 
 =head1 NAME
 
-gff-stats.pl - produce statistics about gff files
+gff-methyl-stats.pl - produce statistics about gff files
 
 =head1 SYNOPSIS
 
@@ -64,62 +68,84 @@ Usage examples:
 
  gff-stats.pl [-d /some/temporary/directory/] file1.gff file2.gff ...
 
-will produce a row for each file with the following columns for each:
+=head1 OPTIONS
+
+=over
+
+=item  -t | --triplet
+
+use CG/CHG/CHH as feature names. Only when 3 files given
+
+=item  -f <f> | --feature <f>
+
+Feature name.  Only give when file count is 1.
+
+=item  -o <file> | --output <file>
+
+=back
 
 =head1 Output Columns
 
 =over
 
-=item nuc_ct_mean
+=item context 
 
-=item chr_ct_mean
+=item type    
 
-=item mit_ct_mean
+=item line_count      
 
-Mean C+T score per methylation site.  (Calculate C+T for each methylation site
-in the gff file, calculate the mean.)
-
-=item nuc_ct_median
-
-=item chr_ct_median
-
-=item mit_ct_median
-
-Median C+T score per methylation site.  (Calculate C+T for each methylation
-site in the gff file, calculate the median.)
-
-=item nuc_methyl_mean
-
-=item chr_methyl_mean
-
-=item mit_methyl_mean
+=item methyl_avg      
 
 Mean C/(C+T) score per methylation site.  (Calcualte C/(C+T) for each
 methylation site in the gff file, calculate the mean.)
 
-=item nuc_methyl_total
+=item c_count 
 
-=item chr_methyl_total
+Total C in col 9.
 
-=item mit_methyl_total
+=item t_count 
+
+Total T in col 9.
+
+=item coverage        
+
+Total C + T in col 9;
+
+=item overall_methylation     
 
 (Total C count in GFF file)/(Total C+T count in GFF file).  This is different
-from the methyl_mean scores b/c this is in total.  methyl_mean gives the same
+from the methyl_avg scores b/c this is in total.  methyl_mean gives the same
 weight to a site where c=1;t=2 as c=10;t=20, whereas methyl_total combines the
 c and t's first.  
 
-=item coverage
+=item ct_mean 
+
+Mean C+T score per methylation site.  (Calculate C+T for each methylation site
+in the gff file, calculate the mean.)
+
+=item ct_5%   
+
+5% percentile of C+T score per methylation site.  (Calculate C+T for each methylation
+site in the gff file, calculate 5%-tile.)
+
+=item ct_25%  
+
+25% percentile.
+
+=item ct_50%  
+
+50% percentile.
+
+=item ct_75%  
+
+75% percentile.
+
+=item ct_95%
+
+95% percentile.
+
 
 =back
 
-=head1 OPTIONS
-
-=over
-
-=item  -d <dir> | --tmp-dir <dir>
-
-Temporary directory for cache.
-
-=back
 
 =cut

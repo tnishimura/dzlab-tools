@@ -16,8 +16,10 @@ use Tie::IxHash;
 
 require Exporter;
 our @ISA = qw(Exporter);
-our @EXPORT_OK = qw(gff_info methylation_stats gff_detect_width);
+our @EXPORT_OK = qw(gff_info methyl_stats gff_detect_width);
 our @EXPORT = qw();
+
+our @wanted_percentiles = qw/.05 .25 .50 .75 .95/;
 
 #######################################################################
 #                       gff_info
@@ -133,8 +135,10 @@ sub gff_detect_width{
 #######################################################################
 # utility
 
+# my $c_avger = make_averager();
+# $avg = $c_avger->(3.14);
 sub make_averager{
-    my ($current_average, $count) = (undef, 0);
+    my ($current_average, $count) = @_ == 2 ? @_ : (undef, 0);
     return sub{
         my $newval = shift;
         if (defined $newval){
@@ -146,12 +150,17 @@ sub make_averager{
                 $count += 1;
             }
         }
-        return $current_average // 'na';
+        if ($current_average){
+            return $current_average;
+        }
+        return;
     }
 }
 
 #######################################################################
+# * histogram is { value => count } hashref.
 
+# simple sum
 sub sum{
     my $total = 0;
     for my $v (@_) {
@@ -159,6 +168,16 @@ sub sum{
     }
     return $total;
 }
+
+# convert list of values to histogram
+sub tohist{
+    my %accum;
+    for my $val (@_) {
+        $accum{$val}++;
+    }
+    return %accum;
+}
+
 
 sub histmean{
     my $hist = shift;
@@ -184,29 +203,34 @@ sub histstd{
 
 sub histpercentiles{
     my $hist = shift;
-    if (keys %$hist == 0){ return 'na'; }
+    #my @wanted_percentiles = @_;
+    my $num_percentiles = @wanted_percentiles;
 
-    my @wanted_percentiles = @_;
+    if (keys(%$hist) == 0){ 
+        return [('na') x $num_percentiles]; 
+    }
 
-    tie my %percentiles, "Tie::IxHash", @wanted_percentiles;
+    #tie my %percentiles, "Tie::IxHash", @wanted_percentiles;
+    my %percentiles;
 
     my $total_bin_count = sum values %$hist;
     my $bins_counted = 0;
 
+    my @wanted_percentiles_copy = @wanted_percentiles;
+
     BIN:
     for my $bin (sort {$a<=>$b} keys %$hist){
-        last BIN if (!@wanted_percentiles);
+        last BIN if (!@wanted_percentiles_copy);
         $bins_counted += $hist->{$bin};
-        if ($bins_counted > $total_bin_count * $wanted_percentiles[0]){
-            $percentiles{shift @wanted_percentiles} = $bin;
+        if ($bins_counted > $total_bin_count * $wanted_percentiles_copy[0]){
+            $percentiles{shift @wanted_percentiles_copy} = $bin;
         }
     }
-    return \%percentiles;
-    if (keys %percentiles == @wanted_percentiles){
-        return \%percentiles;
+    if (keys(%percentiles) == $num_percentiles){
+        return [@percentiles{sort keys %percentiles}];
     }
     else{
-        return 'na';
+        croak "BUG with histpercentiles, please report";
     }
 }
 
@@ -238,47 +262,144 @@ sub sumhists{
     return $total;
 }
 
-sub tohist{
-    my %accum;
-    for my $val (@_) {
-        $accum{$val}++;
+sub combine_hists{
+    my %hist;
+    for my $h (@_) {
+        while (my ($bin,$count) = each %$h) {
+            $hist{$bin} += $count;
+        }
     }
-    return %accum;
+    # croak Dumper \@_, \%hist;
+    return \%hist;
 }
 
-# histogram inter-quartile range (from 25% to 75%)
-sub hist_iqr{
-    my ($hist, $percentile_aref) = @_;
-    return {} if keys %$hist == 0;
-
-    my ($percentile25, $percentile75) = @{$percentile_aref}[1,3];
-    return {
-        map {
-            $_ => $hist->{$_}
-        }
-        grep {
-            $percentile25 <= $_ && $_ <= $percentile75
-        }
-        keys %$hist
-    };
-}
 #######################################################################
 # statistics
 
-sub methylation_stats{
-    my $singlec = shift;
-    my @wanted_percentiles = @_;
-    if (@wanted_percentiles == 0){
-        @wanted_percentiles = qw/.05 .25 .50 .75 .95/;
+# returns multilevel hash as first value:
+# { combined | cg | chg | chh }
+#   { chr | nuclear | mit | total }
+#     { ct_percentiles | coverage | methyl_avg | c_count | overall_methylation | t_count | line_count | ct_mean}
+# and a formatted table as the second
+#
+# my ($stats, $table) = methyl_stats(cg => 'cg.gff', chg => 'chg.gff', chh => 'chh.gff');
+sub methyl_stats{
+    my %files = @_;
+    # say Dumper \%files;
+    my %stats;
+    while (my ($context,$file) = each %files) {
+        $stats{$context} = collect_stats($file);
+    }
+    $stats{combined} = combine_stats(values %stats);
+
+    my @columns = qw/ line_count methyl_avg c_count t_count coverage overall_methylation ct_mean ct_percentiles /;
+
+    my @output;
+
+    push @output, join "\t", 'context', 'type', @columns[0..$#columns-1], 
+        map { "ct_" . $_ * 100 . "%" } @wanted_percentiles;
+
+    for my $context (sort keys %stats) {
+        for my $type (qw/nuclear chr mit total/){
+            my @row = ($context, $type);
+
+            delete $stats{$context}{$type}{ct_hist};
+
+            for my $column (@columns) {
+                my $val = $stats{$context}{$type}{$column};
+                if (ref $val eq 'ARRAY'){
+                    push @row, @$val;
+                }
+                else {
+                    push @row, round_if_decimal($val);
+                }
+            }
+            push @output, join "\t", @row;
+        }
     }
 
-    my %nuclear_ct;
-    my %chr_ct;
-    my %mit_ct;
-    my $nuclear_methyl = make_averager();
-    my $chr_methyl = make_averager();
-    my $mit_methyl = make_averager();
-    my ($mit_c, $mit_t, $chr_c, $chr_t, $nuc_c, $nuc_t) = (0) x 6;
+    return \%stats, join "\n", @output;
+}
+
+sub round_if_decimal{
+    my $num = shift;
+    $num =~ /^\d+\.\d+$/ ?  sprintf("%0.4f", $num) : $num;
+}
+
+sub combine_stats{
+    my @stats = @_;
+    #say Dumper \@stats;
+    #my @wanted_percentiles = qw/.05 .25 .50 .75 .95/;
+    my @types = qw/nuclear chr mit/;
+    my %combined;
+    for my $type (qw/nuclear chr mit total/) {
+        $combined{$type}{ct_hist} = combine_hists(map { $_->{$type}{ct_hist} }  @stats);
+        $combined{$type}{c_count}    = sum(map { $_->{$type}{c_count} }  @stats);
+        $combined{$type}{t_count}    = sum(map { $_->{$type}{t_count} }  @stats);
+        $combined{$type}{coverage}   = sum(map { $_->{$type}{coverage} }  @stats);
+        $combined{$type}{line_count} = sum(map { $_->{$type}{line_count} }  @stats);
+        $combined{$type}{overall_methylation} = $combined{$type}{coverage} > 0 ?  $combined{$type}{c_count} / $combined{$type}{coverage} : 'na';
+
+        $combined{$type}{ct_percentiles} = histpercentiles($combined{$type}{ct_hist}, @wanted_percentiles);
+        $combined{$type}{ct_mean}        = histmean($combined{$type}{ct_hist});
+
+        $combined{$type}{methyl_avg} = $combined{$type}{line_count} > 0 ? (
+            sum map 
+            { 
+                $_->{$type}{methyl_avg} * $_->{$type}{line_count} 
+            } @stats
+        ) / $combined{$type}{line_count} 
+        : 0;
+    }
+    return \%combined;
+}
+
+# return {
+#    nuclear 
+#    chr 
+#    mit 
+#    total
+# }{
+#    methyl_avg          # avg of scores column 
+#    ct_hist 
+#    c_count 
+#    t_count 
+#    line_count          # num lines
+#    ct_percentiles      # percentile of c+t for each line 
+#    ct_mean             # mean of c+t for each line 
+#    coverage            # c_count + t_count (or sumhist(ct_hist))
+#    overall_methylation # c_count / (c_count + t_count)
+# }
+
+sub collect_stats{
+    my $singlec = shift;
+    #my @wanted_percentiles = @_;
+    #if (@wanted_percentiles == 0){
+    #@wanted_percentiles = qw/.05 .25 .50 .75 .95/;
+    #}
+    my %stats;
+
+    my %methyl_averager = (
+        nuclear => make_averager(),
+        mit => make_averager(),
+        chr => make_averager(),
+    );
+
+    $stats{nuclear}{methyl_avg} = undef;
+    $stats{chr}{methyl_avg}     = undef;
+    $stats{mit}{methyl_avg}     = undef;
+    $stats{nuclear}{ct_hist}    = {};
+    $stats{chr}{ct_hist}        = {};
+    $stats{mit}{ct_hist}        = {};
+    $stats{nuclear}{c_count}    = 0;
+    $stats{chr}{c_count}        = 0;
+    $stats{mit}{c_count}        = 0;
+    $stats{nuclear}{t_count}    = 0;
+    $stats{chr}{t_count}        = 0;
+    $stats{mit}{t_count}        = 0;
+    $stats{nuclear}{line_count} = 0; # redundant but more clear.
+    $stats{chr}{line_count}     = 0;
+    $stats{mit}{line_count}     = 0;
 
     my $parser = GFF::Parser::Splicer->new(file => $singlec, columns => [qw/seq c t/]);
 
@@ -288,80 +409,54 @@ sub methylation_stats{
         say STDERR $counter if $counter++ % 50000 == 0;
         my ($seq, $c, $t) = @$gff;
         next PARSE if ! (defined $c && defined $t);
-        my $ct = $c+$t;
 
+        my $ct = $c+$t;
         my $methyl = ($ct == 0) ? 0 : $c / ($ct);
 
-        given ($seq){
-            when (/chrc/i){
-                $chr_methyl->($methyl);
-                ++$chr_ct{$ct};
-                $chr_c += $c;
-                $chr_t += $t;
-            }
-            when (/chrm/i){
-                $mit_methyl->($methyl);
-                ++$mit_ct{$ct};
-                $mit_c += $c;
-                $mit_t += $t;
-            }
-            when (/chr\d+/i){
-                $nuclear_methyl->($methyl);
-                ++$nuclear_ct{$ct};
-                $nuc_c += $c;
-                $nuc_t += $t;
-            }
-            default{
-                next PARSE;
-            }
-        }
+        my $type = $seq =~ /chrc/i ? 'chr' :
+                   $seq =~ /chrm/i ? 'mit' : 
+                   $seq =~ /chr\d+/i ? 'nuclear' : undef;
+
+        next PARSE if ! $type;
+
+        $methyl_averager{$type}->($methyl);
+        $stats{$type}{ct_hist}{$ct}++;
+        $stats{$type}{c_count} += $c;
+        $stats{$type}{t_count} += $t;
+        $stats{$type}{line_count}++;
     }
 
-    # for my $bin (sort { $a <=> $b } keys %nuclear_ct){
-    #     say "$bin => $nuclear_ct{$bin}";
-    # }
+    $stats{nuclear}{methyl_avg} = $methyl_averager{nuclear}->() // 0;
+    $stats{chr}{methyl_avg}     = $methyl_averager{chr}->() // 0;
+    $stats{mit}{methyl_avg}     = $methyl_averager{mit}->() // 0;
 
-    my $chr_ct_percentiles = histpercentiles(\%chr_ct, @wanted_percentiles);
-    my $mit_ct_percentiles = histpercentiles(\%mit_ct, @wanted_percentiles);
-    my $nuc_ct_percentiles = histpercentiles(\%nuclear_ct, @wanted_percentiles);
-    #my %chr_ct_iqr = hist_iqr(\%chr_ct, $chr_ct_percentiles);
-    #my %mit_ct_iqr = hist_iqr(\%mit_ct, $mit_ct_percentiles);
-    #my %nuc_ct_iqr = hist_iqr(\%nuclear_ct, $nuc_ct_percentiles);
+    # total
+    $stats{total}{line_count} = $stats{nuclear}{line_count} + $stats{mit}{line_count} + $stats{chr}{line_count};
+    # say Dumper \%stats;
+    $stats{total}{methyl_avg} = (
+        $stats{nuclear}{methyl_avg} * $stats{nuclear}{line_count} + 
+        $stats{mit}{methyl_avg} * $stats{mit}{line_count} + 
+        $stats{chr}{methyl_avg} * $stats{chr}{line_count}
+    ) / $stats{total}{line_count};
 
-    return {
-        file => $singlec,
-        nuc_c => $nuc_c, nuc_t => $nuc_t,
-        mit_c => $mit_c, mit_t => $mit_t,
-        chr_c => $chr_c, chr_t => $chr_t,
+    $stats{total}{ct_hist} = combine_hists(
+        $stats{nuclear}{ct_hist},
+        $stats{mit}{ct_hist},
+        $stats{chr}{ct_hist},
+    );
+    $stats{total}{c_count} = $stats{nuclear}{c_count} + $stats{mit}{c_count} + $stats{chr}{c_count};
+    $stats{total}{t_count} = $stats{nuclear}{t_count} + $stats{mit}{t_count} + $stats{chr}{t_count};
 
-        chr_ct_percentiles => $chr_ct_percentiles, 
-        mit_ct_percentiles => $mit_ct_percentiles,
-        nuc_ct_percentiles => $nuc_ct_percentiles,
+    for my $type (qw/chr mit nuclear total/){
+        $stats{$type}{ct_percentiles} = histpercentiles($stats{$type}{ct_hist}, @wanted_percentiles);
+        $stats{$type}{ct_mean}        = histmean($stats{$type}{ct_hist});
+        $stats{$type}{coverage}       = $stats{$type}{c_count} + $stats{$type}{t_count};
+        $stats{$type}{overall_methylation} = 
+          ($stats{$type}{coverage} > 0) ?  ($stats{$type}{c_count} / $stats{$type}{coverage}) : 'na';
+    }
 
-        chr_ct_mean      => histmean(\%chr_ct),
-        mit_ct_mean      => histmean(\%mit_ct),
-        nuc_ct_mean      => histmean(\%nuclear_ct),
-
-        #chr_ct_std       => histstd(\%chr_ct),
-        #mit_ct_std       => histstd(\%mit_ct),
-        #nuc_ct_std       => histstd(\%nuclear_ct),
-
-        chr_methyl_mean  => $chr_methyl->(),
-        mit_methyl_mean  => $mit_methyl->(),
-        nuc_methyl_mean  => $nuclear_methyl->(),
-
-        chr_methyl_total => ($chr_c + $chr_t > 0) ? ($chr_c / ($chr_c+$chr_t)) : 'na',
-        mit_methyl_total => ($mit_c + $mit_t > 0) ? ($mit_c / ($mit_c+$mit_t)) : 'na',
-        nuc_methyl_total => ($nuc_c + $nuc_t > 0) ? ($nuc_c / ($nuc_c+$nuc_t)) : 'na',
-
-        methyl_total     => ($chr_c + $chr_t + $mit_c + $mit_t + $nuc_c + $nuc_t > 0) ?  ($chr_c + $mit_c + $nuc_c)/($chr_c + $chr_t + $mit_c + $mit_t + $nuc_c + $nuc_t) : 'na',
-            
-        coverage         => sumhists(\%chr_ct, \%mit_ct, \%nuclear_ct),
-    }, 
-    \%nuclear_ct,
-    \%chr_ct,
-    \%mit_ct,
-    ;
+    # say Dumper \%stats;
+    return \%stats;
 }
 
 1;
