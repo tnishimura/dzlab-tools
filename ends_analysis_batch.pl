@@ -233,17 +233,18 @@ Root directories of bs-seq/etc run.  needs to contain a single-c* directory.
 
 =item --force | -f
 
-=item  --parallel <threads>
+=item  --all | -a
+
+If given, assume the single-c's are pre-concatenated into files named
+'all.cg*', 'all.chg*, 'all.chh*'. 
+
+=item  --parallel <threads> | -p <threads>
 
 Number of simultaneous ends to perform.  Default 0 for no parallelization.
 
 =for Euclid
     threads.default:     0
 
-=item  -a | --all
-
-If given, assume the single-c's are pre-concatenated into files named
-'all.cg*', 'all.chg*, 'all.chh*'. 
 
 =back
 

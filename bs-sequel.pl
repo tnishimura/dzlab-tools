@@ -16,7 +16,7 @@ use Pod::Usage;
 use File::Copy;
 use lib "$FindBin::Bin/lib";
 
-use DZUtil qw/downsample mfor timestamp split_names fastq_read_length/;
+use DZUtil qw/downsample mfor timestamp split_names fastq_read_length single_c_concat/;
 use Launch;
 use GFF::Split;
 use MethylCounter;
@@ -276,6 +276,7 @@ else {
     $logger->info("DRY: GFF::Split::split_sequence($base_gff,@groups);");
 }
 
+
 #######################################################################
 # discountMethylation.pl
 
@@ -320,6 +321,7 @@ if ($opt_new_cm){
     }
     $pm->wait_all_children;
     MethylCounter::combine($opt_di_nuc_freqs, "$basename.single-c.freq", glob(catfile($single_c_dir,"*.freq")));
+
 }
 
 #######################################################################
@@ -369,24 +371,32 @@ else{
 
     launch("perl -S collect-freqs.pl -o $basename.single-c.freq $single_c_dir", dryrun => $dry);
 
-    chdir $single_c_dir;
-    for my $cont (@contexts) {
-        my @files = glob("*$cont*");
-        launch("single_c_concat.pl " . join(" ", @files), dryrun => $dry);
-    }
+    # chdir $single_c_dir;
+    # for my $cont (@contexts) {
+    #     my @files = glob("*$cont*");
+    #     launch("single_c_concat.pl " . join(" ", @files), dryrun => $dry);
+    # }
 }
 
+my @concatenated_single_c_files;
+my $methyl_stats = "$basename.methyl-stats.txt";
+
+for my $cont (sort @contexts) {
+    $logger->info("concatenated $cont single-c files");
+    my @files = glob(catfile($single_c_dir, "*$cont*"));
+    push @concatenated_single_c_files, single_c_concat(@files);
+}
 
 if ($opt_stats){
-    my $threads = $opt_parallel * 2 || 1;
-    launch("perl -S gff-methyl-stats-batch.pl -p $threads $opt_out_directory", dryrun => $dry);
+    if (! -s $methyl_stats){
+        launch("perl -S gff-methyl-stats.pl -o $methyl_stats -t @concatenated_single_c_files", dryrun => $dry);
+    }
 }
 
 if ($opt_ends){
     my $threads = $opt_parallel * 2 || 1;
-    launch("perl -S ends_analysis_batch.pl -p $threads -c $opt_ends -d $opt_out_directory", dryrun => $dry);
+    launch("perl -S ends_analysis_batch.pl -a -p $threads -c $opt_ends -d $opt_out_directory", dryrun => $dry);
 }
-
 
 =head1 NAME
 
@@ -589,7 +599,7 @@ Produces ends-analysis via ends_analysis_batch.pl with config file and --paralle
 
 =item --stats
 
-Produces stats via gff-methyl-stats-batch.pl
+Produces stats via gff-methyl-stats.pl
 
 =item --verbose
 
