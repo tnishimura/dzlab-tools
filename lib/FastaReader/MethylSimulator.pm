@@ -69,7 +69,7 @@ sub get_read{
 
     my $read = $self->get($seq, $start, $stop, base => 1, rc => $get_rc);
 
-    if ($self->methrate() > 0){
+    if (defined $self->methrate() and $self->methrate() > 0){
         my ($bsread, $meth) = bisulfite($read, $start, $stop, $get_rc, $self->methrate(), $self->bstype());
 
         $self->record_meth($seq, $get_rc, @$meth);

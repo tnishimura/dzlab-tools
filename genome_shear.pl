@@ -76,5 +76,5 @@ for (1 .. $junk){
 }
 
 if ($logfile){
-    $fr->dump_meth($logfile);
+    $fr->dump($logfile);
 }
