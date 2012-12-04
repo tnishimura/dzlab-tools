@@ -12,7 +12,7 @@ use Hash::Util qw/lock_keys/;
 use File::Which;
 use Parallel::ForkManager;
 use File::Path qw/make_path/;
-use File::Spec::Functions qw/catfile/;
+use File::Spec::Functions qw/catfile rel2abs/;
 use List::MoreUtils qw/notall/;
 use YAML qw/LoadFile/;
 
@@ -174,6 +174,31 @@ sub compile_wiggle{
 
 my @types = qw{methyl coverage};
 
+sub _make_tmpname{
+    my $file = shift;
+    my $abs = rel2abs($file);
+    return join "_", grep { $_ ne '' } split /\//, $abs;
+}
+
+#$meta_files{$feature}{$type} = sprintf($meta_filename_template, $feature, $type);
+sub make_meta_filename{
+    my %opt = validate(@_, { stagingdir => 1, file => 1, feature => 1, type => 1, });
+    lock_keys(%opt);
+    return sprintf(
+        catfile($opt{stagingdir}, _make_tmpname($opt{file})) . "-%s-%s.meta.gff",
+        $opt{feature}, $opt{type}
+    );
+}
+
+# my $filename = sprintf($wig_filename_template, $seq, $feature, $type);
+sub make_wig_filename{
+    my %opt = validate(@_, { stagingdir => 1, file => 1, feature => 1, type => 1, seq => 1, });
+    return sprintf(
+        catfile($opt{stagingdir}, _make_tmpname($opt{file})) . "-%s-%s.%s.wig",
+        $opt{seq}, $opt{feature}, $opt{type}
+    );
+}
+
 # took out bed support b/c bed can support multiple seqids per file... should
 # be in another subroutine.
 # returns
@@ -196,8 +221,8 @@ sub prepare_gff_to_wig{
     make_path $opt{stagingdir};
 
     # name for staging files
-    my $wig_filename_template = catfile($opt{stagingdir}, basename($opt{file}, '.gff')) . "-%s-%s.%s.wig";
-    my $meta_filename_template = catfile($opt{stagingdir}, basename($opt{file}, '.gff')) . "-%s-%s.meta.gff";
+    # my $wig_filename_template = catfile($opt{stagingdir}, basename($opt{file}, '.gff')) . "-%s-%s.%s.wig";
+    # my $meta_filename_template = catfile($opt{stagingdir}, basename($opt{file}, '.gff')) . "-%s-%s.meta.gff";
 
     my $detected_width = gff_detect_width $opt{file};
 
@@ -226,10 +251,21 @@ sub prepare_gff_to_wig{
         # create wigs if ! exist and write header
         for my $type (@types) {
             if (!exists $meta_files{$feature}{$type}){
-                $meta_files{$feature}{$type} = sprintf($meta_filename_template, $feature, $type);
+                $meta_files{$feature}{$type} = make_meta_filename(
+                    file       => $opt{file},
+                    stagingdir => $opt{stagingdir},
+                    feature    => $feature,
+                    type       => $type
+                );
             }
             if (!exists $wig_files{$feature}{$type}{$seq}){
-                my $filename = sprintf($wig_filename_template, $seq, $feature, $type);
+                my $filename = make_wig_filename(
+                    file       => $opt{file},
+                    stagingdir => $opt{stagingdir},
+                    seq        => $seq,
+                    feature    => $feature,
+                    type       => $type
+                );
                 open my $fh, '>', $filename;
                 $wig_files{$feature}{$type}{$seq}{name} = $filename;
                 $wig_files{$feature}{$type}{$seq}{handle} = $fh;
@@ -257,6 +293,8 @@ sub prepare_gff_to_wig{
 
             close $wig_files{$feature}{$type}{$_}{handle} for @seqs;
 
+            say STDERR "compiling $feature $type";
+
             compile_wiggle(
                 files          => [map { $wig_files{$feature}{$type}{$_}{name} } @seqs],
                 source         => $opt{source},
@@ -268,8 +306,7 @@ sub prepare_gff_to_wig{
         }
     }
 
-    return map 
-    {
+    return map {
         my $feature = $_;
         map 
         { 
