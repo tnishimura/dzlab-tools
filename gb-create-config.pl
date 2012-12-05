@@ -107,51 +107,55 @@ say write_gbini_section(
 
 
 # GFF
-for my $gff (sort { $a->{source} cmp $b->{source}} @{$config->{gff}}) {
-    my $source = $gff->{source};
-    for my $feature (@{$gff->{feature}}) {
-        my $header = "$feature-$source";
+if ($config->{gff}){
+    for my $gff (sort { $a->{source} cmp $b->{source}} @{$config->{gff}}) {
+        my $source = $gff->{source};
+        for my $feature (@{$gff->{feature}}) {
+            my $header = "$feature-$source";
 
-        say write_gbini_section(
-            $header => {
-                category => $source,
-                feature  => "$feature:$source",
-                glyph    => 'gene',
-                key      => "$feature $source",
-                fgcolor  => string2color($header),
-                height   => 10,
-            }
-        );
+            say write_gbini_section(
+                $header => {
+                    category => $source,
+                    feature  => "$feature:$source",
+                    glyph    => 'gene',
+                    key      => "$feature $source",
+                    fgcolor  => string2color($header),
+                    height   => 10,
+                }
+            );
+        }
     }
 }
 
 # wiggles
-for (sort 
-    { 
-        $a->{source}  cmp $b->{source} ||
-        $a->{feature} cmp $b->{feature} ||
-        $a->{type}    cmp $b->{type} 
-    } @{$config->{gffwig}}){
-    my ($feature, $meta, $source, $type) = @{$_}{qw/feature meta source type/};
+if ($config->{gffwig}){
+    for (sort 
+        { 
+            $a->{source}  cmp $b->{source} ||
+            $a->{feature} cmp $b->{feature} ||
+            $a->{type}    cmp $b->{type} 
+        } @{$config->{gffwig}}){
+        my ($feature, $meta, $source, $type) = @{$_}{qw/feature meta source type/};
 
-    my $header = "$feature-$type-$source";
-    my $body = {
-        category     => $source,
-        feature      => "$feature-$type:$source",
-        glyph        => 'wiggle_xyplot',
-        key          => "$feature $type $source",
-        bgcolor      => string2color($header),
-        graph_type   => 'linepoints',
-        point_symbol => 'point',
-        height       => 30,
-        $type eq 'methyl' ? (
-            max_score  =>  '1.0',
-            min_score  =>  '0.0',
-        ) :
-        (),
-    };
+        my $header = "$feature-$type-$source";
+        my $body = {
+            category     => $source,
+            feature      => "$feature-$type:$source",
+            glyph        => 'wiggle_xyplot',
+            key          => "$feature $type $source",
+            bgcolor      => string2color($header),
+            graph_type   => 'linepoints',
+            point_symbol => 'point',
+            height       => 30,
+            $type eq 'methyl' ? (
+                max_score  =>  '1.0',
+                min_score  =>  '0.0',
+            ) :
+            (),
+        };
 
-    say write_gbini_section($header => $body);
+        say write_gbini_section($header => $body);
+    }
 }
 
 #######################################################################

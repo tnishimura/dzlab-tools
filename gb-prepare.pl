@@ -80,6 +80,7 @@ for my $gffwig_file (@{$config->{gffwig}}) {
 $pm->wait_all_children;
 
 #######################################################################
+# collect from forks
 
 my %info;
 sub collect_staging_files{ # call before calling start()
@@ -95,6 +96,10 @@ sub collect_staging_files{ # call before calling start()
         push @{$info{$type}}, $inforef;
     }
 };
+
+#######################################################################
+# output
+
 say Dump(\%info);
 DumpFile($config->{stagingconf}, \%info);
 
