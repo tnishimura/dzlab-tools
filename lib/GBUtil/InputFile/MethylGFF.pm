@@ -96,6 +96,18 @@ sub tracks{
     return @rv;
 }
 
+sub meta_files{
+    my ($self) = @_;
+    my $h = $self->_meta_files;
+    my @rv;
+    for my $feature (sort keys %$h) {
+        for my $type (@types) {
+            push @rv, $self->get_meta_file($feature, $type),
+        }
+    }
+    return @rv;
+}
+
 has _features => (
     traits    => ['Hash'],
     is        => 'ro',

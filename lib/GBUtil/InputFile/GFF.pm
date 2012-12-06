@@ -15,7 +15,7 @@ extends 'GBUtil::InputFile';
 sub BUILD{
     my $self = shift;
     my %opt = @_;
-    $self->(catfile($self->staging_dir, basename($self->file) . ".normalized.gff"));
+    $self->staging_file(catfile($self->staging_dir, basename($self->file) . ".normalized.gff"));
 }
 
 has _features => (

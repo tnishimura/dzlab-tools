@@ -11,9 +11,10 @@ use File::Which;
 use FindBin;
 use lib "$FindBin::Bin/lib";
 use GBUtil;
-
-use GFF::Statistics qw/gff_detect_width/;
-use DZUtil qw/approximate_line_count/;
+use GBUtil;
+use GBUtil::InputFile::MethylGFF;
+use GBUtil::InputFile::GFF;
+use GBUtil::InputFile::Fasta;
 
 my ($user, $pass, $database, $host) = load_mysql_config();
 
@@ -44,34 +45,37 @@ my $bp_seqfeature_load = do{
     sub {
         my $file = shift;
         my @cmd = ($exe, @common_args, ($create && $first ? ("--create") : ()), $file);
-        say Dumper \@cmd;
-        say STDERR join " ", @cmd;
+        # say Dumper \@cmd;
+        # say STDERR join " ", @cmd;
         if (0 != system(@cmd)){
             die "failed: $?";
         }
         $first = 0;
-        say "meow";
+        # say "meow";
     };
 
 };
 
 my $config_file = shift // die "need config file";
-my $config = LoadFile($config_file);
+my @input_files = @{LoadFile($config_file)};
 
-for my $fasta (@{$config->{fasta}}) {
-    $bp_seqfeature_load->($fasta->{meta});
-    # $bp_seqfeature_load->($fasta->{staging});
+for my $input (@input_files) {
+    say STDERR $input;
+    if (ref $input eq 'GBUtil::InputFile::Fasta'){
+        say $input->meta_file;
+        $bp_seqfeature_load->( $input->meta_file );
+    }
+    elsif (ref $input eq 'GBUtil::InputFile::GFF'){
+        say $input->staging_file;
+        $bp_seqfeature_load->( $input->staging_file );
+    }
+    elsif (ref $input eq 'GBUtil::InputFile::MethylGFF'){
+        for my $mf ($input->meta_files){
+            say $mf;
+            $bp_seqfeature_load->( $mf );
+        }
+    }
 }
-
-for my $gff (@{$config->{gff}}) {
-    $bp_seqfeature_load->($gff->{staging});
-}
-
-for my $gffwig (@{$config->{gffwig}}) {
-    $bp_seqfeature_load->($gffwig->{meta});
-}
-
-
 
 # --- sample 
 # fasta:
