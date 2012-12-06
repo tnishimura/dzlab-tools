@@ -10,52 +10,13 @@ use YAML qw/Load Dump LoadFile DumpFile/;
 use FindBin;
 use lib "$FindBin::Bin/lib";
 use GBUtil;
+use GBUtil::InputFile::MethylGFF;
+use GBUtil::InputFile::GFF;
+use GBUtil::InputFile::Fasta;
 use Digest::MD5 qw/md5/;
 
-my $config_file = shift // die "need config file";
-my $config = LoadFile($config_file);
-
-# --- sample 
-# fasta:
-#   - meta: /home/toshiro/demeter/staging/TAIR_reference.fas.normalized.meta
-#     source: TAIR8
-#     staging: /home/toshiro/demeter/staging/TAIR_reference.fas.normalized
-# gff:
-#   - feature:
-#       - CDS
-#       - chromosome
-#       - exon
-#       - five_prime_UTR
-#       - gene
-#       - mRNA
-#       - mRNA_TE_gene
-#     source: TAIR8
-#     staging: /home/toshiro/demeter/staging/TAIR8_gmod.gff.normalized
-# gffwig:
-#  - feature: CHG
-#    meta: /home/toshiro/demeter/staging/all.chg-col.w50-CHG-methyl.meta.gff
-#    source: at-en-lerfie-x-col-wt-chg
-#    type: methyl
-#  - feature: CHG
-#    meta: /home/toshiro/demeter/staging/all.chg-col.w50-CHG-coverage.meta.gff
-#    source: at-en-lerfie-x-col-wt-chg
-#    type: coverage
-#  - feature: CG
-#    meta: /home/toshiro/demeter/staging/all.cg-col.w50-CG-methyl.meta.gff
-#    source: at-en-lerfie-x-col-wt-cg
-#    type: methyl
-#  - feature: CG
-#    meta: /home/toshiro/demeter/staging/all.cg-col.w50-CG-coverage.meta.gff
-#    source: at-en-lerfie-x-col-wt-cg
-#    type: coverage
-#  - feature: CHH
-#    meta: /home/toshiro/demeter/staging/all.chh-col.w50-CHH-methyl.meta.gff
-#    source: at-en-lerfie-x-col-wt-chh
-#    type: methyl
-#  - feature: CHH
-#    meta: /home/toshiro/demeter/staging/all.chh-col.w50-CHH-coverage.meta.gff
-#    source: at-en-lerfie-x-col-wt-chh
-#    type: coverage
+my $staging_config_file = shift // die "need config file";
+my @input_files = @{LoadFile($staging_config_file)};
 
 use Tie::IxHash;
 tie my %sections, 'Tie::IxHash'; 
@@ -105,12 +66,13 @@ say write_gbini_section(
     }
 );
 
-
 # GFF
-if ($config->{gff}){
-    for my $gff (sort { $a->{source} cmp $b->{source}} @{$config->{gff}}) {
-        my $source = $gff->{source};
-        for my $feature (@{$gff->{feature}}) {
+
+for my $input_file (sort { $a->source cmp $b->source } @input_files) {
+
+    if (ref $input_file eq 'GBUtil::InputFile::GFF'){
+        my $source = $input_file->source;
+        for my $feature ($input_file->features) {
             my $header = "$feature-$source";
 
             say write_gbini_section(
@@ -125,36 +87,32 @@ if ($config->{gff}){
             );
         }
     }
-}
+    elsif (ref $input_file eq 'GBUtil::InputFile::MethylGFF'){
+        for my $track ($input_file->tracks) {
+            my $feature = $track->{feature};
+            my $meta    = $track->{meta};
+            my $type    = $track->{type};
+            my $source  = $input_file->source;
 
-# wiggles
-if ($config->{gffwig}){
-    for (sort 
-        { 
-            $a->{source}  cmp $b->{source} ||
-            $a->{feature} cmp $b->{feature} ||
-            $a->{type}    cmp $b->{type} 
-        } @{$config->{gffwig}}){
-        my ($feature, $meta, $source, $type) = @{$_}{qw/feature meta source type/};
+            my $header = "$feature-$type-$source-w" . $input_file->window();
+            my $body = {
+                category     => $source,
+                feature      => "$feature-$type:$source",
+                glyph        => 'wiggle_xyplot',
+                key          => "$feature $type $source",
+                bgcolor      => string2color($header),
+                graph_type   => 'linepoints',
+                point_symbol => 'point',
+                height       => 30,
+                $type eq 'methyl' ? (
+                    max_score  =>  '1.0',
+                    min_score  =>  '0.0',
+                ) :
+                (),
+            };
 
-        my $header = "$feature-$type-$source";
-        my $body = {
-            category     => $source,
-            feature      => "$feature-$type:$source",
-            glyph        => 'wiggle_xyplot',
-            key          => "$feature $type $source",
-            bgcolor      => string2color($header),
-            graph_type   => 'linepoints',
-            point_symbol => 'point',
-            height       => 30,
-            $type eq 'methyl' ? (
-                max_score  =>  '1.0',
-                min_score  =>  '0.0',
-            ) :
-            (),
-        };
-
-        say write_gbini_section($header => $body);
+            say write_gbini_section($header => $body);
+        }
     }
 }
 
