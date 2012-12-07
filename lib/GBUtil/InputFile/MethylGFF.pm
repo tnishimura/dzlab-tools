@@ -16,7 +16,7 @@ use GFF::Parser;
 use GFF::Statistics qw/gff_detect_width/;
 use Moose;
 
-extends 'GBUtil::InputFile';
+with 'GBUtil::InputFile';
 
 Readonly my @types =>  qw{methyl coverage};
 
@@ -96,6 +96,11 @@ sub tracks{
     return @rv;
 }
 
+sub upload_files{
+    my ($self) = @_;
+    return map { $_->{meta} } $self->tracks;
+}
+
 sub meta_files{
     my ($self) = @_;
     my $h = $self->_meta_files;
@@ -160,6 +165,7 @@ sub compile_wiggle{
         $loader->load($fh);
     }
 
+    say STDERR "writing meta_file for $opt{feature} $source $opt{meta_file}";
     open my $metafh, '>', $opt{meta_file};
     print {$metafh} $loader->featurefile('gff3',$opt{feature},$source);
     close $metafh;
@@ -246,12 +252,11 @@ sub convert{
             }
         }
     }
-    return;
 
     # compile with compile_wiggle 
     for my $feature ($self->features){
         for my $type (qw/methyl coverage/) {
-            say STDERR "done reading $self->title";
+            say STDERR "done reading " . $self->title;
 
             $self->compile_wiggle(
                 files     => [map { $self->get_wig_file($feature, $type, $_) } $self->sequences],

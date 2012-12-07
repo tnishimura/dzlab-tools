@@ -10,12 +10,17 @@ use File::Spec::Functions qw/catfile/;
 use Moose;
 use GFF::Parser;
 
-extends 'GBUtil::InputFile';
+with 'GBUtil::InputFile';
 
 sub BUILD{
     my $self = shift;
     my %opt = @_;
     $self->staging_file(catfile($self->staging_dir, basename($self->file) . ".normalized.gff"));
+}
+
+sub upload_files{
+    my $self = shift;
+    return ($self->staging_file);
 }
 
 has _features => (

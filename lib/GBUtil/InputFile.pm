@@ -3,7 +3,7 @@ use strict;
 use warnings;
 use 5.010_000;
 use Data::Dumper;
-use Moose;
+use Moose::Role;
 use Carp;
 use autodie;    
 
@@ -21,7 +21,7 @@ sub title{
     sprintf("%s [%s]", $self->file, $self->source);
 }
 
-no Moose;
-__PACKAGE__->meta->make_immutable;
+requires 'convert';
+requires 'upload_files';
 
 1;

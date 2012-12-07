@@ -10,7 +10,7 @@ use File::Spec::Functions qw/catfile/;
 use Moose;
 use FastaReader;
 
-extends 'GBUtil::InputFile';
+with 'GBUtil::InputFile';
 
 sub BUILD{
     my $self = shift;
@@ -19,6 +19,11 @@ sub BUILD{
         catfile($self->staging_dir, basename($self->file) . ".normalized.fasta")
     );
     $self->meta_file($self->staging_file() . ".meta");
+}
+
+sub upload_files{
+    my $self = shift;
+    return ($self->staging_file, $self->meta_file);
 }
 
 has meta_file => (
