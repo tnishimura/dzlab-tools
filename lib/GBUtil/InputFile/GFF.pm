@@ -52,6 +52,8 @@ sub convert{
         if (! exists $features{$gff->feature()}){
             $features{$gff->feature()} = 1;
         }
+        $gff->start($gff->start - 1); 
+        $gff->end($gff->end - 1); 
 
         say $outfh $gff;
     }

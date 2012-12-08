@@ -195,6 +195,10 @@ sub convert{
         my ($seq, $start, $feature, $end, $score, $c, $t) 
         = (lc($gff->sequence()), $gff->start(), $gff->feature(), $gff->end(), $gff->score(), $gff->get_column('c') // 0, $gff->get_column('t') // 0,);
 
+        # decrement b/c gbrowse is base-0 (I think...)
+        --$start;
+        --$end;
+
         my $width = $end - $start + 1;
 
         # okay for a single window to be different size b/c the last one may be smaller
