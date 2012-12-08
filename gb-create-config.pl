@@ -93,11 +93,12 @@ for my $input_file (sort { $a->source cmp $b->source } @input_files) {
             my $meta    = $track->{meta};
             my $type    = $track->{type};
             my $source  = $input_file->source;
+            my $window  = $input_file->window();
 
-            my $header = "$feature-$type-$source-w" . $input_file->window();
+            my $header = "$feature-$type-$source-w$window";
             my $body = {
                 category     => $source,
-                feature      => "$feature-$type:$source",
+                feature      => "$feature-$type-$window:$source",
                 glyph        => 'wiggle_xyplot',
                 key          => "$feature $type $source",
                 bgcolor      => string2color($header),

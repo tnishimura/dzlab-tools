@@ -160,7 +160,7 @@ sub compile_wiggle{
     $loader->{trackname} = $opt{track} if defined $opt{track};
 
     for my $file (@{$opt{files}}) {
-        say STDERR "compile_wiggle $opt{feature} $source $file";
+        say STDERR "compile_wiggle $opt{feature} $source " . basename($self->file);
         my $fh = IO::File->new($file) or die "could not open $file: $!";
         $loader->load($fh);
     }
