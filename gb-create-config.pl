@@ -100,7 +100,7 @@ for my $input_file (sort { $a->source cmp $b->source } @input_files) {
                 category     => $source,
                 feature      => "$feature-$type-$window:$source",
                 glyph        => 'wiggle_xyplot',
-                key          => "$feature $type $source",
+                key          => "$feature $type $source w$window",
                 bgcolor      => string2color($header),
                 graph_type   => 'linepoints',
                 point_symbol => 'point',
