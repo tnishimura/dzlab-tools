@@ -12,6 +12,9 @@ use File::Path qw/make_path/;
 use FindBin;
 use lib "$FindBin::Bin/lib";
 use GBUtil;
+use GBUtil::InputFile::MethylGFF;
+use GBUtil::InputFile::GFF;
+use GBUtil::InputFile::Fasta;
 
 my $config_file = shift // usage();
 my $config = LoadFile($config_file);
@@ -34,69 +37,64 @@ $pm->run_on_finish(\&collect_staging_files);
 for my $fasta_file (@{$config->{fasta}}) {
     msg($fasta_file);
     $pm->start and next;
-    my ($staging, $meta) = prepare_fasta(
-        file       => $fasta_file->{file},
-        stagingdir => $stagingdir,
+    my $fasta_track = GBUtil::InputFile::Fasta->new(
+        file        => $fasta_file->{file},
+        staging_dir => $stagingdir,
+        source      => $fasta_file->{source}
     );
-
-    $pm->finish(0, ['fasta', {
-                staging => $staging,
-                meta    => $meta,
-                source  => $fasta_file->{source},
-            }]);
+    $fasta_track->convert;
+    $pm->finish(0, $fasta_track);
 }
 
 # GFF lower-density annotation files
 for my $gff_file (@{$config->{gff}}) {
     msg($gff_file);
     $pm->start and next;
-    my ($staging, @features) = prepare_gff(
-        file       => $gff_file->{file},
-        stagingdir => $stagingdir,
-        source     => $gff_file->{source},
+    my $gff_track = GBUtil::InputFile::GFF->new(
+        file        => $gff_file->{file},
+        staging_dir => $stagingdir,
+        source      => $gff_file->{source},
     );
-    $pm->finish(0, ['gff', {
-            staging => $staging,
-            feature => [@features],
-            source  => $gff_file->{source},
-        }]);
+    $gff_track->convert();
+
+    $pm->finish(0, $gff_track);
 }
 
 # GFF high-density single-c/windows files
-for my $gffwig_file (@{$config->{gffwig}}) {
-    msg($gffwig_file);
+for my $methylgff_file (@{$config->{methylgff}}) {
+    msg($methylgff_file);
     $pm->start and next;
 
-    my @meta = prepare_gff_to_wig(
-        file       => $gffwig_file->{file},
-        ctscore    => $gffwig_file->{ctscore},
-        source     => $gffwig_file->{source},
-        stagingdir => $stagingdir,
-        wigdir     => $wigdir,
+    my $meta_track = GBUtil::InputFile::MethylGFF->new(
+        file        => $methylgff_file->{file},
+        staging_dir => $stagingdir,
+        source      => $methylgff_file->{source},
+
+        wig_dir     => $wigdir,
+        ctscore     => $methylgff_file->{ctscore},
     );
-    $pm->finish(0, ['gffwig', \@meta]);
+    $meta_track->convert();
+
+    $pm->finish(0, $meta_track);
 }
 
 $pm->wait_all_children;
 
 #######################################################################
+# collect from forks
 
-my %info;
+my @tracks;
 sub collect_staging_files{ # call before calling start()
     my $collected = $_[5];
-
-    die "bug, nothing collected?" unless (ref $collected eq 'ARRAY');
-    my ($type, $inforef) = @$collected;
-
-    if (ref $inforef eq 'ARRAY'){
-        push @{$info{$type}}, @$inforef;
-    }
-    else{
-        push @{$info{$type}}, $inforef;
-    }
+    die "bug, nothing collected?" unless (defined $collected);
+    push @tracks, $collected;
 };
-say Dump(\%info);
-DumpFile($config->{stagingconf}, \%info);
+
+#######################################################################
+# output
+
+say Dump(\@tracks);
+DumpFile($config->{stagingconf}, \@tracks);
 
 #######################################################################
 
@@ -124,13 +122,10 @@ fasta:
 gff:
   - file:    /home/toshiro/annotations/AT/gmod/TAIR8_gmod.gff
     source:  TAIR8
-gffwig:
+methylgff:
   - file:    /home/toshiro/GEO-Submission-AT-Demeter-2012/windows/at-endosperm-ler_fie_x_col_wt/windows-Col/all.cg-col.w50.gff
     source:  at-en-lerfie-x-col-wt-cg
-    ctscore: 0 
   - file:    /home/toshiro/GEO-Submission-AT-Demeter-2012/windows/at-endosperm-ler_fie_x_col_wt/windows-Col/all.chg-col.w50.gff
     source:  at-en-lerfie-x-col-wt-chg
-    ctscore: 0 
   - file:    /home/toshiro/GEO-Submission-AT-Demeter-2012/windows/at-endosperm-ler_fie_x_col_wt/windows-Col/all.chh-col.w50.gff
     source:  at-en-lerfie-x-col-wt-chh
-    ctscore: 0 
