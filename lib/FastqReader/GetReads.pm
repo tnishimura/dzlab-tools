@@ -10,7 +10,7 @@ use FastqReader;
 require Exporter;
 our @ISA = qw(Exporter);
 our @EXPORT_OK = qw();
-our @EXPORT = qw(get_reads);
+our @EXPORT = qw(get_reads get_reads_iter);
 
 # @HS2:90:B09PCABXX:1:1202:13269:194742 1:N:0: 
 # to 
@@ -41,6 +41,28 @@ sub get_reads{
         }
     }
     return \@results;
+}
+
+sub get_reads_iter{
+    my $file = shift;
+    my @query_ids = @_;
+
+    my %lookup = map {
+        _extract_id($_) => 1
+    } @query_ids;
+
+    my $fqr = FastqReader->new(file => $file);
+    return sub { return } if ! @query_ids;
+
+    return sub {
+        while (defined(my $q = $fqr->next())){
+            my ($readid, $sequence) = @$q;
+            if (exists $lookup{_extract_id($readid)}){
+                return $q;
+            }
+        }
+        return;
+    };
 }
 
 1;

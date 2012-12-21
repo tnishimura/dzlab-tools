@@ -165,9 +165,9 @@ for ($cmd){
         my $file = shift // \*STDIN;
         usage() if (!$file);
 
-        my $results = get_reads($file, @query_ids);
+        my $results = get_reads_iter($file, @query_ids);
 
-        for my $r (@$results) {
+        while (defined(my $r = $results->next())){
             say join "\n", $r->[0], $r->[1], '+', $r->[2];
         }
     }
