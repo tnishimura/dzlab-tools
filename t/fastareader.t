@@ -176,6 +176,54 @@ for my $slurp (0, 1) {
         [['chrm', 1, 20, 0], ['chrm', 1, 20, 1]], "find multi"
     );
 
+    #######################################################################
+    # forward2reverse
+
+    # my $chr1len = $f->get_length("chr1");
+    my @chr1_end = ($chr1len - 1, $chr1len);
+
+    for my $base (0, 1) {
+        for my $bp_from_end (0 .. 5) {
+            my $from = $base + $bp_from_end;
+            my $to   = $chr1_end[$base] - $bp_from_end;
+
+            is(
+                $f->forward2reverse('chr1', $from, $base), 
+                $to,
+                "forward2reverse bp_from_end $bp_from_end base $base"
+            );
+
+            is(
+                $f->reverse2forward('chr1', $to, $base), 
+                $from,
+                "reverse2forward bp_from_end $bp_from_end base $base"
+            );
+        }
+        # randomize
+        for (1 .. 3) {
+            my $from = $base + int rand($chr1len); 
+            my $to   = $f->forward2reverse('chr1', $from, $base);
+            is( $to, $chr1_end[$base] - $from + $base,
+                "forward2reverse randomize iter $_",
+            );
+        }
+
+        # range
+        for (1 .. 3) {
+            my ($start5, $end5) = sort { $a <=> $b } (
+                $base + int rand($chr1len),
+                $base + int rand($chr1len),
+            );
+            my ($start3, $end3) = $f->range_forward2reverse('chr1', $start5, $end5, $base);
+            is($start3 - $end3, $start5 - $end5, "range_forward2reverse preserves length ");
+            is( $f->reverse2forward('chr1', $start5, $base), $end3,
+                "range_forward2reverse flips start/end correctly 1"
+            );
+            is( $f->reverse2forward('chr1', $end5, $base), $start3,
+                "range_forward2reverse flips start/end correctly 2"
+            );
+        }
+    }
 }
 
 

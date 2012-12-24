@@ -595,18 +595,35 @@ sub reverse2forward{
     my ($self, $seqid, $coord, $base) = @_;
     $base //= 1;
 
-    $coord -=$base; # zero base
-    my $totlen = $self->get_length($seqid);
+    my $lastpos = $self->get_length($seqid) - (1 - $base);
 
     croak "$seqid does not exist" if ! $self->has_sequence($seqid);
-    croak "$coord out of range" if ($coord < 0 && $totlen <= $coord);
+    croak "$coord out of range" if ($coord < $base || $lastpos < $coord);
 
-    return $totlen - 1 - $coord + $base;
+    return $lastpos - $coord + $base;
 }
 
 # they are actually the same... aren't they?
 sub forward2reverse{ 
     return reverse2forward(@_);
+}
+
+sub range_reverse2forward{
+    my ($self, $seqid, $start, $end, $base) = @_;
+    $base //= 1;
+
+    my $lastpos = $self->get_length($seqid) - (1 - $base);
+
+    croak "$seqid does not exist" if ! $self->has_sequence($seqid);
+    croak "start coord $start out of range" if ($start < $base || $lastpos < $start);
+    croak "end coord $end out of range"     if ($end   < $base || $lastpos < $end);
+
+    return ( $lastpos - $end + $base, $lastpos - $start + $base );
+    # return ($totlen - 1 - $end + $base, $totlen - 1 - $start + $base);
+}
+
+sub range_forward2reverse{ 
+    return range_reverse2forward(@_);
 }
 
 =head2 format_fasta('header', $seq)
