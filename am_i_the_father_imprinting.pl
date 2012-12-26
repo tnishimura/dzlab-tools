@@ -2,51 +2,48 @@
 use strict;
 use warnings;
 use Data::Dumper;
-use feature 'say';
+use 5.010_000;
 use Carp;
 use List::Util qw/sum/;
-use Log::Log4perl qw/get_logger/;
+use Log::Dispatch;
 use File::Spec::Functions;
 use File::Basename;
 use File::Path;
 use Getopt::Euclid qw( :vars<opt_> );
 use Pod::Usage;
+
 use FindBin;
 use lib "$FindBin::Bin/lib";
 use Fasta qw/bisulfite_convert/;
 use FastqReader;
+use FastqReader::Convert;
 use Launch;
 use DZUtil qw/split_names chext timestamp/;
 use Parallel::ForkManager;
-my $pm = Parallel::ForkManager->new($opt_parallel);
 use Run::BowtieBuild;
 use Run::Bowtie;
 use MethylCounter;
 
+my $pm = Parallel::ForkManager->new($opt_parallel);
+
 pod2usage(-verbose => 99,-sections => [qw/NAME SYNOPSIS OPTIONS/]) 
-unless $opt_output_directory && $opt_reference && $opt_raw && scalar %opt_left_splice;
+unless $opt_read_length && $opt_basename && $opt_output_directory && $opt_reference && $opt_raw && scalar %opt_left_splice;
 
 if (! -d $opt_output_directory) { mkpath ( $opt_output_directory ,  {verbose => 1} ); }
 
 my $logname = catfile($opt_output_directory, $opt_basename) . "-" . timestamp() . ".log.txt";
 my $bowtie_logname = catfile($opt_output_directory, $opt_basename). "-" . timestamp() . ".log-bowtie.txt";
 
-my $conf=qq/
-    log4perl.logger          = DEBUG, Print
-    log4perl.logger.PipeLine = DEBUG, File
-
-    log4perl.appender.Print                          = Log::Log4perl::Appender::Screen
-    log4perl.appender.Print.layout                   = PatternLayout
-    log4perl.appender.Print.layout.ConversionPattern = %d{HH:mm:ss} %.1p> %m%n
-
-    log4perl.appender.File                          = Log::Log4perl::Appender::File
-    log4perl.appender.File.filename                 = $logname
-    log4perl.appender.File.layout                   = PatternLayout
-    log4perl.appender.File.layout.ConversionPattern = %d{HH:mm:ss} %.1p> - %m%n
-/;
-Log::Log4perl::init( \$conf );
-
-my $logger = get_logger($opt_debug ? "" : "PipeLine");
+{
+    my $logger = Log::Dispatch->new(
+        outputs => [
+            [ 'File',   newline => 1, min_level => 'debug', filename => $logname ],
+            [ 'Screen', newline => 1, min_level => 'debug' ],
+        ],
+    );
+    sub LOG { $logger->log(level => 'info', message => shift) }
+    sub LOGDIE { $logger->log_and_die(level => 'info', message => shift) }
+}
 
 my $single_sided = ! scalar %opt_right_splice;
 my $whole_flag = $opt_whole ? '-w' : '';
@@ -54,16 +51,16 @@ my $whole_flag = $opt_whole ? '-w' : '';
 #################################################################################
 # Handle options
 
-$logger->info("raw file: $opt_raw");
-$logger->info("reference A: $opt_reference");
-$logger->info("left splice: " . join ',', @opt_left_splice{qw/start end/});
+LOG("raw file: $opt_raw");
+LOG("reference A: $opt_reference");
+LOG("left splice: " . join ',', @opt_left_splice{qw/start end/});
 if ($single_sided){
-    $logger->info("singled sided (no right splice)");
+    LOG("singled sided (no right splice)");
 }
 else{
-    $logger->info("right splice: " . join ',', @opt_right_splice{qw/start end/});
+    LOG("right splice: " . join ',', @opt_right_splice{qw/start end/});
 }
-$logger->info("parallel: $opt_parallel");
+LOG("parallel: $opt_parallel");
 
 my $singlecdir_c2t = catfile($opt_output_directory, "single-c-c2t");
 my $singlecdir_g2a = catfile($opt_output_directory, "single-c-g2a");
@@ -74,7 +71,7 @@ my $windowdir_g2a  = catfile($opt_output_directory, "windows-g2a");
 
 for ( $singlecdir_c2t, $singlecdir_g2a, $windowdir_c2t, $windowdir_g2a){
     mkdir $_;
-    if (! -d $_) {$logger->logdie("can't create $_");}
+    if (! -d $_) {LOGDIE("can't create $_");}
 }
 
 my $basename = $opt_basename;
@@ -86,12 +83,12 @@ if (! defined $basename){
 my $basename_base = $basename;
 $basename = catfile($opt_output_directory,$basename);
 
-$logger->info("basename: $basename");
+LOG("basename: $basename");
 
 #######################################################################
 # bs-bowtie-build indices
 
-$logger->info("bs-bowtie-building");
+LOG("bs-bowtie-building");
 
 my ($bsrc_reference_c2t, $index_c2t) = bowtie_build(file => $opt_reference, bs => 'c2t', noref => 1);
 my ($bsrc_reference_g2a, $index_g2a) = bowtie_build(file => $opt_reference, bs => 'g2a', noref => 1);
@@ -99,20 +96,31 @@ my ($bsrc_reference_g2a, $index_g2a) = bowtie_build(file => $opt_reference, bs =
 #######################################################################
 # convert reads
 
-$logger->info("converting fastq->fasta with bs conversion");
+LOG("converting fastq->fasta with bs conversion");
 
 my $rawfas = "$opt_raw.fasta";
 my $raw_c2t = "$opt_raw.fasta.c2t";
 my $raw_g2a = "$opt_raw.fasta.g2a";
 
-FastqReader::fastq_to_fasta(undef, $opt_raw, $rawfas) unless (-f $rawfas && (-s $rawfas) > (-s $opt_raw) / 2);
-FastqReader::fastq_to_fasta('c2t', $opt_raw, $raw_c2t) unless (-f $raw_c2t && (-s $raw_c2t) > (-s $opt_raw) / 2);
-FastqReader::fastq_to_fasta('g2a', $opt_raw, $raw_g2a) unless (-f $raw_g2a && (-s $raw_g2a) > (-s $opt_raw) / 2);
+# tends to be very slow, so do it in parallel.
+if ($pm->start == 0){
+    fastq_convert(in => $opt_raw, out => $rawfas) unless (-f $rawfas && (-s $rawfas) > (-s $opt_raw) / 2);
+    $pm->finish();
+}
+if ($pm->start == 0){
+    fastq_convert(methyl => 'c2t', in => $opt_raw, out => $raw_c2t) unless (-f $raw_c2t && (-s $raw_c2t) > (-s $opt_raw) / 2);
+    $pm->finish();
+}
+if ($pm->start == 0){
+    fastq_convert(methyl => 'g2a', in => $opt_raw, out => $raw_g2a) unless (-f $raw_g2a && (-s $raw_g2a) > (-s $opt_raw) / 2);
+    $pm->finish();
+}
+$pm->wait_all_children;
 
 #######################################################################
 # Run Bowtie
 
-$logger->info("running $opt_raw against eco a and b bowtie");
+LOG("running $opt_raw against eco a and b bowtie");
 my $basename_c2t = "$basename-c2t";
 my $basename_g2a = "$basename-g2a";
 
@@ -132,11 +140,11 @@ for my $pair (
     [$raw_c2t, $left_bowtie_c2t, $index_c2t], 
     [$raw_g2a, $left_bowtie_g2a, $index_g2a],
 ) {
-    $logger->info("bowtie $pair->[0] against $pair->[2] into $pair->[1]");
+    LOG("bowtie $pair->[0] against $pair->[2] into $pair->[1]");
     
     if ($pm->start == 0){
         if (-f $pair->[1] && -s $pair->[1]){
-            $logger->info("seems to be done already, skipping bowtie-ing for $pair->[1]");
+            LOG("seems to be done already, skipping bowtie-ing for $pair->[1]");
         }
         else{
             my (undef, undef , undef, undef, @loglines) = bowtie(
@@ -144,6 +152,7 @@ for my $pair (
                 '-1'       => $pair->[0], 
                 output     => $pair->[1],
                 index      => $pair->[2],
+                readlength => $opt_read_length,
                 splice     => [$opt_left_splice{start}, $opt_left_splice{end}],
                 format     => 'fasta',
                 norc       => 1,
@@ -151,7 +160,7 @@ for my $pair (
                 maxhits    => $opt_max_hits,
                 mismatches => $opt_bowtie_mismatches,
             );
-            $logger->info($_) for @loglines;
+            LOG($_) for @loglines;
 
         }
         $pm->finish;
@@ -163,7 +172,7 @@ $pm->wait_all_children;
 #######################################################################
 # parse bowtie
 
-$logger->info("parse bowtie -> eland");
+LOG("parse bowtie -> eland");
 
 my $left_eland_c2t = "$left_basename_c2t.1.eland";
 my $left_eland_g2a = "$left_basename_g2a.1.eland";
@@ -199,7 +208,7 @@ $pm->wait_all_children;
 #######################################################################
 # Split on mismatches
 
-$logger->info("split_on_mismatch.pl");
+LOG("split_on_mismatch.pl");
 my $left_eland_filtered_c2t = "$left_basename_c2t.2.elfiltered";
 my $left_eland_filtered_g2a = "$left_basename_g2a.2.elfiltered";
 # my $right_eland_filtered_c2t = "$right_basename_c2t.2.elfiltered";
@@ -398,6 +407,15 @@ Level of forcefulness in doing jobs.  1 = Redo all run-specifics.  2 = Redo bowt
 
 =for Euclid
     width.default:     50
+
+=item  --parallel <threads>
+
+=for Euclid
+    threads.default:     0
+    threads.type:        int, threads >= 0 
+    threads.type.error:  <threads> must be positive
+
+=item  -rl <len> | --read-length <len>
 
 =back
 
