@@ -598,7 +598,7 @@ sub reverse2forward{
     my $lastpos = $self->get_length($seqid) - (1 - $base);
 
     croak "$seqid does not exist" if ! $self->has_sequence($seqid);
-    croak "$coord out of range" if ($coord < $base || $lastpos < $coord);
+    croak "$seqid, $coord out of range (lastpos is $lastpos. line $., $ARGV)" if ($coord < $base || $lastpos < $coord);
 
     return $lastpos - $coord + $base;
 }
@@ -615,8 +615,8 @@ sub range_reverse2forward{
     my $lastpos = $self->get_length($seqid) - (1 - $base);
 
     croak "$seqid does not exist" if ! $self->has_sequence($seqid);
-    croak "start coord $start out of range" if ($start < $base || $lastpos < $start);
-    croak "end coord $end out of range"     if ($end   < $base || $lastpos < $end);
+    croak "start coord $seqid, $start out of range (lastpos is $lastpos. line $., $ARGV)" if ($start < $base || $lastpos < $start);
+    croak "end coord $seqid, $end out of range (lastpos is $lastpos. line $., $ARGV)"     if ($end   < $base || $lastpos < $end);
 
     return ( $lastpos - $end + $base, $lastpos - $start + $base );
     # return ($totlen - 1 - $end + $base, $totlen - 1 - $start + $base);
