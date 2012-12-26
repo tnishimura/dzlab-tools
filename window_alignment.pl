@@ -25,6 +25,7 @@ my $result = GetOptions (
     "format|f=s"      => \(my $format),
     "strand|s"        => \(my $do_strand),
     "verbose|v"       => \(my $verbose),
+    "check-rc|rc"     => \(my $check_rc),
     "output|o=s" => \(my $output = '-'),
 );
 
@@ -48,7 +49,9 @@ my %counters = map {
 
 {
     my $c = 0;
-    sub counter { say STDERR $c if ($verbose && ++$c % 50000 == 0); }
+    sub counter { 
+        say STDERR $c if ($verbose && ++$c % 50000 == 0); 
+    }
 }
 
 if ($format eq 'e' || $format eq 'eland'){
@@ -85,12 +88,25 @@ elsif ($format eq 'b' || $format eq 'bowtie'){
     my $bowtie_reader = BowtieParser->new(file => \*ARGV);
     while (defined(my $bowtie = $bowtie_reader->next())){
         my (undef, $strand, $chr, $pos, $read) = @$bowtie;
+        my $end = $pos + length($read) - 1;
+        $strand //= '+';
+
+        if ($check_rc and $chr =~ s/^RC_//){
+            ($end, $pos) = $fasta_reader->range_reverse2forward($chr, $pos, $end);
+            $strand = $strand eq '+' ? '-' : '+';
+        }
+        if (! exists $counters{uc $chr}){
+            if ($chr =~ /^RC_/){
+                die "can't find seqid $chr in $reference, did you need to do -rc?";
+            }
+            die "can't find seqid $chr in $reference";
+        }
+
         if ($do_strand){
-            $strand = defined($strand) && $strand eq '-' ? '-' : '+';
-            $counters{uc $chr}{$strand}->increment_range($pos, $pos + length($read) - 1);
+            $counters{uc $chr}{$strand}->increment_range($pos, $end);
         }
         else{
-            $counters{uc $chr}{'.'}->increment_range($pos, $pos + length($read) - 1);
+            $counters{uc $chr}{'.'}->increment_range($pos, $end);
         }
         counter();
     }
