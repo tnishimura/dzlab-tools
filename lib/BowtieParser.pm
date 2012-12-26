@@ -10,6 +10,11 @@ use open IO  => ":crlf"; # for ARGV...
 
 extends 'Parser';
 
+has base => (
+    is => 'ro',
+    default => 1,
+);
+
 # my ($readid, $strand, $chr, $pos, $read, $quality, $mystery_quantity_that_nobody_understands, $mismatch_string, [PARSED_MATCHES])
 # PARSED_MATCHES is [ABS_COORD, BASE_IN_REF, BASE_IN_READ] (everything w.r.t. positive strand).
 # all coordinates are base-1
@@ -23,6 +28,7 @@ extends 'Parser';
 sub next{
     my $self = shift;
     my $parse_mismatches = shift;
+    my $base = $self->base;
     if (defined (my $line = scalar readline $self->filehandle)){
         chomp $line;
 
@@ -37,7 +43,7 @@ sub next{
 
         my ($readid, $strand, $seqid, $start, $read, $quality, $mystery, $mismatches_string) = split /\t/, $line, 8;
 
-        $start++; # convert from base-0 to base-1
+        $start += (1 - $base); # convert from base-0 to base-1
 
         if ($parse_mismatches){
             my $rc = $strand eq '+' ? 0 : 1;
