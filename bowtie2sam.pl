@@ -51,17 +51,17 @@ while (defined(my $alignment = $bp->next(1))){
     }
 
     say join("\t", 
-        $readid,          # HS2:306:C1A3MACXX:1:1101:1331:2213#/1
-        ($isrc ? 16 : 0), # flags
-        $seqid,           # seqid
-        $start,           # 19230337
-        255,              # 255 (?)
-        "${len}M",        # 50M (cigar)
-        "*",              # *
-        0,                # 0
-        0,                # 0
-        $read,            # TATTTTNGTTATTGTATGTGAATTGTTTATTTTGAATTATATGATTTTTT
-        $quality,         # IIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII
+        $readid,                   # HS2:306:C1A3MACXX:1:1101:1331:2213#/1
+        ($isrc ? 16 : 0),          # flags
+        $seqid,                    # seqid
+        $start,                    # 19230337
+        255,                       # 255 (?)
+        "${len}M",                 # 50M (cigar)
+        "*",                       # *
+        0,                         # 0
+        0,                         # 0
+        reverse_complement($read), # TATTTTNGTTATTGTATGTGAATTGTTTATTTTGAATTATATGATTTTTT
+        $quality,                  # IIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII
         build_mdz_string($mismatches, $len, $isrc), # MD:Z:6T43, mismatch positions
         "NM:i:$num_mm",  # 
     );
@@ -71,7 +71,8 @@ sub build_mdz_string{
     my ($mismatches, $len, $isrc) = @_;
     my $position = 0;
     my @accum;
-    for my $mm (@$mismatches) {
+
+    for my $mm ($isrc ? reverse(@$mismatches) : @$mismatches) {
         my (undef, $base_in_ref, undef, $rel_coord) = @$mm;
         if ($isrc){
             $rel_coord = $len - $rel_coord - 1;
