@@ -22,7 +22,7 @@ has base => (
 # while (defined(my $alignment = $p->next(1))){
 #     my ($readid, $strand, $seqid, $start, $read, $quality, $mystery, $mismatches) = @$alignment;
 #     for my $mm (@$mismatches) {
-#         my ($abs_coord, $base_in_ref, $base_in_read) = @$mm;
+#         my ($abs_coord, $base_in_ref, $base_in_read, $relative_offset) = @$mm;
 #     }
 # }
 sub next{
@@ -59,7 +59,7 @@ sub next{
                     my $in_read = $3;
 
                     # coordinates of mismatches are absolute
-                    ([$absolute_offset + $start, $in_ref, $in_read]);
+                    ([$absolute_offset + $start, $in_ref, $in_read, $relative_offset]);
                 }
                 else{
                     ();
