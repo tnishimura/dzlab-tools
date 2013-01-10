@@ -39,45 +39,50 @@ for my $seq (sort keys %seqlen) {
     say "\@SQ\tSN:$seq\tLN:$seqlen{$seq}";
 }
 
-while (defined(my $alignment = $bp->next_fixrc(1, $fr))){
+while (defined(my $alignment = $bp->next(1))){
     my ($readid, $strand, $seqid, $start, $read, $quality, $mystery, $mismatches) = @$alignment;
     my $len = length($read);
     my $num_mm = scalar(@$mismatches);
+    my $end = $start + $len - 1;
+    my $isrc = $seqid =~ s/^RC_//;
+
+    if ($isrc){
+        ($start, $end) = $fr->range_reverse2forward($seqid, $start, $end, $base);
+    }
 
     say join("\t", 
-        $readid,          # HS2:306:C1A3MACXX:1:1101:1331:2213#/1
-        ($strand eq '-' ? 16 : 0), # flags
-        $seqid,           # seqid
-        $start,           # 19230337
-        255,              # 255 (?)
-        "${len}M",        # 50M (cigar)
-        "*",              # *
-        0,                # 0
-        0,                # 0
-        $read,            # TATTTTNGTTATTGTATGTGAATTGTTTATTTTGAATTATATGATTTTTT
-        $quality,         # IIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII
-        build_mdz_string($mismatches, $len, $strand eq '-'), # MD:Z:6T43, mismatch positions
-        "NM:i:$num_mm",  
+        $readid,                   # HS2:306:C1A3MACXX:1:1101:1331:2213#/1
+        ($isrc ? 16 : 0),          # flags
+        $seqid,                    # seqid
+        $start,                    # 19230337
+        255,                       # 255 (?)
+        "${len}M",                 # 50M (cigar)
+        "*",                       # *
+        0,                         # 0
+        0,                         # 0
+        reverse_complement($read), # TATTTTNGTTATTGTATGTGAATTGTTTATTTTGAATTATATGATTTTTT
+        $quality,                  # IIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII
+        build_mdz_string($mismatches, $len, $isrc), # MD:Z:6T43, mismatch positions
+        "NM:i:$num_mm",  # 
     );
 }
-use Scalar::Util qw/looks_like_number/;
 
 sub build_mdz_string{
-    my ($mismatches, $len) = @_;
+    my ($mismatches, $len, $isrc) = @_;
     my $position = 0;
     my @accum;
-    for my $mm (@$mismatches) {
+
+    for my $mm ($isrc ? reverse(@$mismatches) : @$mismatches) {
         my (undef, $base_in_ref, undef, $rel_coord) = @$mm;
+        if ($isrc){
+            $rel_coord = $len - $rel_coord - 1;
+            $base_in_ref = reverse_complement($base_in_ref);
+        }
         push @accum, $rel_coord - $position, $base_in_ref;
         $position = $rel_coord + 1;
     }
     if ($position != $len){
         push @accum, $len - $position;
-    }
-    for my $x (@accum) {
-        if (looks_like_number($x) and $x < 0){
-            die "$x < 0";
-        }
     }
     return "MD:Z:" . join '', @accum;
 }

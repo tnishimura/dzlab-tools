@@ -6,6 +6,7 @@ use Data::Dumper;
 use Moose;
 use Carp;
 use autodie;    
+use DZUtil qw/reverse_complement/;
 use open IO  => ":crlf"; # for ARGV...
 
 extends 'Parser';
@@ -70,6 +71,43 @@ sub next{
         else{
             return [$readid, $strand, $seqid, $start, $read, $quality, $mystery];
         }
+    }
+    return;
+}
+
+sub next_fixrc{
+    my $self = shift;
+    my $parse_mismatches = shift;
+    my $fr = shift;
+    my $base = $self->base;
+
+    if (defined(my $alignment = $self->next(1))){
+        my ($readid, $strand, $seqid, $start, $read, $quality, $mystery, $mismatches) = @$alignment;
+        my $len = length($read);
+        my $end = $start + $len - 1;
+
+        my $isrc = $seqid =~ s/^RC_//;
+
+        if ($isrc){
+            ($start, $end) = $fr->range_reverse2forward($seqid, $start, $end, $base);
+        }
+
+        my $fixed_mismatches = [];
+        if ($isrc){
+            for my $mm (reverse @$mismatches) {
+                my ($abs_coord, $base_in_ref, $base_in_read, $rel_coord) = @$mm;
+                $abs_coord = $fr->forward2reverse($seqid, $abs_coord, $base);
+                $rel_coord = $len - $rel_coord - 1;
+                $base_in_ref = reverse_complement($base_in_ref);
+                $base_in_read = reverse_complement($base_in_read);
+                push @$fixed_mismatches, [$abs_coord, $base_in_ref, $base_in_read, $rel_coord];
+            }
+        }
+        else{
+            $fixed_mismatches = $mismatches;
+        }
+
+        return [$readid, $isrc ? '-' : '+', $seqid, $start, reverse_complement($read), scalar(reverse($quality)), $mystery, $fixed_mismatches];
     }
     return;
 }
