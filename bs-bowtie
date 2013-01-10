@@ -55,6 +55,7 @@ launch(join(" | ",
             "perl -S fq2fa.pl $opt_reads", 
             "perl -S convert.pl $conversion -",
             "bowtie $opt_reference.$conversion -f -B 1 -v $opt_mismatches -5 $trim5 -3 $trim3 --best $mh_args --norc - ",
+            ($opt_intermediate ? "tee $opt_intermediate" : ()),
             "perl -S parse_bowtie.pl -u $opt_reads -s @splice -o $opt_output", 
         ),
         dryrun => $opt_dry_run, 
@@ -96,6 +97,8 @@ Original, unconverted genome.
 =head1 OPTIONS
 
 =over
+
+=item --intermediate <file>
 
 =item  -g2a
 

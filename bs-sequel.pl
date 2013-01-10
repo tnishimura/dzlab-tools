@@ -209,6 +209,8 @@ my $eland_right_post = $do_right && ! $opt_single_ends ?
                        $do_right && $opt_single_ends ? 
                        "${basename_left}_$right_splice[0]-$right_splice[1].eland3.post" : 
                        "";
+my $int_left = $opt_bowtie_file ? ('--intermediate ' . $eland_left_post =~ s/eland3\.post$/bowtie/r) : '';
+my $int_right = $opt_bowtie_file ? ('--intermediate ' . $eland_right_post =~ s/eland3\.post$/bowtie/r) : '';
 
 #######################################################################
 # convert genomes & build bowtie indices
@@ -225,7 +227,7 @@ unless ($opt_single_ends) {
 
 # align with bowtie
 if ($pm->start == 0){
-    launch("perl -S bs-bowtie -r $opt_left_read -f $opt_reference -s @left_splice -n $opt_mismatches -mh $opt_max_hits -o ??",
+    launch("perl -S bs-bowtie -r $opt_left_read -f $opt_reference -s @left_splice -n $opt_mismatches -mh $opt_max_hits $int_left -o ??",
         expected => $eland_left_post, dryrun => $dry, also => $bowtie_logname);
     $pm->finish;
 }
@@ -233,11 +235,11 @@ if ($pm->start == 0){
 if ($pm->start == 0){
     if ($do_right){
         if ($opt_single_ends) {
-            launch("perl -S bs-bowtie -r $opt_left_read -f $opt_reference -s @right_splice -n $opt_mismatches -mh $opt_max_hits -o ??",
+            launch("perl -S bs-bowtie -r $opt_left_read -f $opt_reference -s @right_splice -n $opt_mismatches -mh $opt_max_hits $int_right -o ??",
                 expected => $eland_right_post, dryrun => $dry, also => $bowtie_logname);
         }
         else {
-            launch("perl -S bs-bowtie -g2a -r $opt_right_read -f $opt_reference -s @right_splice -n $opt_mismatches -mh $opt_max_hits -o ??",
+            launch("perl -S bs-bowtie -g2a -r $opt_right_read -f $opt_reference -s @right_splice -n $opt_mismatches -mh $opt_max_hits $int_right -o ??",
                 expected => $eland_right_post, dryrun => $dry, also => $bowtie_logname);
         }
     }
@@ -371,6 +373,7 @@ else{
 
     launch("perl -S collect-freqs.pl -o $basename.single-c.freq $single_c_dir", dryrun => $dry);
 
+    # not sure if this works? 
     # chdir $single_c_dir;
     # for my $cont (@contexts) {
     #     my @files = glob("*$cont*");
@@ -511,6 +514,10 @@ For bowtie.  For each read alignment, allow this many mismatches.  Default 2.
 
 =for Euclid
     num.default:     2
+
+=item  -bf | --bowtie-file
+
+Produce intermediate bowtie file.
 
 =back
 
