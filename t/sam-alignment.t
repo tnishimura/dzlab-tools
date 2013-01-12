@@ -19,8 +19,8 @@ sub check_basics{
     if ($is_mapped){
         ok($sam->mapped, "$p: should've mapped");
         ok(looks_like_number($sam->leftmost) && $sam->leftmost > 0, "$p: positive position");
-        isnt($sam->cigar, '*', "$p: has a cigar string");
-        like($sam->cigar, qr/^(?:\d+[MIDNSHP=X])+$/, "$p: cigar looks valid");
+        ok($sam->cigar, "$p: has a cigar string");
+        is(ref $sam->cigar, 'ARRAY', "$p: cigar looks valid");
         isnt($sam->seqid, '*', "$p: has a seqid");
 
         is(
@@ -29,11 +29,11 @@ sub check_basics{
             "$p: cigar length is readlength"
         );
 
-        ok($sam->mismatch_string, "$p: has mismatch string");
+        ok($sam->original_mismatch_string, "$p: has mismatch string");
     }
     else{
         ok(! $sam->mapped, "$p: shouldn't have mapped");
-        is($sam->cigar, '*', "$p: doesn't have a cigar string");
+        is($sam->original_cigar_string, '*', "$p: doesn't have a cigar string");
         is($sam->seqid, '*', "$p: doesn't have a seqid");
     }
     is(length($sam->readseq), length($sam->readqual), "$name (basic): readseq and readqual same length");
