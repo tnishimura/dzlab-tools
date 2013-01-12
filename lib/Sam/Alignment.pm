@@ -6,37 +6,16 @@ use Data::Dumper;
 use Carp;
 use autodie;
 use Scalar::Util qw/looks_like_number/;
+use Mouse;
 
-sub new {
-    my $class = shift;
-    my %opt = @_;
-
-    my $self = bless {}, $class;
-
-    $self->{readid}   = delete $opt{readid};
-    $self->{flag}     = delete $opt{flag};
-    $self->{seqid}    = delete $opt{seqid};
-    $self->{leftmost} = delete $opt{leftmost};
-    $self->{mapq}     = delete $opt{mapq};
-    $self->{cigar}    = delete $opt{cigar};
-    $self->{rnext}    = delete $opt{rnext};
-    $self->{pnext}    = delete $opt{pnext};
-    $self->{tlen}     = delete $opt{tlen};
-    $self->{readseq}  = delete $opt{readseq};
-    $self->{readqual} = delete $opt{readqual};
-    $self->{optional} = delete $opt{optional};
-
-    return $self;
-}
-
-sub new_from_line{
-    my $class = shift;
-    my $line = shift;
+around BUILDARGS => sub{
+    my ($orig, $class, $line) = @_;
+    chomp($line);
 
     my ($readid, $flag, $seqid, $leftmost, $mapq, $cigar, $rnext, $pnext, $tlen, $readseq, $readqual, @optional) 
     = split /\t/, $line;
 
-    return $class->new(
+    return $class->$orig(
         readid   => $readid,
         flag     => $flag,
         seqid    => $seqid,
@@ -50,7 +29,7 @@ sub new_from_line{
         readqual => $readqual,
         optional => \@optional,
     );
-}
+};
 
 our %flag_bits = (
     multiple_segments   => 0x1,
@@ -70,39 +49,38 @@ our %flag_bits = (
 # accessors
 
 # 11 mandatory fields are always there
-sub readid     { return $_[0]->{readid} }
-sub flag       { return $_[0]->{flag} }
-sub seqid      { return $_[0]->{seqid} }
-sub leftmost   { return $_[0]->{leftmost} }
-sub mapq       { return $_[0]->{mapq} }
-sub cigar      { return $_[0]->{cigar} }
-sub rnext      { return $_[0]->{rnext} }
-sub pnext      { return $_[0]->{pnext} }
-sub tlen       { return $_[0]->{tlen} }
-sub readseq    { return $_[0]->{readseq} }
-sub readqual   { return $_[0]->{readqual} }
+has readid   => ( is => 'ro', required => 1 );
+has flag     => ( is => 'ro', required => 1 );
+has seqid    => ( is => 'ro', required => 1 );
+has leftmost => ( is => 'ro', required => 1 );
+has mapq     => ( is => 'ro', required => 1 );
+has cigar    => ( is => 'ro', required => 1 );
+has rnext    => ( is => 'ro', required => 1 );
+has pnext    => ( is => 'ro', required => 1 );
+has tlen     => ( is => 'ro', required => 1 );
+has readseq  => ( is => 'ro', required => 1 );
+has readqual => ( is => 'ro', required => 1 );
+has optional => ( is => 'ro', required => 1 );
 
 # two alternatives for leftmost/rightmost when we know 
 # the alignment has no gaps, like for bowtie1.
-sub dumbstart { return $_[0]->{leftmost} } 
-sub dumbend   { return $_[0]->{leftmost} + $_[0]->readlength() } 
+sub dumbstart { return $_[0]->leftmost } 
+sub dumbend   { return $_[0]->leftmost + $_[0]->readlength() } 
 
 # other fields are calculated and maybe memo'd
 
-sub readlength { return length($_[0]->{readseq}) }
-sub reverse    { $_[0]->{flag} & $flag_bits{reverse}; }
-sub failed_qc  { $_[0]->{flag} & $flag_bits{failed_qc}; }
-sub mapped     { !( $_[0]->{flag} & $flag_bits{unmapped} ) }
+sub readlength { return length($_[0]->readseq) }
+sub reverse    { $_[0]->flag & $flag_bits{reverse}; }
+sub failed_qc  { $_[0]->flag & $flag_bits{failed_qc}; }
+sub mapped     { !( $_[0]->flag & $flag_bits{unmapped} ) }
 
-sub rightmost{
+has rightmost => ( is => 'ro', lazy_build => 1);
+
+sub _build_rightmost{
     my $self = shift;
 
-    if (defined $self->{rightmost}){
-        return $self->{rightmost};
-    }
-
-    my $rightmost = $self->{leftmost};
-    my $cigar = $self->{cigar};
+    my $rightmost = $self->leftmost;
+    my $cigar = $self->cigar;
 
     my $length;
 
@@ -114,17 +92,16 @@ sub rightmost{
         }
     }
     $rightmost -= 1;
-    $self->{rightmost} = $rightmost;
 
-    return $self->{rightmost};
+    return $rightmost;
 }
 
-# for debugging.  supposed to be equal to readlength
-sub _cigarlength{
-    my $self = shift;
-    my $length;
-    my $cigar = $self->{cigar};
+# for debugging.  supposed to be equal to read length
+has cigarlength => ( is => 'ro', lazy_build => 1,);
 
+sub _build_cigarlength{
+    my $self = shift;
+    my $cigar = $self->cigar;
     my $cigar_length = 0;
 
     while ($cigar =~ /(\d+)([MIDNSHP=X])/g){
@@ -140,48 +117,53 @@ sub _cigarlength{
     #if length($seq) != $cigar_length;
 }
 
-sub mismatches { 
-    my $self = shift; 
-    if (defined $self->{mismatches}){
-        return $self->{mismatches};
-    }
-    # return $self->{_mismatches} // $self->calc_mismatches() 
-
-    for my $optfield (@{$self->{optional}}) {
+has mismatch_string => ( is => 'ro', lazy_build => 1,);
+ 
+sub _build_mismatch_string{
+    my $self = shift;
+    for my $optfield (@{$self->optional}) {
         if ($optfield =~ /MD:Z:([A-Z\d\^]+)/){
-            # found right optional field.
-
-            my $mdstring = $1;
-            my $in_deletion = 0;
-            my $position = $self->{leftmost};
-
-            while ($mdstring =~ m{
-                    (
-                      \d+
-                      |
-                      \^
-                      |
-                      [A-Z]
-                    )
-                }xmg){
-                my $token = $1;
-                if ($token eq '^'){
-                    $in_deletion = 1;
-                }
-                elsif (looks_like_number $token){
-                    $in_deletion = 0;
-                    $position += $token;
-                }
-                # work-in-progress....
-                # elsif ( 
-
-                else{
-                    $in_deletion = 0;
-                }
-            }
+            $self->{mismatch_string} = $1;
+            return $1;
         }
     }
+    return;
 }
+
+# sub mismatches { 
+#     my $self = shift; 
+#     if (defined $self->{mismatches}){
+#         return $self->{mismatches};
+#     }
+#     my $mdstring = $self->_mismatch_string;
+# 
+#     my $mdstring = $1;
+#     my $in_deletion = 0;
+#     my $position = $self->{leftmost};
+# 
+#     while ($mdstring =~ m{(
+#             \d+
+#             |
+#             \^
+#             |
+#             [A-Z]
+#             )}xmg){
+#         my $token = $1;
+#         if ($token eq '^'){
+#             $in_deletion = 1;
+#         }
+#         elsif (looks_like_number $token){
+#             $in_deletion = 0;
+#             $position += $token;
+#         }
+#         # work-in-progress....
+#         # elsif ( 
+# 
+#         else{
+#             $in_deletion = 0;
+#         }
+#     }
+# }
 
 1;
 

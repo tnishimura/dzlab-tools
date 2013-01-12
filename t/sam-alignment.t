@@ -14,7 +14,7 @@ sub check_basics{
     my $is_mapped = shift;
     my $line = join "\t", @_;
 
-    my $sam = Sam::Alignment->new_from_line($line);
+    my $sam = Sam::Alignment->new($line);
     my $p = "$name (basic)"; # prefix
     if ($is_mapped){
         ok($sam->mapped, "$p: should've mapped");
@@ -22,9 +22,17 @@ sub check_basics{
         isnt($sam->cigar, '*', "$p: has a cigar string");
         like($sam->cigar, qr/^(?:\d+[MIDNSHP=X])+$/, "$p: cigar looks valid");
         isnt($sam->seqid, '*', "$p: has a seqid");
+
+        is(
+            $sam->cigarlength(), 
+            $sam->readlength(),
+            "$p: cigar length is readlength"
+        );
+
+        ok($sam->mismatch_string, "$p: has mismatch string");
     }
     else{
-        ok(! $sam->mapped, "$name (basic): shouldn't have mapped");
+        ok(! $sam->mapped, "$p: shouldn't have mapped");
         is($sam->cigar, '*', "$p: doesn't have a cigar string");
         is($sam->seqid, '*', "$p: doesn't have a seqid");
     }
