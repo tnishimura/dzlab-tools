@@ -6,7 +6,6 @@ use Data::Dumper;
 use autodie;
 use Getopt::Long;
 use Pod::Usage;
-use IO::All;
 use File::Basename qw/basename/;
 
 use FindBin;

@@ -8,7 +8,6 @@ use Data::Dumper;
 use Carp;
 use autodie;
 use 5.010_000;
-use v5.14;
 use IO::Handle;
 
 extends 'Parser';
