@@ -17,6 +17,7 @@ use autodie;
 use Hash::Util qw/lock_keys/;
 use Params::Validate qw/:all/;
 use IO::Scalar;
+use DZUtil qw/open_filename_or_handle/;
 
 sub new {
     my $class = shift;
@@ -38,30 +39,9 @@ sub new {
 
     my $filename_or_handle = $opt{file};
 
-    # note the :crlf PerlIO layer!
-    # handle
-    if (ref $filename_or_handle eq 'GLOB'){
-        binmode($filename_or_handle, ':crlf');
-        $self->{handle} = $filename_or_handle;
-    }
-    # string
-    elsif (ref $filename_or_handle eq 'SCALAR'){ # for debugging
-        $self->{handle} = IO::Scalar->new($filename_or_handle);
-    }
-    # file
-    elsif (!ref $filename_or_handle && -f $filename_or_handle ){
-        open my $handle, '<:crlf', $filename_or_handle
-            or croak "cannot open " .  $filename_or_handle;
-        $self->{handle} = $handle;
-        $self->{file}   = $filename_or_handle;
-    } 
-    elsif (! -f $opt{file}){
-        croak $filename_or_handle . " #doesn't exist?";
-    }
-    else {
-        croak "file argument to GFF::Parser needs to be file handle or file name" 
-        . Dumper $self;
-    }
+    my ($file, $fh) = open_filename_or_handle($filename_or_handle);
+    $self->{handle} = $fh;
+    $self->{file}   = $file;
 
     lock_keys(%$self);
     return $self;
