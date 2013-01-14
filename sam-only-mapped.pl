@@ -19,7 +19,7 @@ while (defined(my $line = <ARGV>)){
     my ($qname, $flag, $rname, $leftmost, $mapq, $cigar, $rnext, $pnext, $tlen, $seq, $qual) 
     = split /\t/, $line;
 
-    if (looks_like_number $flag && ! ($flag & 0x4)) {
+    if ($line =~ /^@/ or (looks_like_number $flag && ! ($flag & 0x4))) {
         say $line;
     }
 }
