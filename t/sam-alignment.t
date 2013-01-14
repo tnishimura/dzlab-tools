@@ -57,5 +57,28 @@ check_basics("02", 1, qw{
     AS:i:54 XS:i:50 XN:i:0  XM:i:3  XO:i:0  XG:i:0  NM:i:3  MD:Z:4T4G8G20   YT:Z:UU
     });
 
+{
+    my $sam = Sam::Alignment->new(join "\t", qw{
+    HS2:242:D17PPACXX:6:1101:1387:2206      
+    0       RC_pBIN-pROK2   3903    2       39M61S  *       0       0 
+    ATGGAGTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTGGTTTGGGGGGGGTGG    
+    IIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII
+    AS:i:54 XS:i:50 XN:i:0  XM:i:3  XO:i:0  XG:i:0  NM:i:3  MD:Z:4T4G8G20   YT:Z:UU
+    }, 0, 0);
+
+    is_deeply($sam->snps,
+        [
+            [
+                'C', 3907, 'T', 'A'
+            ],
+            [
+                'C', 3912, 'G', 'T'
+            ],
+            [
+                'C', 3921, 'G', 'T'
+            ]
+        ], "snps");
+}
 
 done_testing();
+

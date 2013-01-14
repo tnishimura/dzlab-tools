@@ -143,7 +143,7 @@ sub _build_rightmost{
     my $length;
 
     for my $c (@{$self->cigar}) {
-        my ($count, $type) = @$c;
+        my ($type, $count) = @$c;
         if ($type ~~ [qw{M D = X N}]){
             $rightmost += $count;
         }
@@ -160,7 +160,7 @@ sub _build_cigarlength{
     my $self = shift;
     my $cigar_length = 0;
     for my $c (@{$self->cigar}) {
-        my ($count, $type) = @$c;
+        my ($type, $count) = @$c;
 
         if ($type ~~ [qw{M I = X S}]){
             $cigar_length += $count;
@@ -214,8 +214,8 @@ sub _build_cigar{
 # mismatch (MD:Z: in opt fields) string.  (slightly less) idiotic format.  returns:
 # [ 
 #      [ 'M', COUNT ] match for COUNT bases
-#   or [ 'C', BASE  ] CHANGE.  reference base is BASE, read base is something else
-#   or [ 'D', BASE  ] DELETION of BASE from reference.
+#   or [ 'C', POSITION, BASE_IN_REF, BASE_IN_READ  ] CHANGE.  reference base is BASE, read base is something else
+#   or [ 'D', POSITION, BASE_IN_REF  ] DELETION of BASE from reference.
 # ]
 
 # "The MD field aims to achieve SNP/indel calling without looking at the
@@ -226,8 +226,12 @@ sub _build_cigar{
 # is AC; the last 6 bases are matches. The MD field ought to match the CIGAR
 # string."
 
-
 has mismatches => ( is => 'ro', lazy_build => 1 );
+
+sub snps{
+    my $self = shift; 
+    return [grep { $_->[0] eq 'C' } @{$self->mismatches}]
+}
 
 sub _build_mismatches { 
     my $self = shift; 
@@ -235,7 +239,10 @@ sub _build_mismatches {
     my $mdstring = $self->original_mismatch_string;
 
     my $in_deletion = 0;
-    my $position = $self->{leftmost};
+    my $ref_position = $self->{leftmost};
+
+    my $read = $self->readseq();
+    my $read_position = 0;
 
     my @accum;
 
@@ -250,17 +257,21 @@ sub _build_mismatches {
         }
         elsif (looks_like_number $token){
             $in_deletion = 0;
-            $position += $token;
+            $ref_position += $token;
+            $read_position += $token;
 
             push @accum, ['M', $token];
         }
         else{ # [A-Z]
             if ($in_deletion){
-                push @accum, ['D', $token];
+                push @accum, ['D', $ref_position, $token];
+                $ref_position++;
                 # no in_deletion reset, keep going
             }
             else{
-                push @accum, ['C', $token];
+                push @accum, ['C', $ref_position, $token, substr $read, $read_position, 1];
+                $ref_position++;
+                $read_position++;
             }
         }
     }
