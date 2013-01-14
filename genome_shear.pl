@@ -22,7 +22,6 @@ my $result = GetOptions (
     "read-length|l=i"      => \(my $read_length = 100),
     "methylation-rate|r=f" => \(my $methrate),
     "out-file|o=s"         => \(my $out_file),
-    "tag|t=s"              => \(my $tag),
     "no-rc|f"              => \(my $norc),
     "junk|j=i"             => \(my $junk=0),
 );
