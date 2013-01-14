@@ -22,6 +22,8 @@ our %flag_bits = (
     duplicate           => 0x400,
 );
 
+our %rc_cache;
+
 around BUILDARGS => sub{
     my ($orig, $class, $line, $seqlengths, $tryfixrc) = @_;
     chomp($line);
@@ -116,9 +118,21 @@ sub dumbend   { return $_[0]->leftmost + $_[0]->readlength() }
 # other fields are calculated and maybe memo'd
 
 sub readlength { return length($_[0]->readseq) }
-sub reverse    {    $_[0]->flag & $flag_bits{reverse};     }
+sub is_reverse {    $_[0]->flag & $flag_bits{reverse};     }
 sub failed_qc  {    $_[0]->flag & $flag_bits{failed_qc};   }
 sub mapped     { !( $_[0]->flag & $flag_bits{unmapped}   ) }
+
+#######################################################################
+# rightmost is the right most position in the genome that read aligns
+
+# notes:
+# rightmost = POS + #(M/D/=/X/N) - 1
+# definitely not not s,h,p... 
+# not I b/c that only advances read
+# manual says N is intron (for mrna). 
+# I think =/X are subtype of M?
+#
+# length of SEQ = M/I/S/=/X (from manual)
 
 has rightmost => ( is => 'ro', lazy_build => 1);
 
@@ -158,6 +172,22 @@ sub _build_cigarlength{
     #if length($seq) != $cigar_length;
 }
 
+#######################################################################
+# cigar string.  idiotic format.  returns:
+# [ [ [MIDNSHP=X], COUNT ], ... ]
+
+# manual = http://samtools.sourceforge.net/SAM1.pdf
+# CIGAR: Description
+# M alignment match (can be a sequence match or mismatch)
+# I insertion to the reference
+# D deletion from the reference
+# N skipped region from the reference
+# S soft clipping (clipped sequences present in SEQ)
+# H hard clipping (clipped sequences NOT present in SEQ)
+# P padding (silent deletion from padded reference)
+# = sequence match
+# X sequence mismatch
+
 has cigar => ( is => 'ro', lazy_build => 1 );
 
 sub _build_cigar{
@@ -171,13 +201,31 @@ sub _build_cigar{
     while ($cigar =~ /(\d+)([MIDNSHP=X])/g){
         my $count = $1;
         my $type = $2;
-        push @accum, [$count, $type];
+        push @accum, [$type, $count];
     }
     if ($self->fixrc){
-        # reverse accum?
+        # pretty sure this is wrong but g'nuff initially.
+        @accum = reverse @accum;
     }
     return \@accum;
 }
+
+#######################################################################
+# mismatch (MD:Z: in opt fields) string.  (slightly less) idiotic format.  returns:
+# [ 
+#      [ 'M', COUNT ] match for COUNT bases
+#   or [ 'C', BASE  ] CHANGE.  reference base is BASE, read base is something else
+#   or [ 'D', BASE  ] DELETION of BASE from reference.
+# ]
+
+# "The MD field aims to achieve SNP/indel calling without looking at the
+# reference. For example, a string ‘10A5^AC6’ means from the leftmost reference
+# base in the alignment, there are 10 matches followed by an A on the reference
+# which is different from the aligned read base; the next 5 reference bases are
+# matches followed by a 2bp deletion from the reference; the deleted sequence
+# is AC; the last 6 bases are matches. The MD field ought to match the CIGAR
+# string."
+
 
 has mismatches => ( is => 'ro', lazy_build => 1 );
 
@@ -193,7 +241,7 @@ sub _build_mismatches {
 
     # M = match
     # C = change
-    # D = change
+    # D = deletion (from genome)
 
     while ($mdstring =~ m{( \d+ | \^ | [A-Z] )}xmg){
         my $token = $1;
@@ -218,47 +266,14 @@ sub _build_mismatches {
     }
 
     if ($self->fixrc){
-        # reverse accum?
+        # I think this is enough?
+        @accum = reverse @accum;
     }
     return \@accum;
 }
 
 #######################################################################
-
-# sub reverse_cigar{
-#     #my ($self, $seq, $cig) = @_;
-# }
-# 
-# sub reverse_md{
-#     #my ($self, $seq, $cig) = @_;
-# }
-
-
-# CIGAR: Description
-# M alignment match (can be a sequence match or mismatch)
-# I insertion to the reference
-# D deletion from the reference
-# N skipped region from the reference
-# S soft clipping (clipped sequences present in SEQ)
-# H hard clipping (clipped sequences NOT present in SEQ)
-# P padding (silent deletion from padded reference)
-# = sequence match
-# X sequence mismatch
-
-# manual = http://samtools.sourceforge.net/SAM1.pdf
-
-# notes:
-# rightmost = POS + #(M/D/=/X/N) - 1
-# definitely not not s,h,p... 
-# not I b/c that only advances read
-# manual says N is intron (for mrna). 
-# I think =/X are subtype of M?
-#
-# length of SEQ = M/I/S/=/X (from manual)
-
-#######################################################################
 # stringification
-
 
 use overload '""' => \&stringify;
 
