@@ -9,6 +9,8 @@ use Test::Exception;
 use Scalar::Util qw/looks_like_number/;
 use Sam::Alignment;
 
+use TestUtils;
+
 sub check_basics{
     my $name = shift;
     my $is_mapped = shift;
@@ -78,6 +80,15 @@ check_basics("02", 1, qw{
                 'C', 3921, 'G', 'T'
             ]
         ], "snps");
+}
+
+{
+    my $ref = setup_reference(undef, 1);
+    my $reads = "$ref.reads";
+    my $methsites = "$reads.methsites.gff";
+    my $samfile = "$ref.reads.aligned.sam";
+    system("perl genome_shear.pl -r .1 -l 100 -n 100 -o $reads $ref");
+    system("bowtie -S -v 3 $ref.c2t $reads $samfile");
 }
 
 done_testing();

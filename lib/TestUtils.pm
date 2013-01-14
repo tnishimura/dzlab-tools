@@ -36,8 +36,8 @@ sub setup_reference{
     launch("gunzip -c $gz > ??", expected => $ref);
 
     if ($do_methylation){
-        launch("./bs-bowtie-build -c2t $ref");
-        launch("./bs-bowtie-build -g2a $ref");
+        launch("perl bs-bowtie-build -c2t $ref");
+        launch("perl bs-bowtie-build -g2a $ref");
     }
 
     is(8527645, [stat($ref)]->[7], "unzipped reference the correct size");
