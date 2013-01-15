@@ -7,7 +7,8 @@ use Carp;
 use autodie;
 use Hash::Util qw/lock_keys unlock_keys/;
 use List::MoreUtils qw/all/;
-use Any::Moose;
+use Moose;
+use Sam::Alignment;
 
 extends 'Parser';
 
@@ -20,15 +21,17 @@ has sam_version     => (is => 'rw', init_arg => undef);
 
 # during constructor, read until first alignment and putback here
 # want to use seek(), but doesn't work on stdin properly (?)
-has putback         => (is => 'rw', init_arg => undef); 
+has putback => (is => 'rw', init_arg => undef); 
 
 # hash of sequence lengths. *Sequence names are uppercased*
-has length          => (is => 'ro', default => sub { {} }, init_arg => undef); 
+has length  => (is => 'ro', default => sub { {} }, init_arg => undef); 
 
 sub add_length{
     my ($self, $seqname, $length) = @_;
-    croak "double adding $seqname into Sam::Parser? BUG, please report"
-    if exists $self->length->{uc $seqname};
+
+    if (exists $self->length->{uc $seqname} and $self->length->{uc $seqname} != $length){
+        croak "double adding conflicting lengths for $seqname into Sam::Parser? BUG, please report"
+    }
     $self->length->{uc $seqname} = $length;
 }
 
@@ -36,9 +39,9 @@ sub add_length{
 has convert_rc      => (is => 'ro', default => 0);
 has skip_unmapped   => (is => 'ro', default => 1);
 
-
 sub BUILD{
     my $self = shift;
+    say Dumper $self;
     # read headers, putback first alignment line into $self->{putback}
     HEADER:
     while (defined(my $line = readline $self->filehandle)){
@@ -122,17 +125,19 @@ sub next{
     my $self = shift;
 
     # process putback
-    if (defined (my $pb = $self->{putback})){
+    if (defined (my $pb = $self->putback())){
         $self->putback(undef);
 
-        my $sam = Sam::samment->new($pb);
+        my $sam = Sam::Alignment->new($pb, $self->length, $self->convert_rc);
+        # my $sam = Sam::Alignment->new($pb);
         if ($sam->mapped() || ! $self->skip_unmapped()){
             return $sam;
         }
     }
 
-    while (defined(my $line = readline $self->file_handle)){
-        my $sam = Sam::samment->new($line);
+    while (defined(my $line = readline $self->filehandle)){
+        my $sam = Sam::Alignment->new($line, $self->length, $self->convert_rc);
+        # my $sam = Sam::Alignment->new($line);
         if ($sam->mapped() || ! $self->skip_unmapped()){
             return $sam;
         }

@@ -25,6 +25,7 @@ our %flag_bits = (
 
 our %rc_cache;
 
+# my $sam = Sam::Alignment->new($line, \%sequence_length_hash, $tryfixrc);
 around BUILDARGS => sub{
     my ($orig, $class, $line, $seqlengths, $tryfixrc) = @_;
     chomp($line);
