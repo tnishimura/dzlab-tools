@@ -6,6 +6,7 @@ use Data::Dumper;
 use Carp;
 use autodie;
 use Scalar::Util qw/looks_like_number/;
+use DZUtil qw/reverse_complement/;
 use Mouse;
 
 our %flag_bits = (
@@ -48,19 +49,21 @@ around BUILDARGS => sub{
     if ($tryfixrc && $seqid =~ s/^RC_//){
         $fixrc = 1;
         croak "\$tryfixrc is true, but \$seqid $seqid not found in \$seqlengths?"
-        if (!exists $seqlengths->{$seqid});
+        if (!exists $seqlengths->{uc $seqid});
 
         # $readid unchanged
         $flag = $flag & ~$flag_bits{reverse};
         # $seqid already stripped of RC_
-        $leftmost = $seqlengths->{$seqid} - $leftmost + 1;
+        # BUG: leftmost/rightmost needs to be made lazy b/c don't know rightmost without cigar should be 
+        $leftmost = $seqlengths->{uc $seqid} - ($leftmost + length($readseq) - 1) + 1;
         # $mapq unchanged
         # $cigar should be reversed, but should be done lazily since we probably won't need it
         # not sure about rnext 
         # not sure about pnext 
         # tlen probably unchanged 
         $readseq = reverse_complement($readseq);
-        $readqual = scalar reverse $readseq;
+        # $readqual = scalar reverse $readseq;
+        $readqual = reverse_complement($readseq);
         
         # edit_distance can remain same
         # $mismatch_string should be reversed like cigar lazily.
@@ -214,8 +217,8 @@ sub _build_cigar{
 # mismatch (MD:Z: in opt fields) string.  (slightly less) idiotic format.  returns:
 # [ 
 #      [ 'M', COUNT ] match for COUNT bases
-#   or [ 'C', POSITION, BASE_IN_REF, BASE_IN_READ  ] CHANGE.  reference base is BASE, read base is something else
-#   or [ 'D', POSITION, BASE_IN_REF  ] DELETION of BASE from reference.
+#   or [ 'C', POSITION, BASE_IN_REF, BASE_IN_READ ] CHANGE. reference base is BASE, read base is something else
+#   or [ 'D', POSITION, BASE_IN_REF ]               DELETION of BASE from reference.
 # ]
 
 # "The MD field aims to achieve SNP/indel calling without looking at the
@@ -226,11 +229,65 @@ sub _build_cigar{
 # is AC; the last 6 bases are matches. The MD field ought to match the CIGAR
 # string."
 
+has mismatch_tokens => ( is => 'ro', lazy_build => 1 );
+
+sub _build_mismatch_tokens { 
+    my $self = shift; 
+    my $fixrc = $self->fixrc; 
+
+    my $mdstring = $self->original_mismatch_string;
+
+    my $in_deletion = 0;
+    my $read = $self->readseq(); # already RC'd.
+
+    my @accum;
+
+    # M = match
+    # C = change
+    # D = deletion (from genome)
+
+    while ($mdstring =~ m{
+            (\d+) 
+            | 
+            (\^?)([A-Z])
+        }xmg){
+        if ($1){
+            # $ref_position += $rcpos * $token;
+            # $read_position += $rcpos * $token;
+
+            push @accum, ['M', $1];
+        }
+        elsif ($2){
+            if ($fixrc){
+                push @accum, ['D', reverse_complement $3];
+            }
+            else{
+                push @accum, ['D', $3];
+            }
+            # $ref_position += $rcpos;
+        }
+        elsif ($3){
+            if ($fixrc){
+                push @accum, ['C', reverse_complement $3];
+            }else {
+                push @accum, ['C', $3];
+            }
+        }
+    }
+
+    if ($fixrc){
+        # I think this is enough?
+        @accum = reverse @accum;
+    }
+    return \@accum;
+}
+
 has mismatches => ( is => 'ro', lazy_build => 1 );
 
+# 'C' only: [ [ POSITION, BASE_IN_REF, BASE_IN_READ ]  ... ]
 sub snps{
     my $self = shift; 
-    return [grep { $_->[0] eq 'C' } @{$self->mismatches}]
+    return [map { [@{$_}[1,2,3]] } grep { $_->[0] eq 'C' } @{$self->mismatches}]
 }
 
 sub _build_mismatches { 
@@ -238,10 +295,9 @@ sub _build_mismatches {
 
     my $mdstring = $self->original_mismatch_string;
 
-    my $in_deletion = 0;
-    my $ref_position = $self->{leftmost};
+    my $read = $self->readseq(); # already RC'd. 
 
-    my $read = $self->readseq();
+    my $ref_position  = $self->leftmost;
     my $read_position = 0;
 
     my @accum;
@@ -250,36 +306,37 @@ sub _build_mismatches {
     # C = change
     # D = deletion (from genome)
 
-    while ($mdstring =~ m{( \d+ | \^ | [A-Z] )}xmg){
-        my $token = $1;
-        if ($token eq '^'){
-            $in_deletion = 1;
+    # mismatch_tokens also rc'd
+    for my $token (@{$self->mismatch_tokens}) {
+        # say STDERR "ref_position: $ref_position";
+        # say STDERR "read_position: $read_position";
+        my $type = $token->[0];
+        if ($type eq 'M'){
+            my $count = $token->[1];
+            $ref_position += $count;
+            $read_position += $count;
         }
-        elsif (looks_like_number $token){
-            $in_deletion = 0;
-            $ref_position += $token;
-            $read_position += $token;
+        elsif ($type eq 'D'){
+            my $deleted_bases = $token->[1];
+            my $count = length($deleted_bases);
+            $ref_position += $count;
+        }
+        elsif ($type eq 'C'){
+            my $bases_in_reference = $token->[1];
 
-            push @accum, ['M', $token];
+            for my $base (split //, $bases_in_reference) {
+                push @accum, ['C', $ref_position, $base, substr $read, $read_position, 1, ];
+                $ref_position += 1;
+                $read_position += 1;
+            }
         }
-        else{ # [A-Z]
-            if ($in_deletion){
-                push @accum, ['D', $ref_position, $token];
-                $ref_position++;
-                # no in_deletion reset, keep going
-            }
-            else{
-                push @accum, ['C', $ref_position, $token, substr $read, $read_position, 1];
-                $ref_position++;
-                $read_position++;
-            }
+        else{
+            croak "impossible";
         }
     }
+    # say STDERR "ref_position: $ref_position";
+    # say STDERR "read_position: $read_position";
 
-    if ($self->fixrc){
-        # I think this is enough?
-        @accum = reverse @accum;
-    }
     return \@accum;
 }
 
