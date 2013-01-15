@@ -119,10 +119,11 @@ AGTTATTAGATAGGTGATTGAGAAAGTGTATATAAACAAATCACCTTAAGAAATCGGCGGAAGCAGGGCCGTAAGGACCT
         XA:i:1  MD:Z:63T36      NM:i:1
         }), \%seqlen, 1);
 
-# Read: CAACTTACTATTTCTATAAAAAATCCTTACAACCCTGCTTCCACCAATTTCTTAAAATAATTTATTTATATACACTTTCTCAATCACCTATCTAATAACT
-# Ref:  CGACTTGCTGTTTCTGTAGAAGGTCCTTACGGCCCTGCTTCCGCCGATTTCTTAAGGTGATTTGTTTATATACACTTTCTCAATCACCTATCTAATAACT
-#                                     ----+----6----+----5----+----4----+----3----+----2----+----1----+----0
-#       0----+----1----+----2----+----3----+----4----+----5----+----6
+# Read:   CAACTTACTATTTCTATAAAAAATCCTTACAACCCTGCTTCCACCAATTTCTTAAAATAATTTATTTATATACACTTTCTCAATCACCTATCTAATAACT
+# Ref:    CGACTTGCTGTTTCTGTAGAAGGTCCTTACGGCCCTGCTTCCGCCGATTTCTTAAGGTGATTTGTTTATATACACTTTCTCAATCACCTATCTAATAACT
+# c2tref:
+#                                       ----+----6----+----5----+----4----+----3----+----2----+----1----+----0
+#         0----+----1----+----2----+----3----+----4----+----5----+----6
 
     is($sam->seqid, 'chr1', "reverse seqid");
     is($sam->leftmost, 211662, "reverse leftmost");
@@ -140,18 +141,16 @@ AGTTATTAGATAGGTGATTGAGAAAGTGTATATAAACAAATCACCTTAAGAAATCGGCGGAAGCAGGGCCGTAAGGACCT
     my ($pos, $base_in_ref, $base_in_read) = @{$sam->snps->[0]};
     # say $sam->readseq;
     is($pos, 211698, "mismatch at correct position");
-    is($base_in_ref, 'A');
-    # is($base_in_read, 'G');
+    is($base_in_ref, 'A');  # rc('T')
+    is($base_in_read, 'G'); # rc('C')
 }
 
-done_testing();
-exit 0;
 {
     my $ref = setup_reference(undef, 1);
     my $reads = "$ref.reads";
     my $methsites = "$reads.methsites.gff";
     my $samfile = "$ref.reads.aligned.sam";
-    system("perl genome_shear.pl -r .1 -l 100 -n 30 -o $reads $ref");
+    system("perl genome_shear.pl -r .1 -l 100 -n 100 -o $reads $ref");
     system("bowtie -B 1 -S -v 3 $ref.c2t $reads $samfile");
 
     # load sites from genome_shear.pl
@@ -168,7 +167,13 @@ exit 0;
         my $seqid = $sam->seqid;
         for my $snp (@{$sam->snps}) {
             my ($pos, $base_in_ref, $base_in_read) = @$snp;
-            ok(exists $sites{uc($seqid), $pos}, "$seqid, $pos\n$line");
+            ok(exists $sites{uc($seqid), $pos}, "$seqid, $pos methylation where it's supposed to be");
+            ok(
+                ($base_in_ref eq 'T' && $base_in_read eq 'C')
+                ||
+                ($base_in_ref eq 'A' && $base_in_read eq 'G'),
+                "$seqid, $pos bases indicated methylation (base_in_ref = $base_in_ref, base_in_read = $base_in_read)"
+            )
         }
     }
 }

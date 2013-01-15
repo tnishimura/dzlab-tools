@@ -236,6 +236,9 @@ sub _build_mismatch_tokens {
     my $fixrc = $self->fixrc; 
 
     my $mdstring = $self->original_mismatch_string;
+    if (! defined $mdstring){
+        return [];
+    }
 
     my $in_deletion = 0;
     my $read = $self->readseq(); # already RC'd.
