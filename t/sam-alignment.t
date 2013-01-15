@@ -164,6 +164,14 @@ AGTTATTAGATAGGTGATTGAGAAAGTGTATATAAACAAATCACCTTAAGAAATCGGCGGAAGCAGGGCCGTAAGGACCT
     while (defined(my $line = $samio->getline())){
         next if $line =~ /^@/;
         my $sam = Sam::Alignment->new($line, \%seqlen, 1);
+
+        next unless $sam->mapped;
+        # when read mapped to where it wasn't supposed to (b/c of repeats)
+        if ($sam->readid =~ /^\w+:(\d+):(\d+)/){
+            my $start = $1;
+            my $end = $2;
+            next unless ($start <= $sam->leftmost() && $sam->leftmost() <= $end);
+        }
         my $seqid = $sam->seqid;
         for my $snp (@{$sam->snps}) {
             my ($pos, $base_in_ref, $base_in_read) = @$snp;
