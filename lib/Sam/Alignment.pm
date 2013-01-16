@@ -351,26 +351,24 @@ use overload '""' => \&stringify;
 
 sub stringify{
     my $self = shift;
-    my $mapped    = $self->mapped;
-    my $rname     = $self->seqid;
-    my $length    = $self->length;
-    my $leftmost  = $self->leftmost;
-    my $rightmost = $self->rightmost;
-    my $failed_qc = $self->failed_qc;
-    my $reverse   = $self->reverse;
-    my $qname     = $self->readid;
-    my $seq       = $self->seq;
-    my $cigar     = $self->cigar;
-    my $strand    = $reverse ? "-" : "+";
 
-    my $seqid = $qname eq '0' ? '*' : $qname;
+    say join("\t", 
+        $self->readid,
+        $self->flag,
+        $self->seqid, 
+        $self->leftmost,
+        $self->mapq, 
+        "...", # cigar
+        $self->rnext, 
+        $self->pnext, 
+        $self->tlen, 
+        $self->readseq, 
+        $self->readqual, 
+        "..." # optional field
+    );
 
-    if ($mapped){
-        return "$seqid mapped to $rname from $leftmost to $rightmost on $strand strand ($cigar)";
-    }
-    else{
-        return "$seqid did not map";
-    }
+# chr5:746182:746281:+:746192:746259	0	chr5	746182	255	100M	*	0	0	ATGAAAATAACATTTTTATATATATTATTTGTTGAAATAATTATAAATTTAGTATTTATATATGTATATATATTTTTCTTTATATTTTTTATATGTATAT	ATGAAAATAACATCTCCATATATATTATTTGCTGAAATAATCACAAACTCAGTATTCACATATGCATATACATCCCTCTCTATATTTCTTATATGTATAT	XA:i:2	MD:Z:10T66T22	NM:i:2
+# chr4:178891:178990:-:178894:178948	0	RC_chr4	1400932	255	100M	*	0	0	ATATTGTTGATATTTTGTGAGATGTAATGATAAAAAATGAATCTTTATGTAATGATAAAAATAAAATATTATATTTTAAGTTTTGGGATTTTTATGCATT	ACATTGTCGATACCTTGTGAGATGCAATGATAAAAAACGAATCTTCATGTAATGATAAAAATAAAACACCATATTTCAAGTTTTGGGATCTTCATGCATT	XA:i:2	MD:Z:42T53T3	NM:i:2
 }
 1;
 
