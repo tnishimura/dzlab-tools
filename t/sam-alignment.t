@@ -67,6 +67,7 @@ check_basics("02", 1, qw{
     AS:i:54 XS:i:50 XN:i:0  XM:i:3  XO:i:0  XG:i:0  NM:i:3  MD:Z:4T4G8G20   YT:Z:UU
     });
 
+
 #######################################################################
 # forward snps
 
@@ -78,6 +79,7 @@ check_basics("02", 1, qw{
     IIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII
     AS:i:54 XS:i:50 XN:i:0  XM:i:3  XO:i:0  XG:i:0  NM:i:3  MD:Z:4T4G8G20   YT:Z:UU
     }), 0, 0);
+
     is_deeply($sam->mismatch_tokens, [
           [ 'M', '4' ],
           [ 'C', 'T' ],
@@ -89,6 +91,12 @@ check_basics("02", 1, qw{
         ], "forward mismatch_tokens",
     );
 
+    is($sam->dumbstart, 3903, "forward dumbstart");
+    is($sam->dumbend, 3903 + 100 -1, "forward dumbend");
+    is($sam->leftmost, 3903, "forward leftmost");
+    is($sam->rightmost, 3903 + 39 - 1, "forward rightmost");
+    is($sam->span, 39, "forward span");
+
     is_deeply($sam->snps, [
             [ 3907, 'T', 'A' ],
             [ 3912, 'G', 'T' ],
@@ -98,7 +106,6 @@ check_basics("02", 1, qw{
 
 #######################################################################
 # reverse snps
-
 
 my %seqlen = (
     CHR1 => 1579921,
@@ -126,8 +133,10 @@ AGTTATTAGATAGGTGATTGAGAAAGTGTATATAAACAAATCACCTTAAGAAATCGGCGGAAGCAGGGCCGTAAGGACCT
 #         0----+----1----+----2----+----3----+----4----+----5----+----6
 
     is($sam->seqid, 'chr1', "reverse seqid");
-    is($sam->leftmost, 211662, "reverse leftmost");
+    is($sam->leftmost,  211662, "reverse leftmost");
     is($sam->rightmost, 211761, "reverse rightmost");
+    is($sam->dumbstart, 211662, "reverse dumbstart");
+    is($sam->dumbend,   211761, "reverse dumbend");
 
     is_deeply($sam->mismatch_tokens, [
           [ 'M', '36' ],
@@ -144,6 +153,7 @@ AGTTATTAGATAGGTGATTGAGAAAGTGTATATAAACAAATCACCTTAAGAAATCGGCGGAAGCAGGGCCGTAAGGACCT
     is($base_in_ref, 'A');  # rc('T')
     is($base_in_read, 'G'); # rc('C')
 }
+
 
 {
     my $ref = setup_reference(undef, 1);
@@ -166,6 +176,9 @@ AGTTATTAGATAGGTGATTGAGAAAGTGTATATAAACAAATCACCTTAAGAAATCGGCGGAAGCAGGGCCGTAAGGACCT
         my $sam = Sam::Alignment->new($line, \%seqlen, 1);
 
         next unless $sam->mapped;
+
+        is($sam->edit_distance, scalar(@{$sam->snps}), "edit_distance matches number of snps");
+
         # when read mapped to where it wasn't supposed to (b/c of repeats)
         if ($sam->readid =~ /^\w+:(\d+):(\d+)/){
             my $start = $1;

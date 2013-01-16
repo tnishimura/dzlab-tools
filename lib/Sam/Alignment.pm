@@ -34,7 +34,7 @@ around BUILDARGS => sub{
     = split /\t/, $line;
 
     my $mismatch_string;
-    my $edit_distance;
+    my $edit_distance = 0;
     for my $o (@optional) {
         if ($o =~ /MD:Z:([A-Z\d\^]+)/){
             $mismatch_string = $1;
@@ -56,9 +56,9 @@ around BUILDARGS => sub{
         $flag = $flag & $flag_bits{reverse}  # is reverse?
               ? $flag & ~$flag_bits{reverse} # then unreverse it
               : $flag | $flag_bits{reverse}; # or reverse (there's probably a one-line way to do this...)
+
         # $seqid already stripped of RC_
-        # BUG: leftmost/rightmost needs to be made lazy b/c don't know rightmost without cigar should be 
-        $leftmost = $seqlengths->{uc $seqid} - ($leftmost + length($readseq) - 1) + 1;
+        # $leftmost stored in original_leftmost and leftmost/rightmost/span are lazy.
         # $mapq unchanged
         # $cigar should be reversed, but should be done lazily since we probably won't need it
         # not sure about rnext 
@@ -76,7 +76,7 @@ around BUILDARGS => sub{
         readid   => $readid,
         flag     => $flag,
         seqid    => $seqid,
-        leftmost => $leftmost,
+        original_leftmost => $leftmost,
         mapq     => $mapq,
         original_cigar_string => $cigar,
         rnext    => $rnext,
@@ -90,6 +90,7 @@ around BUILDARGS => sub{
         edit_distance            => $edit_distance,
 
         fixrc    => $fixrc,
+        seqlen   => $tryfixrc && $seqlengths->{uc $seqid},
     );
 };
 
@@ -98,17 +99,17 @@ around BUILDARGS => sub{
 # accessors
 
 # 11 mandatory fields are always there
-has readid   => ( is => 'ro', required => 1 );
-has flag     => ( is => 'ro', required => 1 );
-has seqid    => ( is => 'ro', required => 1 );
-has leftmost => ( is => 'ro', required => 1 );
-has mapq     => ( is => 'ro', required => 1 );
-has original_cigar_string    => ( is => 'ro', required => 1 );
-has rnext    => ( is => 'ro', required => 1 );
-has pnext    => ( is => 'ro', required => 1 );
-has tlen     => ( is => 'ro', required => 1 );
-has readseq  => ( is => 'ro', required => 1 );
-has readqual => ( is => 'ro', required => 1 );
+has readid                => ( is => 'ro', required => 1 );
+has flag                  => ( is => 'ro', required => 1 );
+has seqid                 => ( is => 'ro', required => 1 );
+has original_leftmost     => ( is => 'ro', required => 1 );
+has mapq                  => ( is => 'ro', required => 1 );
+has original_cigar_string => ( is => 'ro', required => 1 );
+has rnext                 => ( is => 'ro', required => 1 );
+has pnext                 => ( is => 'ro', required => 1 );
+has tlen                  => ( is => 'ro', required => 1 );
+has readseq               => ( is => 'ro', required => 1 );
+has readqual              => ( is => 'ro', required => 1 );
 
 has original_mismatch_string => ( is => 'ro', required => 1,);
 has edit_distance   => ( is => 'ro', required => 1,);
@@ -116,14 +117,33 @@ has edit_distance   => ( is => 'ro', required => 1,);
 # true if tryfixrc and /^RC_/
 has fixrc => ( is => 'ro', required => 1 );
 
+# length of chromosome
+has seqlen => ( is => 'ro', required => 1 );
+
 # two alternatives for leftmost/rightmost when we know 
 # the alignment has no gaps, like for bowtie1.
-sub dumbstart { return $_[0]->leftmost } 
-sub dumbend   { return $_[0]->leftmost + $_[0]->readlength() } 
+sub dumbstart { 
+    my $self = shift;
+    if ($self->fixrc){
+        return $self->seqlen - ($self->original_leftmost + $self->readlength() - 1) + 1;
+    }
+    else{
+        return $self->original_leftmost 
+    }
+} 
+sub dumbend { 
+    my $self = shift;
+    if ($self->fixrc){
+        return $self->seqlen - $self->original_leftmost + 1;
+    }
+    else{
+        return $self->original_leftmost + $self->readlength() - 1
+    }
+} 
 
 # other fields are calculated and maybe memo'd
 
-sub readlength { return length($_[0]->readseq) }
+sub readlength {    length($_[0]->readseq)                 }
 sub is_reverse {    $_[0]->flag & $flag_bits{reverse};     }
 sub failed_qc  {    $_[0]->flag & $flag_bits{failed_qc};   }
 sub mapped     { !( $_[0]->flag & $flag_bits{unmapped}   ) }
@@ -140,23 +160,42 @@ sub mapped     { !( $_[0]->flag & $flag_bits{unmapped}   ) }
 #
 # length of SEQ = M/I/S/=/X (from manual)
 
-has rightmost => ( is => 'ro', lazy_build => 1);
+has rightmost => ( is => 'ro', lazy_build => 1 );
+has leftmost  => ( is => 'ro', lazy_build => 1 );
 
-sub _build_rightmost{
+has span => (is => 'ro', lazy_build => 1);
+
+sub _build_span{
     my $self = shift;
-
-    my $rightmost = $self->leftmost;
-    my $length;
+    my $span;
 
     for my $c (@{$self->cigar}) {
         my ($type, $count) = @$c;
         if ($type ~~ [qw{M D = X N}]){
-            $rightmost += $count;
+            $span += $count;
         }
     }
-    $rightmost -= 1;
+    return $span;
+}
 
-    return $rightmost;
+sub _build_leftmost{
+    my $self = shift;
+    if ($self->fixrc){
+        return $self->seqlen - ($self->original_leftmost + $self->span - 1) + 1;
+    }
+    else{
+        return $self->original_leftmost;
+    }
+}
+
+sub _build_rightmost{
+    my $self = shift;
+    if ($self->fixrc){
+        return $self->seqlen - ($self->original_leftmost) + 1;
+    }
+    else{
+        return $self->original_leftmost + $self->span - 1;
+    }
 }
 
 # for debugging.  supposed to be equal to read length
@@ -177,6 +216,8 @@ sub _build_cigarlength{
     #croak "BUG: length mismatch between what CIGAR tells us ($cigar_length) and length of SEQ (" . length($seq) . ")" 
     #if length($seq) != $cigar_length;
 }
+
+
 
 #######################################################################
 # cigar string.  idiotic format.  returns:
@@ -214,6 +255,17 @@ sub _build_cigar{
         @accum = reverse @accum;
     }
     return \@accum;
+}
+
+has cigar_string => (is => 'ro', lazy_build => 1);
+
+sub _build_cigar_string{
+    my $self = shift;
+    if ($self->fixrc){
+        # pretty sure this is wrong but g'nuff initially.
+        return $self->original_cigar_string;
+    }
+    return join "", map { $_->[1] . $_->[0] } @{$self->cigar};
 }
 
 #######################################################################
@@ -346,6 +398,31 @@ sub _build_mismatches {
     return \@accum;
 }
 
+has mismatch_string => ( is => 'ro', lazy_build => 1 );
+
+sub _build_mismatch_string{
+    my $self = shift;
+    if ($self->fixrc){
+        return map 
+        {
+            my ($type, $token) = @$_;
+            if ($type eq 'M'){
+                $token;
+            }
+            elsif ($type eq 'D'){
+                "^$token";
+
+            }
+            elsif ($type eq 'C'){
+                $token;
+            }
+        } @{$self->mismatch_tokens};
+    }
+    else{
+        return $self->original_mismatch_string;
+    }
+}
+
 #######################################################################
 # stringification
 
@@ -360,13 +437,15 @@ sub stringify{
         $self->seqid, 
         $self->leftmost,
         $self->mapq, 
-        "...", # cigar
+        $self->cigar_string,
         $self->rnext, 
         $self->pnext, 
         $self->tlen, 
         $self->readseq, 
         $self->readqual, 
-        "..." # optional field
+        ($self->mapped ?  ("MD:Z:" . $self->mismatch_string) : ""),
+        ($self->mapped ?  ("NM:i:" . $self->edit_distance) : ""),
+        # more options...
     );
 
 # chr5:746182:746281:+:746192:746259	0	chr5	746182	255	100M	*	0	0	ATGAAAATAACATTTTTATATATATTATTTGTTGAAATAATTATAAATTTAGTATTTATATATGTATATATATTTTTCTTTATATTTTTTATATGTATAT	ATGAAAATAACATCTCCATATATATTATTTGCTGAAATAATCACAAACTCAGTATTCACATATGCATATACATCCCTCTCTATATTTCTTATATGTATAT	XA:i:2	MD:Z:10T66T22	NM:i:2
