@@ -41,7 +41,6 @@ has skip_unmapped   => (is => 'ro', default => 1);
 
 sub BUILD{
     my $self = shift;
-    say Dumper $self;
     # read headers, putback first alignment line into $self->{putback}
     HEADER:
     while (defined(my $line = readline $self->filehandle)){
@@ -128,16 +127,14 @@ sub next{
     if (defined (my $pb = $self->putback())){
         $self->putback(undef);
 
-        my $sam = Sam::Alignment->new($pb, $self->length, $self->convert_rc);
-        # my $sam = Sam::Alignment->new($pb);
+        my $sam = Sam::Alignment->new($pb, $self->length(), $self->convert_rc);
         if ($sam->mapped() || ! $self->skip_unmapped()){
             return $sam;
         }
     }
 
     while (defined(my $line = readline $self->filehandle)){
-        my $sam = Sam::Alignment->new($line, $self->length, $self->convert_rc);
-        # my $sam = Sam::Alignment->new($line);
+        my $sam = Sam::Alignment->new($line, $self->length(), $self->convert_rc);
         if ($sam->mapped() || ! $self->skip_unmapped()){
             return $sam;
         }

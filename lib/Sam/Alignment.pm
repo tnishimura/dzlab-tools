@@ -53,7 +53,9 @@ around BUILDARGS => sub{
         if (!exists $seqlengths->{uc $seqid});
 
         # $readid unchanged
-        $flag = $flag & ~$flag_bits{reverse};
+        $flag = $flag & $flag_bits{reverse}  # is reverse?
+              ? $flag & ~$flag_bits{reverse} # then unreverse it
+              : $flag | $flag_bits{reverse}; # or reverse (there's probably a one-line way to do this...)
         # $seqid already stripped of RC_
         # BUG: leftmost/rightmost needs to be made lazy b/c don't know rightmost without cigar should be 
         $leftmost = $seqlengths->{uc $seqid} - ($leftmost + length($readseq) - 1) + 1;
