@@ -27,7 +27,7 @@ sub bowtie_build{
             file => {
                 type => SCALAR,
                 callbacks => {
-                    'greater than zero' => sub { -f shift },
+                    'file exists' => sub { -f shift },
                 },
             }, 
             noref => { default => 0, },
