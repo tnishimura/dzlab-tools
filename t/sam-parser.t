@@ -27,7 +27,7 @@ my $original_rc_count = 0;
         $count++;
         $mapped++ if $sam->mapped;
         $reversed++ if $sam->is_reverse;
-        $original_rc_count++ if $sam->seqid =~ /^RC_/;
+        $original_rc_count++ if $sam->mapped && $sam->seqid =~ /^RC_/;
     }
     is($count, 100, "correct read count");
     is($mapped, 84, "correct mapped read count");
@@ -46,7 +46,7 @@ my $original_rc_count = 0;
     my $reverse_strand_count = 0;
     my $reverse_indicator = 0;
     while (defined(my $sam = $parser->next())){
-        $rc_count++             if $sam->seqid =~ /^RC_/;
+        $rc_count++             if $sam->mapped && $sam->seqid =~ /^RC_/;
         $reverse_strand_count++ if $sam->is_reverse;
         $reverse_indicator++    if $sam->mapped && $sam->readid =~ /:\-:/;
     }

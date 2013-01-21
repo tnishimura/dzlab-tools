@@ -23,8 +23,6 @@ our %flag_bits = (
     duplicate           => 0x400,
 );
 
-our %rc_cache;
-
 # my $sam = Sam::Alignment->new($line, \%sequence_length_hash, $tryfixrc);
 around BUILDARGS => sub{
     my ($orig, $class, $line, $seqlengths, $tryfixrc) = @_;
@@ -48,6 +46,7 @@ around BUILDARGS => sub{
 
     my $fixrc;
     if ($tryfixrc && $seqid =~ s/^RC_//){
+        # if we get here, we know it's mapped since $seqid was not *
         $fixrc = 1;
         croak "\$tryfixrc is true, but \$seqid $seqid not found in \$seqlengths?"
         if (!exists $seqlengths->{uc $seqid});
@@ -75,7 +74,7 @@ around BUILDARGS => sub{
     return $class->$orig(
         readid   => $readid,
         flag     => $flag,
-        seqid    => $seqid,
+        seqid    => $seqid eq '*' ? undef : $seqid,
         original_leftmost => $leftmost,
         mapq     => $mapq,
         original_cigar_string => $cigar,
@@ -101,7 +100,7 @@ around BUILDARGS => sub{
 # 11 mandatory fields are always there
 has readid                => ( is => 'ro', required => 1 );
 has flag                  => ( is => 'ro', required => 1 );
-has seqid                 => ( is => 'ro', required => 1 );
+has seqid                 => ( is => 'ro', required => 1 ); #undef if unmapped
 has original_leftmost     => ( is => 'ro', required => 1 );
 has mapq                  => ( is => 'ro', required => 1 );
 has original_cigar_string => ( is => 'ro', required => 1 );
@@ -180,6 +179,8 @@ sub _build_span{
 
 sub _build_leftmost{
     my $self = shift;
+    return if (! $self->mapped);
+
     if ($self->fixrc){
         return $self->seqlen - ($self->original_leftmost + $self->span - 1) + 1;
     }
@@ -190,6 +191,8 @@ sub _build_leftmost{
 
 sub _build_rightmost{
     my $self = shift;
+    return if (! $self->mapped);
+
     if ($self->fixrc){
         return $self->seqlen - ($self->original_leftmost) + 1;
     }
@@ -217,8 +220,6 @@ sub _build_cigarlength{
     #if length($seq) != $cigar_length;
 }
 
-
-
 #######################################################################
 # cigar string.  idiotic format.  returns:
 # [ [ [MIDNSHP=X], COUNT ], ... ]
@@ -239,9 +240,8 @@ has cigar => ( is => 'ro', lazy_build => 1 );
 
 sub _build_cigar{
     my $self = shift;
+    return if ! $self->mapped;
     my $cigar = $self->original_cigar_string;
-
-    return if $cigar eq '*';
 
     my @accum;
 
@@ -261,6 +261,10 @@ has cigar_string => (is => 'ro', lazy_build => 1);
 
 sub _build_cigar_string{
     my $self = shift;
+    # return '*' if ! $self->mapped;
+    if (! defined $self->cigar){
+        return '*';
+    }
     if ($self->fixrc){
         # pretty sure this is wrong but g'nuff initially.
         return $self->original_cigar_string;
@@ -431,11 +435,11 @@ use overload '""' => \&stringify;
 sub stringify{
     my $self = shift;
 
-    say join("\t", 
+    return join("\t", 
         $self->readid,
         $self->flag,
-        $self->seqid, 
-        $self->leftmost,
+        $self->seqid // '*', 
+        $self->leftmost // '0',
         $self->mapq, 
         $self->cigar_string,
         $self->rnext, 

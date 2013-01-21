@@ -40,7 +40,7 @@ sub check_basics{
     else{
         ok(! $sam->mapped, "$p: shouldn't have mapped");
         is($sam->original_cigar_string, '*', "$p: doesn't have a cigar string");
-        is($sam->seqid, '*', "$p: doesn't have a seqid");
+        ok(! defined $sam->seqid, "$p: doesn't have a seqid");
     }
     is(length($sam->readseq), length($sam->readqual), "$name (basic): readseq and readqual same length");
 
