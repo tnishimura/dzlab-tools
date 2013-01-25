@@ -6,12 +6,15 @@ use 5.010_000;
 use Data::Dumper;
 use Carp;
 use autodie;
-use SamParser;
+use Sam::Parser;
+use Conjure;
+use Params::Validate qw/:all/;
 
+$|++;
 require Exporter;
 our @ISA = qw(Exporter);
 our @EXPORT_OK = qw();
-our @EXPORT = qw();
+our @EXPORT = qw(bowtie2_raw);
 
 sub where_is{
     my ($ref, $seq, @opt) = @_;
@@ -28,6 +31,50 @@ sub where_is{
     close $pipe;
 
     return \@results;
+}
+
+sub bowtie2_raw{
+    my %args = @_;
+    my %opt = validate_with(
+        params => \@_, 
+        spec => {
+            '-x' => 1,
+            '-U' => 1, # single-ended only for now.
+            '-S' => 1,
+
+            # for Sam::Parser
+            convert_rc      => { default => 0, },
+            skip_unmapped   => { default => 1 },
+        },
+        allow_extra => 1,
+    );
+
+    my $ultimate_output = delete $opt{'-S'};
+    my $convert_rc      = delete $opt{convert_rc};
+    my $skip_unmapped   = delete $opt{skip_unmapped};
+    my @bowtie_args = %opt;
+
+    my $parser = Sam::Parser->new(
+        convert_rc => $convert_rc,
+        skip_unmapped => $skip_unmapped,
+    );
+
+    open my $out, '>', $ultimate_output;
+
+    my $counter = 0;
+    conjure(
+        program => ['bowtie2', @bowtie_args],
+        on_stdout => sub{
+            chomp;
+            # say $_;
+            my $rv = $parser->push($_);
+            say $counter if ++$counter % 1000 == 0;
+            if (defined $rv){
+                $out->say($rv);
+            }
+        },
+    );
+    close $out;
 }
 
 1;
