@@ -324,11 +324,11 @@ if (! $opt_no_fracmeth){
 
 =head1 NAME
 
-bastard_imprinting.pl - BaStard = BiSulfite parent imprinting.
+bs-mixed-c2t-g2a.pl - like bs-sequel, but align for both c2t and g2a and reconcile. 
 
 =head1 SYNOPSIS
 
- bastard_imprinting.pl -r raw.fastq -ea Col -b Ler -ra genome-a.fasta -rb genome-b.fasta -mh 10 -m 2 -s 1 50 -o outdir -b basename
+ bs-mixed-c2t-g2a.pl -b basename -rl 100 -r input.fastq -f $ZM -ls 1 50 -m 2 -o outdir -mh 10
 
 =head1 OPTIONS
 
