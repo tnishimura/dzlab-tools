@@ -42,10 +42,15 @@ has file => (
 sub BUILD{
     # warn "parser role constructor called";
     my ($self) = @_;
-    my ($file, $fh) = open_filename_or_handle($self->filename_or_handle);
 
-    $self->file($file);
-    $self->filehandle($fh);
+    # we check for definedness of required attribute b/c Sam::Parser
+    # makes filename_or_handle unrequired, to accomodate it's push-parser option 
+    if (defined $self->filename_or_handle){
+        my ($file, $fh) = open_filename_or_handle($self->filename_or_handle);
+
+        $self->file($file);
+        $self->filehandle($fh);
+    }
 }
 
 sub DEMOLISH{

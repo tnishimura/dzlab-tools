@@ -56,4 +56,31 @@ my $original_rc_count = 0;
     # >= here instead of == b/c one of the reads aligned elsewhere
 }
 
+# RC_ with 
+{
+    my $parser = Sam::Parser->new(
+        skip_unmapped => 0,
+        convert_rc => 1
+    );
+    open my $input_fh, '<:crlf', "t/data/sam-test.sam"; 
+
+    my $rc_count = 0;
+    my $reverse_strand_count = 0;
+    my $reverse_indicator = 0;
+    while (defined(my $line = <$input_fh>)){
+        chomp $line;
+        my $sam = $parser->push($line);
+        next unless defined $sam;
+
+        $rc_count++             if $sam->mapped && $sam->seqid =~ /^RC_/;
+        $reverse_strand_count++ if $sam->is_reverse;
+        $reverse_indicator++    if $sam->mapped && $sam->readid =~ /:\-:/;
+    }
+    is($rc_count, 0, "no RC_ found");
+    is($original_rc_count, $reverse_strand_count, "RC_'s were properly turned to - strand");
+    ok($reverse_indicator >= $reverse_strand_count, "RC_ count is appropriate as indicated by readid");
+    # >= here instead of == b/c one of the reads aligned elsewhere
+    close $input_fh;
+}
+
 done_testing();

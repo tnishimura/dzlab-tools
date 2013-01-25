@@ -12,6 +12,8 @@ use Sam::Alignment;
 
 extends 'Parser';
 
+has '+filename_or_handle' => ( required => 0,);
+
 # from headers
 has program_name    => (is => 'rw', init_arg => undef);
 has program_version => (is => 'rw', init_arg => undef);
@@ -41,6 +43,8 @@ has skip_unmapped   => (is => 'ro', default => 1);
 
 sub BUILD{
     my $self = shift;
+    return if (! defined $self->filename_or_handle);
+
     # read headers, putback first alignment line into $self->{putback}
     HEADER:
     while (defined(my $line = readline $self->filehandle)){
@@ -140,6 +144,20 @@ sub next{
         }
     }
 
+    return;
+}
+
+sub push{
+    my ($self, $line) = @_;
+    if ($line =~ /^@/){
+        $self->parse_header($line);
+    }
+    else{
+        my $sam = Sam::Alignment->new($line, $self->length(), $self->convert_rc);
+        if ($sam->mapped() || ! $self->skip_unmapped()){
+            return $sam;
+        }
+    }
     return;
 }
 

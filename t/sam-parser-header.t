@@ -9,8 +9,29 @@ use Test::Exception;
 use YAML qw/Load Dump LoadFile DumpFile/;
 use Sam::Parser;
 
+my $data_start = tell DATA;
 {
     my $parser = Sam::Parser->new(file => \*DATA);
+    is($parser->sam_version(), "1.0", "sam_version");
+    is($parser->sort_order(),  "unsorted", "unsorted");
+    is($parser->program_name(),  "Bowtie", "program_name");
+    is($parser->program_version(),  "0.12.7", "program_version");
+    is($parser->length->{CHR1}, 30432563, 'chr1');
+    is($parser->length->{CHR2}, 19705359, 'chr2');
+    is($parser->length->{CHR3}, 23470805, 'chr3');
+    is($parser->length->{CHR4}, 18585042, 'chr4');
+    is($parser->length->{CHR5}, 26992728, 'chr5');
+    is($parser->length->{CHRC}, 154478, 'chrc');
+    is($parser->length->{CHRM}, 366924, 'chrm');
+}
+
+{
+    seek DATA, $data_start, 0;
+    my $parser = Sam::Parser->new();
+    while (defined(my $line = <DATA>)){
+        chomp $line;
+        $parser->push($line);
+    }
     is($parser->sam_version(), "1.0", "sam_version");
     is($parser->sort_order(),  "unsorted", "unsorted");
     is($parser->program_name(),  "Bowtie", "program_name");
