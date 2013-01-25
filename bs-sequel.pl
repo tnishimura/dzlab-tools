@@ -213,8 +213,8 @@ my $eland_right_post = $do_right && ! $opt_single_ends ?
 my $int_left  = $opt_bowtie_file ? ("--intermediate $eland_left_post") : '';
 my $int_right = $opt_bowtie_file ? ("--intermediate $eland_right_post") : '';
 
-$int_left  =~ s/eland3\.post$/bowtie/r;
-$int_right =~ s/eland3\.post$/bowtie/r;
+$int_left  =~ s/eland3\.post$/bowtie/;
+$int_right =~ s/eland3\.post$/bowtie/;
 
 #######################################################################
 # convert genomes & build bowtie indices
