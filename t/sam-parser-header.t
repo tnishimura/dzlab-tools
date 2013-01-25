@@ -30,7 +30,8 @@ my $data_start = tell DATA;
     my $parser = Sam::Parser->new();
     while (defined(my $line = <DATA>)){
         chomp $line;
-        $parser->push($line);
+        my $rv = $parser->push($line);
+        isnt(ref($rv), 'Sam::Alignment', "shouldn't be any Sam::Alignment's");
     }
     is($parser->sam_version(), "1.0", "sam_version");
     is($parser->sort_order(),  "unsorted", "unsorted");

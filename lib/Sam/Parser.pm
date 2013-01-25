@@ -147,10 +147,14 @@ sub next{
     return;
 }
 
+# for use when filename_or_handle is omitted and you want to use as push parser
+# returns: header line as string OR Sam::Alignment object OR undef (when unmapped
+# or skipping unmapped)
 sub push{
     my ($self, $line) = @_;
     if ($line =~ /^@/){
         $self->parse_header($line);
+        return $line;
     }
     else{
         my $sam = Sam::Alignment->new($line, $self->length(), $self->convert_rc);
