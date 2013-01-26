@@ -211,16 +211,9 @@ $pm->wait_all_children;
 LOG("split_on_mismatch.pl");
 my $left_eland_filtered_c2t = "$left_basename_c2t.2.elfiltered";
 my $left_eland_filtered_g2a = "$left_basename_g2a.2.elfiltered";
-# my $right_eland_filtered_c2t = "$right_basename_c2t.2.elfiltered";
-# my $right_eland_filtered_g2a = "$right_basename_g2a.2.elfiltered";
 
 launch("perl -S split_on_mismatches_2.pl -a $left_eland_c2t -b $left_eland_g2a -oa $left_eland_filtered_c2t -ob $left_eland_filtered_g2a",
     expected => [ $left_eland_filtered_c2t, $left_eland_filtered_g2a]);
-
-# if (! $single_sided){
-#     launch("perl -S split_on_mismatches_2.pl -a $right_eland_a -b $right_eland_b -oa $right_eland_filtered_c2t -ob $right_eland_filtered_g2a",
-#         expected => [ $right_eland_filtered_c2t, $right_eland_filtered_g2a]);
-# }
 
 #######################################################################
 # Unionize left and right
@@ -232,11 +225,6 @@ if ($single_sided){
     $eland_union_c2t = $left_eland_filtered_c2t;
     $eland_union_g2a = $left_eland_filtered_g2a;
 }
-# else {
-#     launch("perl -S eland_unionize.pl -l $left_eland_filtered_c2t -r $right_eland_filtered_c2t -o $eland_union_c2t", expected => $eland_union_c2t);
-#     launch("perl -S eland_unionize.pl -l $left_eland_filtered_g2a -r $right_eland_filtered_g2a -o $eland_union_g2a", expected => $eland_union_g2a);
-# }
-
 
 #######################################################################
 # Count and calc ratios and stuff
@@ -244,17 +232,6 @@ if ($single_sided){
 my $left_ratio  = "$basename.ratio.left.txt";
 my $right_ratio = "$basename.ratio.right.txt";
 my $ratio       = "$basename.ratio.txt";
-
-# if double sided, calculate the ratios for the left/right individually as well.
-# if (!$single_sided){
-#     launch("perl -S split_ratio.pl -r $opt_reference_a -o $left_ratio -ea c2t -eb g2a " 
-#         . " -a $left_eland_filtered_c2t -b $left_eland_filtered_g2a -m $opt_bowtie_mismatches",
-#         expected => "$left_ratio");
-# 
-#     launch("perl -S split_ratio.pl -r $opt_reference_a -o $right_ratio -ea c2t -eb g2a " 
-#         . " -a $right_eland_filtered_c2t -b $right_eland_filtered_g2a -m $opt_bowtie_mismatches",
-#         expected => "$right_ratio");
-# }
 
 launch("perl -S split_ratio.pl -r $opt_reference -o $ratio -ea c2t -eb g2a -a $eland_union_c2t -b $eland_union_g2a -m $opt_bowtie_mismatches",
     expected => "$ratio");
@@ -324,11 +301,11 @@ if (! $opt_no_fracmeth){
 
 =head1 NAME
 
-bastard_imprinting.pl - BaStard = BiSulfite parent imprinting.
+bs-mixed-c2t-g2a.pl - like bs-sequel.pl, but for when methylation could be c2t or g2a
 
 =head1 SYNOPSIS
 
- bastard_imprinting.pl -r raw.fastq -ea Col -b Ler -ra genome-a.fasta -rb genome-b.fasta -mh 10 -m 2 -s 1 50 -o outdir -b basename
+ bs-mixed-c2t-g2a.pl -b basename -rl 100 -r reads.fastq -f reference.fasta -ls 1 50 -m 2 -o outdir -mh 10 --parallel 3
 
 =head1 OPTIONS
 
