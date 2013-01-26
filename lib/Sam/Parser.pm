@@ -74,6 +74,47 @@ sub BUILD{
     return $self;
 }
 
+# return the next valid Sam::Alignment object, or undef
+sub next{
+    my $self = shift;
+
+    # process putback
+    if (defined (my $pb = $self->putback())){
+        $self->putback(undef);
+
+        my $sam = Sam::Alignment->new($pb, $self->length(), $self->convert_rc);
+        if ($sam->mapped() || ! $self->skip_unmapped()){
+            return $sam;
+        }
+    }
+
+    while (defined(my $line = readline $self->filehandle)){
+        my $sam = Sam::Alignment->new($line, $self->length(), $self->convert_rc);
+        if ($sam->mapped() || ! $self->skip_unmapped()){
+            return $sam;
+        }
+    }
+
+    return;
+}
+
+# for use when filename_or_handle is omitted and you want to use as push parser
+# returns: Sam::Alignment object OR header line OR undef (when given header,
+# unmapped line when skipping unmapped)
+sub push{
+    my ($self, $line) = @_;
+    if ($line =~ /^@/){
+        $self->parse_header($line);
+        return $line;
+    }
+    else{
+        my $sam = Sam::Alignment->new($line, $self->length(), $self->convert_rc);
+        if ($sam->mapped() || ! $self->skip_unmapped()){
+            return $sam;
+        }
+    }
+    return;
+}
 
 # given a header line, fills in Sam::Parser's parameters according and 
 # appends line to header_lines
@@ -143,48 +184,6 @@ sub parse_header{
     else{
         die "can't parse header line";
     }
-}
-
-# return the next valid Sam::Alignment object, or undef
-sub next{
-    my $self = shift;
-
-    # process putback
-    if (defined (my $pb = $self->putback())){
-        $self->putback(undef);
-
-        my $sam = Sam::Alignment->new($pb, $self->length(), $self->convert_rc);
-        if ($sam->mapped() || ! $self->skip_unmapped()){
-            return $sam;
-        }
-    }
-
-    while (defined(my $line = readline $self->filehandle)){
-        my $sam = Sam::Alignment->new($line, $self->length(), $self->convert_rc);
-        if ($sam->mapped() || ! $self->skip_unmapped()){
-            return $sam;
-        }
-    }
-
-    return;
-}
-
-# for use when filename_or_handle is omitted and you want to use as push parser
-# returns: Sam::Alignment object OR header line OR undef (when given header,
-# unmapped line when skipping unmapped)
-sub push{
-    my ($self, $line) = @_;
-    if ($line =~ /^@/){
-        $self->parse_header($line);
-        return $line;
-    }
-    else{
-        my $sam = Sam::Alignment->new($line, $self->length(), $self->convert_rc);
-        if ($sam->mapped() || ! $self->skip_unmapped()){
-            return $sam;
-        }
-    }
-    return;
 }
 
 1;
