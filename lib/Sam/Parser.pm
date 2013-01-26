@@ -132,7 +132,7 @@ sub parse_header{
     my $self = shift;
     my $line = shift;
 
-    push @{$self->header_lines}, $line;
+    CORE::push @{$self->header_lines}, $line;
 
     my ($type_string, @parts) = split /\s+/, $line;
 

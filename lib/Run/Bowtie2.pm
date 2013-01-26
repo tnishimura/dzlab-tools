@@ -9,6 +9,7 @@ use autodie;
 use Sam::Parser;
 use Conjure;
 use Params::Validate qw/:all/;
+use Scalar::Util qw/looks_like_number/;
 
 $|++;
 require Exporter;
@@ -33,52 +34,61 @@ sub where_is{
     return \@results;
 }
 
-sub bowtie2_raw{
-    my %args = @_;
-    my %opt = validate_with(
-        params => \@_, 
-        spec => {
-            '-x' => 1,
-            '-U' => 1, # single-ended only for now.
-            '-S' => 1,
+# returns ($ultimate_output, @bowtie_args) 
+sub _construct_args{
+    my @bowtie_args;
+    my $ultimate_output;
+    while (@_){
+        my $arg = shift;
+        if ($arg eq '-S'){
+            $ultimate_output = shift;
+        }
+        else {
+            push @bowtie_args, $arg;
+        }
+    }
+    return ($ultimate_output, @bowtie_args);
+}
 
-            # for Sam::Parser
+sub bowtie2_raw{
+    my $original_bowtie_args = shift;
+    my $original_sam_parser_args = shift // [];
+    my %sam_parser_args = validate(@$original_sam_parser_args, {
             convert_rc      => { default => 0, },
             skip_unmapped   => { default => 1 },
-        },
-        allow_extra => 1,
-    );
+        });
 
-    my $ultimate_output = delete $opt{'-S'};
-    my $convert_rc      = delete $opt{convert_rc};
-    my $skip_unmapped   = delete $opt{skip_unmapped};
-    my @bowtie_args = %opt;
+    my ($ultimate_output, @bowtie_args) = _construct_args(@$original_bowtie_args);
 
     my $parser = Sam::Parser->new(
-        convert_rc => $convert_rc,
-        skip_unmapped => $skip_unmapped,
+        convert_rc    => $sam_parser_args{convert_rc},
+        skip_unmapped => $sam_parser_args{skip_unmapped},
     );
 
     open my $out, '>', $ultimate_output;
+
+    say STDERR "ultimate_output $ultimate_output";
+    say STDERR join " ", 'bowtie2', @bowtie_args;
 
     my $counter = 0;
     conjure(
         program => ['bowtie2', @bowtie_args],
         on_stdout => sub{
             chomp;
-            # say $_;
             my $rv = $parser->push($_);
-            say $counter if ++$counter % 1000 == 0;
+            say STDERR $counter if ++$counter % 25_000 == 0;
             if (defined $rv){
                 $out->say($rv);
             }
         },
+        on_stderr => sub{
+            say STDERR $_;
+        }
     );
     close $out;
 }
 
 1;
-
 
 __END__
 Bowtie 2 version 2.0.0-beta7 by Ben Langmead (blangmea@jhsph.edu)
