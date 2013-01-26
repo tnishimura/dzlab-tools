@@ -14,7 +14,7 @@ sub rc{
     return scalar(reverse $seq);
 }
 
-for my $slurp (0, 1) {
+for my $slurp (0, 1, 'chr1',) {
 #for my $slurp (0) {
     my $f = FastaReader->new(file => 't/data/test.fasta', ht => sub { s/>(\w+)/$1/; return $_ }, slurp => $slurp );
     my %lengths = $f->sequence_lengths();

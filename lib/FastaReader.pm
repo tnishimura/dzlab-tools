@@ -139,7 +139,7 @@ sub sequence_count{
 # if true, entire fasta file read into memory and added to sequence() hash
 
 has slurp => (
-    is => 'ro',
+    is => 'rw',
     default => 0,
 );
 
@@ -184,6 +184,8 @@ sub BUILD{
     my $current;
     my %lengths; # use tmp hash b/c calling set_length every time is slow
     my %sequences;
+    
+    $self->slurp(uc $self->slurp);
 
     while (defined(my $line = <$fh>)){
         $line =~ tr/\r\n//d;
@@ -201,14 +203,14 @@ sub BUILD{
         }
         else{
             $lengths{$current}+=length $line;
-            if ($self->slurp){
+            if ($self->slurp eq 1 || $self->slurp eq uc $current){
                 push @{$sequences{$current}}, $line;
             }
         }
     }
     while (my ($seq,$len) = each %lengths) {
         $self->_set_length($seq => $len);
-        if ($self->slurp){
+        if ($self->slurp eq 1 || $self->slurp eq uc $seq){
             $self->_set_sequence($seq => join '', @{$sequences{$seq}});
         }
     }
@@ -414,7 +416,9 @@ sub get{
     my $lastindex = $totlen - 1;
 
     if (! defined $start && ! defined $end ){
-        my $whole = $self->slurp() ? $self->_get_sequence($seqid) : $self->get($seqid, 1, $totlen);
+        my $whole = $self->slurp eq 1 || $self->slurp eq uc $seqid
+                    ? $self->_get_sequence($seqid) 
+                    : $self->get($seqid, 1, $totlen);
 
         $whole = reverse_complement($whole) if $rc;
         $whole = c2t($whole) if defined $bs && $bs eq 'c2t';
@@ -470,7 +474,7 @@ sub get{
         ($left,$right) = ($start,$end);
     }
 
-    if ($self->slurp){
+    if ($self->slurp eq 1 || $self->slurp eq uc $seqid){
         my $retrieved = $self->_get_sub_sequence($seqid, $left, $right);
         #my $retrieved = substr $self->_get_sequence($seqid), $left, $right-$left +1;
         #warn $retrieved;
