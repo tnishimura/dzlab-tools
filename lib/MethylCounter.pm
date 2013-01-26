@@ -48,6 +48,7 @@ my %constructor_validator = (
         },
         default => 'c2t',
     },
+    sequence => 0, 
     verbose           => 0,
     debug             => 0,
 );
@@ -79,13 +80,14 @@ sub batch{
             next SEQUENCE;
         }
 
-        if (! exists $opt{parallel} or $opt{parallel}->start == 0){
+        if (! exists($opt{parallel}) or $opt{parallel}->start == 0){
             my $mc = MethylCounter->new(
                 dinucleotide => $opt{dinucleotide},
                 genome       => $opt{genome},
                 verbose      => $opt{verbose},
                 bstype       => $opt{bstype},
                 correlation  => $file,
+                sequence     => $sequence,
             );
 
             $mc->process();
@@ -127,9 +129,10 @@ sub new {
         $self->{g2a} = 1;
     }
 
+    carp ("reading in $opt{genome}" . ($opt{sequence} ? "(only $opt{sequence})" : ""));
     $self->{genome} = FastaReader->new(
         file => $opt{genome}, 
-        slurp => 1,
+        slurp => $opt{sequence} // 1,
     );
 
     # get_length() memoized. 
