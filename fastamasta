@@ -162,12 +162,13 @@ for ($cmd){
     when ([qw/get/]){
         my @range;
         my $result = GetOptions (
-            "sequence|seq=s" => \(my $sequence),
+            "sequence|seq|s=s" => \(my $sequence),
             "range|r=i{2}"   => \@range,
             "coordinate|c=s" => \(my $coordinate = 'f'),
             "base|b=i"       => \(my $base = 1),
             "c2t"            => \(my $c2t),
             "g2a"            => \(my $g2a),
+            "label|l=s"      => \(my $label),
             "reverse-complement|rc" => \(my $reverse_complement),
         );
         usage() if (
@@ -185,7 +186,7 @@ for ($cmd){
 
         if (0 == @range){
             print $r->get_pretty(
-                $sequence, # label
+                $label // $sequence, # label
                 $sequence, 
                 undef, 
                 undef, 
