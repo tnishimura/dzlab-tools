@@ -37,6 +37,19 @@ sub add_length{
     $self->length->{uc $seqname} = $length;
 }
 
+has header_lines => (
+    is      => 'ro',
+    default => sub { [] },
+);
+
+sub header{
+    my $self = shift;
+
+    my @header_lines = @{$self->header_lines};
+    chomp @header_lines;
+    return join "\n", @header_lines;
+}
+
 # options
 has convert_rc      => (is => 'ro', default => 0);
 has skip_unmapped   => (is => 'ro', default => 1);
@@ -62,6 +75,9 @@ sub BUILD{
 }
 
 
+# given a header line, fills in Sam::Parser's parameters according and 
+# appends line to header_lines
+# sample:
 # @HD	VN:1.0	SO:unsorted
 # @SQ	SN:chr1	LN:30432563
 # @SQ	SN:chr2	LN:19705359
@@ -74,6 +90,8 @@ sub BUILD{
 sub parse_header{
     my $self = shift;
     my $line = shift;
+
+    push @{$self->header_lines}, $line;
 
     my ($type_string, @parts) = split /\s+/, $line;
 
@@ -100,7 +118,10 @@ sub parse_header{
     }
     elsif ($type eq 'SQ' and all { defined $header{ $_ } } qw/SN LN/){
         if ($self->convert_rc()){ 
-            $header{SN} =~ s/^RC_//;
+            if ($header{SN} =~ s/^RC_//){
+                # don't want to have RC_chr* in header if we're converting
+                pop @{$self->header_lines};
+            }
         }
         $self->add_length($header{SN}, $header{LN});
     }
@@ -124,6 +145,7 @@ sub parse_header{
     }
 }
 
+# return the next valid Sam::Alignment object, or undef
 sub next{
     my $self = shift;
 
@@ -148,8 +170,8 @@ sub next{
 }
 
 # for use when filename_or_handle is omitted and you want to use as push parser
-# returns: header line as string OR Sam::Alignment object OR undef (when unmapped
-# or skipping unmapped)
+# returns: Sam::Alignment object OR header line OR undef (when given header,
+# unmapped line when skipping unmapped)
 sub push{
     my ($self, $line) = @_;
     if ($line =~ /^@/){
