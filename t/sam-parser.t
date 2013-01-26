@@ -70,7 +70,7 @@ my $original_rc_count = 0;
     while (defined(my $line = <$input_fh>)){
         chomp $line;
         my $sam = $parser->push($line);
-        next unless defined $sam;
+        next unless ref $sam eq 'Sam::Alignment';
 
         $rc_count++             if $sam->mapped && $sam->seqid =~ /^RC_/;
         $reverse_strand_count++ if $sam->is_reverse;

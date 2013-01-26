@@ -6,12 +6,16 @@ use 5.010_000;
 use Data::Dumper;
 use Carp;
 use autodie;
-use SamParser;
+use Sam::Parser;
+use Conjure;
+use Params::Validate qw/:all/;
+use Scalar::Util qw/looks_like_number/;
 
+$|++;
 require Exporter;
 our @ISA = qw(Exporter);
 our @EXPORT_OK = qw();
-our @EXPORT = qw();
+our @EXPORT = qw(bowtie2_raw);
 
 sub where_is{
     my ($ref, $seq, @opt) = @_;
@@ -30,8 +34,61 @@ sub where_is{
     return \@results;
 }
 
-1;
+# returns ($ultimate_output, @bowtie_args) 
+sub _construct_args{
+    my @bowtie_args;
+    my $ultimate_output;
+    while (@_){
+        my $arg = shift;
+        if ($arg eq '-S'){
+            $ultimate_output = shift;
+        }
+        else {
+            push @bowtie_args, $arg;
+        }
+    }
+    return ($ultimate_output, @bowtie_args);
+}
 
+sub bowtie2_raw{
+    my $original_bowtie_args = shift;
+    my $original_sam_parser_args = shift // [];
+    my %sam_parser_args = validate(@$original_sam_parser_args, {
+            convert_rc      => { default => 0, },
+            skip_unmapped   => { default => 1 },
+        });
+
+    my ($ultimate_output, @bowtie_args) = _construct_args(@$original_bowtie_args);
+
+    my $parser = Sam::Parser->new(
+        convert_rc    => $sam_parser_args{convert_rc},
+        skip_unmapped => $sam_parser_args{skip_unmapped},
+    );
+
+    open my $out, '>', $ultimate_output;
+
+    say STDERR "ultimate_output $ultimate_output";
+    say STDERR join " ", 'bowtie2', @bowtie_args;
+
+    my $counter = 0;
+    conjure(
+        program => ['bowtie2', @bowtie_args],
+        on_stdout => sub{
+            chomp;
+            my $rv = $parser->push($_);
+            say STDERR $counter if ++$counter % 25_000 == 0;
+            if (defined $rv){
+                $out->say($rv);
+            }
+        },
+        on_stderr => sub{
+            say STDERR $_;
+        }
+    );
+    close $out;
+}
+
+1;
 
 __END__
 Bowtie 2 version 2.0.0-beta7 by Ben Langmead (blangmea@jhsph.edu)
