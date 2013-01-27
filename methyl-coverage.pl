@@ -27,14 +27,16 @@ my $output = $prefix . ".txt";
 my $svg    = $prefix . ".svg";
 my $gp     = $prefix . ".gp";
 
-open my $output_fh, '>', $output;
-open my $gp_fh, '>', $gp;
-
 say STDERR "reading in $reference";
 my $fr = FastaReader->new(file => $reference);
 my $methsites = $fr->num_methylation_sites();
 say STDERR "$reference has $methsites methsites";
 
+# methyl-coverage.pl -r reference.fas -- --LANE1 LANE1/single-c/*.gff --LANE2 LANE2/single-c/*.gff
+# => {
+#   LANE1 => LANE1/single-c/*.gff,
+#   LANE2 => LANE2/single-c/*.gff,
+# }
 use Tie::IxHash;
 tie my %files, 'Tie::IxHash'; 
 {
@@ -51,6 +53,11 @@ tie my %files, 'Tie::IxHash';
         }
     }
 }
+say STDERR Dumper \%files;
+
+#######################################################################
+
+open my $output_fh, '>', $output;
 
 for my $title (keys %files) {
     # body...
@@ -58,7 +65,7 @@ for my $title (keys %files) {
     my %coverage_count;
 
     for my $gff_file (@{$files{$title}}){
-        next if ($gff_file =~ /chrm|chrc/i);
+        next if ($gff_file =~ /chrm|chrc|chrpt|chrunknown/i);
 
         say STDERR "processing $gff_file";
 
@@ -102,6 +109,12 @@ for my $title (keys %files) {
 }
 close $output_fh;
 
+#######################################################################
+# gnuplot
+
+# read .txt file to create gnuplot file and svg file
+
+open my $gp_fh, '>', $gp;
 {
     my $i = 0;
     my @titles = keys %files;
@@ -122,9 +135,10 @@ close $gp_fh;
 
 =head1 NAME
 
-coverage.pl -r reference -- --Meow Meow/single-c/*.gff --Bark Bark/single-c/*.gff
-
+ methyl-coverage.pl -r reference.fas -p prefix -- --LANE1 LANE1/single-c/*.gff --LANE2 LANE2/single-c/*.gff
+ 
 =cut
+
 __END__
 set terminal svg size 1500, 750
 set output "test.svg"
