@@ -20,7 +20,7 @@ our @EXPORT_OK = qw(gff_info methyl_stats gff_detect_width);
 our @EXPORT = qw();
 
 our @wanted_percentiles = qw/.05 .25 .50 .75 .95/;
-our $DEBUG = 1;
+our $DEBUG = $ENV{DZDEBUG};
 
 #######################################################################
 #                       gff_info
@@ -288,7 +288,8 @@ sub methyl_stats{
     my %files = @_;
     # say Dumper \%files;
     my %stats;
-    while (my ($context,$file) = each %files) {
+    for my $context (sort keys %files) {
+        my $file = $files{$context};
         $stats{$context} = collect_stats($file);
     }
     $stats{combined} = combine_stats(values %stats);
@@ -374,52 +375,66 @@ sub combine_stats{
 
 sub collect_stats{
     my $singlec = shift;
-    #my @wanted_percentiles = @_;
-    #if (@wanted_percentiles == 0){
-    #@wanted_percentiles = qw/.05 .25 .50 .75 .95/;
-    #}
+    say STDERR "collect_stats($singlec)" if $DEBUG;
     my %stats;
 
-    my %methyl_averager = (
-        nuclear => make_averager(),
-        mit => make_averager(),
-        chr => make_averager(),
-    );
+    # my %methyl_averager = (
+    #     nuclear => make_averager(),
+    #     mit => make_averager(),
+    #     chr => make_averager(),
+    # );
+    # $stats{nuclear}{methyl_avg} = undef;
+    # $stats{chr}{methyl_avg}     = undef;
+    # $stats{mit}{methyl_avg}     = undef;
+    # $stats{nuclear}{ct_hist}    = {};
+    # $stats{chr}{ct_hist}        = {};
+    # $stats{mit}{ct_hist}        = {};
+    # $stats{nuclear}{c_count}    = 0;
+    # $stats{chr}{c_count}        = 0;
+    # $stats{mit}{c_count}        = 0;
+    # $stats{nuclear}{t_count}    = 0;
+    # $stats{chr}{t_count}        = 0;
+    # $stats{mit}{t_count}        = 0;
+    # $stats{nuclear}{line_count} = 0; # redundant but more clear.
+    # $stats{chr}{line_count}     = 0;
+    # $stats{mit}{line_count}     = 0;
 
-    $stats{nuclear}{methyl_avg} = undef;
-    $stats{chr}{methyl_avg}     = undef;
-    $stats{mit}{methyl_avg}     = undef;
-    $stats{nuclear}{ct_hist}    = {};
-    $stats{chr}{ct_hist}        = {};
-    $stats{mit}{ct_hist}        = {};
-    $stats{nuclear}{c_count}    = 0;
-    $stats{chr}{c_count}        = 0;
-    $stats{mit}{c_count}        = 0;
-    $stats{nuclear}{t_count}    = 0;
-    $stats{chr}{t_count}        = 0;
-    $stats{mit}{t_count}        = 0;
-    $stats{nuclear}{line_count} = 0; # redundant but more clear.
-    $stats{chr}{line_count}     = 0;
-    $stats{mit}{line_count}     = 0;
+    my %methyl_averager;
+    my @all_types = qw/nuclear chr mit unknown/; 
+    for my $type (@all_types) {
+        $methyl_averager{$type} = make_averager();
+        $stats{$type}{methyl_avg} = undef;
+        $stats{$type}{ct_hist}    = {};
+        $stats{$type}{c_count}    = 0;
+        $stats{$type}{t_count}    = 0;
+        $stats{$type}{line_count} = 0; # redundant but more clear.
+    }
 
     my $parser = GFF::Parser::Splicer->new(file => $singlec, columns => [qw/seq c t/]);
 
     my $counter = 0;
     PARSE:
     while (defined(my $gff = $parser->next())){
-        say STDERR $counter if $counter++ % 50000 == 0 and $DEBUG == 1;
+        say STDERR $counter if ++$counter % 50000 == 0 and $DEBUG;
         my ($seq, $c, $t) = @$gff;
         next PARSE if ! (defined $c && defined $t);
 
         my $ct = $c+$t;
         my $methyl = ($ct == 0) ? 0 : $c / ($ct);
 
-        my $type = $seq =~ /chrc/i ? 'chr' :
-                   $seq =~ /chrm/i ? 'mit' : 
-                   $seq =~ /chr\d+/i ? 'nuclear' : undef;
+        my $type = $seq =~ /chrc|chrpt/i ? 'chr' :
+                   $seq =~ /chrm/i       ? 'mit' : 
+                   $seq =~ /chr\d+/i     ? 'nuclear' : 
+                   $seq =~ /unknown/i    ? 'unknown' : 
+                   undef;
+
+                   # die if ! defined $type;
 
         next PARSE if ! $type;
 
+        if (! exists $methyl_averager{$type}){
+            say $type;
+        }
         $methyl_averager{$type}->($methyl);
         $stats{$type}{ct_hist}{$ct}++;
         $stats{$type}{c_count} += $c;
@@ -427,14 +442,18 @@ sub collect_stats{
         $stats{$type}{line_count}++;
     }
 
-    $stats{nuclear}{methyl_avg} = $methyl_averager{nuclear}->() // 0;
-    $stats{chr}{methyl_avg}     = $methyl_averager{chr}->() // 0;
-    $stats{mit}{methyl_avg}     = $methyl_averager{mit}->() // 0;
+    for my $type (@all_types) {
+        $stats{$type}{methyl_avg} = $methyl_averager{$type}->() // 0;
+    }
+    # $stats{nuclear}{methyl_avg} = $methyl_averager{nuclear}->() // 0;
+    # $stats{chr}{methyl_avg}     = $methyl_averager{chr}->() // 0;
+    # $stats{mit}{methyl_avg}     = $methyl_averager{mit}->() // 0;
 
-    # total
+    #######################################################################
+    # total - never includes unknown
     $stats{total}{line_count} = $stats{nuclear}{line_count} + $stats{mit}{line_count} + $stats{chr}{line_count};
-    # say Dumper \%stats;
-    $stats{total}{methyl_avg} = (
+
+    $stats{total}{methyl_avg} = $stats{total}{line_count} == 0 ? 0 : (
         $stats{nuclear}{methyl_avg} * $stats{nuclear}{line_count} + 
         $stats{mit}{methyl_avg} * $stats{mit}{line_count} + 
         $stats{chr}{methyl_avg} * $stats{chr}{line_count}
@@ -448,6 +467,7 @@ sub collect_stats{
     $stats{total}{c_count} = $stats{nuclear}{c_count} + $stats{mit}{c_count} + $stats{chr}{c_count};
     $stats{total}{t_count} = $stats{nuclear}{t_count} + $stats{mit}{t_count} + $stats{chr}{t_count};
 
+    # for my $type (exists $stats{unknown} ? qw/chr mit nuclear unknown total/ : qw/chr mit nuclear total/){
     for my $type (qw/chr mit nuclear total/){
         $stats{$type}{ct_percentiles} = histpercentiles($stats{$type}{ct_hist}, @wanted_percentiles);
         $stats{$type}{ct_mean}        = histmean($stats{$type}{ct_hist});
@@ -456,7 +476,6 @@ sub collect_stats{
           ($stats{$type}{coverage} > 0) ?  ($stats{$type}{c_count} / $stats{$type}{coverage}) : 'na';
     }
 
-    # say Dumper \%stats;
     return \%stats;
 }
 
