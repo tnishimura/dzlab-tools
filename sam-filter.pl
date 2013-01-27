@@ -48,7 +48,7 @@ if ($output){
 
 =head1 NAME
 
-sam-only-mapped.pl in.sam > out.sam
+sam-filter.pl [-m|--mapped] [-q|--min-quality] [-s|--sequence-id] [--fix-rc|-rc] in.sam > out.sam
 
 =cut
 
