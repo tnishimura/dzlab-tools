@@ -44,6 +44,7 @@ find( sub {
             /\.avg$/ || /ratio\.txt$/ || /ratio\.txt\.no_coord_check$/ ||
             /log\.txt$/ ||
             /.methstats.txt$/ ||
+            /.mstats.txt$/ ||
             # source code
             /\.pl$/ || /\.sh$/ 
 
