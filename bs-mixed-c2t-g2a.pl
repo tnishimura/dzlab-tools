@@ -321,7 +321,12 @@ if (! $opt_no_fracmeth){
     }
     $pm->wait_all_children;
 
+    launch("methyl-coverage.pl -r $opt_reference -p $opt_output_directory/$basename_base.coverage -- --$basename_base $opt_output_directory/single-c-*/*ALL*",
+        expected => "$opt_output_directory/$basename_base.coverage.svg",
+    );
 }
+
+$pm->wait_all_children;
 
 =head1 NAME
 
