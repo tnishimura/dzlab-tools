@@ -23,6 +23,7 @@ use Parallel::ForkManager;
 use Run::BowtieBuild;
 use Run::Bowtie;
 use MethylCounter;
+use GFF::Statistics qw/methyl_stats/;
 
 my $pm = Parallel::ForkManager->new($opt_parallel);
 
@@ -280,6 +281,27 @@ if (! $opt_no_fracmeth){
         parallel          => $pm,
     );
     $pm->wait_all_children;
+
+    #######################################################################
+    # methylation stats
+
+    my $methyl_stats_file = "$basename.mstats.txt";
+    if (! -f $methyl_stats_file || ! -s $methyl_stats_file){
+        # gff-methyl-stats
+        my @c2t_singlec_concat = grep { /ALL/ } glob catfile($singlecdir_c2t, "*gff");
+        my @g2a_singlec_concat = grep { /ALL/ } glob catfile($singlecdir_g2a, "*gff");
+
+        my (undef, $methyl_stat_output) = methyl_stats( map {
+            basename($_,'.gff') => $_
+            } @c2t_singlec_concat, @g2a_singlec_concat
+        );
+        open my $fh, '>', $methyl_stats_file;
+        say $fh $methyl_stat_output;
+        close $fh;
+    }
+
+    #######################################################################
+    # window methylation
 
     for my $singlec (glob catfile($singlecdir_c2t, "*gff")) {
         next if $singlec =~ /ALL/;
