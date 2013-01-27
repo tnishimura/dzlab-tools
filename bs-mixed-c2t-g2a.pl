@@ -282,6 +282,7 @@ if (! $opt_no_fracmeth){
     $pm->wait_all_children;
 
     for my $singlec (glob catfile($singlecdir_c2t, "*gff")) {
+        next if $singlec =~ /ALL/;
         $pm->start and next;
         my $window = catfile($windowdir_c2t, basename($singlec, '.gff') . '.w50.gff');
         launch("perl -S window_by_fixed.pl -w $opt_window_size --reference $opt_reference --output ?? --no-skip $singlec", 
@@ -289,6 +290,7 @@ if (! $opt_no_fracmeth){
         $pm->finish; 
     }
     for my $singlec (glob catfile($singlecdir_g2a, "*gff")) {
+        next if $singlec =~ /ALL/;
         $pm->start and next;
         my $window = catfile($windowdir_g2a, basename($singlec, '.gff') . '.w50.gff');
         launch("perl -S window_by_fixed.pl -w $opt_window_size --reference $opt_reference --output ?? --no-skip $singlec", 
