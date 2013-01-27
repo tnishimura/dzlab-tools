@@ -227,11 +227,16 @@ sub histpercentiles{
             $percentiles{shift @wanted_percentiles_copy} = $bin;
         }
     }
+    for my $p (@wanted_percentiles) {
+        if (! exists $percentiles{$p}){
+            $percentiles{$p} = 'na';
+        }
+    }
     if (keys(%percentiles) == $num_percentiles){
         return [@percentiles{sort keys %percentiles}];
     }
     else{
-        croak "BUG with histpercentiles, please report";
+        croak "BUG with histpercentiles, please report with this report: " . Dumper \%percentiles;
     }
 }
 
