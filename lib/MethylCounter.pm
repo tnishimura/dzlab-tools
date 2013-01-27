@@ -67,11 +67,20 @@ sub batch{
 
     my %sequence2file = GFF::Split::split_sequence($opt{correlation});
 
+    # collect CG, CHG, CHH files so we can concatenate them.
+    my %all_context_files = map { $_ => [] } @context;
+
     SEQUENCE:
     while (my ($sequence,$file) = each %sequence2file) {
         carp "MethylCounter-ing $sequence $file" if $opt{verbose};
 
         my %context2singlec = map { ($_ ,(sprintf($opt{prefix}, $sequence) . "-$_.gff") ) } @context;
+
+        # push each context file into all_context_files 
+        while (my ($context,$singlec) = each %context2singlec) {
+            push @{$all_context_files{$context}}, $singlec;
+        }
+
         my $frequency_file = sprintf("$opt{prefix}",$sequence) . ".freq";
 
         # die Dumper $frequency_file, $opt{prefix}, $sequence, $file, \%context2singlec, \%sequence2file, \@context;
@@ -100,6 +109,19 @@ sub batch{
                 $opt{parallel}->finish();
             }
         }
+    }
+
+    while (my ($context,$files) = each %all_context_files) {
+        my $context_files = sprintf($opt{prefix}, 'ALL') . "-$context.gff";
+        open my $concat, '>', $context_files;
+        for my $f (sort @$files) {
+            open my $in, '<:crlf', $f;
+            while (defined(my $line = <$in>)){
+                print $concat $line;
+            }
+            close $in;
+        }
+        close $concat;
     }
 }
 
