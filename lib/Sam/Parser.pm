@@ -70,7 +70,6 @@ sub BUILD{
             last HEADER;
         }
     }
-
     return $self;
 }
 
@@ -87,6 +86,8 @@ sub next{
             return $sam;
         }
     }
+
+    return if eof($self->filehandle);
 
     while (defined(my $line = readline $self->filehandle)){
         my $sam = Sam::Alignment->new($line, $self->length(), $self->convert_rc);
