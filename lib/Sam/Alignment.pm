@@ -249,6 +249,8 @@ sub _build_cigar{
         my $count = $1;
         my $type = $2;
         push @accum, [$type, $count];
+        croak "I haven't added support for hard clipping yet, sorry"
+        if $type eq 'H';
     }
     if ($self->fixrc){
         # pretty sure this is wrong but g'nuff initially.
