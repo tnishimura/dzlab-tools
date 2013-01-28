@@ -59,7 +59,7 @@ sub bowtie_build{
 
     if ($opt{bs} && $opt{rc}){
         my $bsrc_file = "$opt{file}.$opt{bs}";
-        if (! -f $bsrc_file){
+        if ($opt{force} || ! -f $bsrc_file){
             bsrc_fasta_on_disk($opt{bs}, $opt{file}, $bsrc_file);
         }
         $opt{file} = $bsrc_file;
