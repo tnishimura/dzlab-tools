@@ -8,7 +8,6 @@ use Scalar::Util qw/looks_like_number/;
 use FindBin;
 use lib "$FindBin::Bin/lib";
 use Sam::Parser;
-
 use Pod::Usage;
 use Getopt::Long;
 
@@ -48,7 +47,7 @@ if ($output){
 
 =head1 NAME
 
-sam-filter.pl [-m|--mapped] [-q|--min-quality] [-s|--sequence-id] [--fix-rc|-rc] in.sam > out.sam
+ sam-filter.pl [-m|--mapped] [-q|--min-quality 10] [-s|--sequence-id chr1] [--fix-rc|-rc] in.sam > out.sam
 
 =cut
 
