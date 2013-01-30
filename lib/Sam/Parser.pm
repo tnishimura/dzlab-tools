@@ -32,7 +32,8 @@ sub add_length{
     my ($self, $seqname, $length) = @_;
 
     if (exists $self->length->{uc $seqname} and $self->length->{uc $seqname} != $length){
-        croak "double adding conflicting lengths for $seqname into Sam::Parser? BUG, please report"
+        my $incumbent = $self->length->{uc $seqname};
+        croak "double adding conflicting lengths for $seqname into Sam::Parser? New length = $length, incumbent = $incumbent. BUG, please report"
     }
     $self->length->{uc $seqname} = $length;
 }
