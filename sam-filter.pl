@@ -33,11 +33,36 @@ my $parser = Sam::Parser->new(
     convert_rc    => ($fixrc // 0),
 );
 
-say $parser->header;
+#######################################################################
+# print header lines, but omit irrelevant @SQ lines when filtering by seqid
+
+for my $hline (@{$parser->header_lines}) {
+    # @SQ	SN:chr2	LN:19705359
+    # @SQ	SN:chr3	LN:23470805
+    if ($sequence_id){
+        if ($hline =~ /^\@SQ/){
+            if (
+                ($fixrc && $hline =~ /\tSN:(?:RC_)?$sequence_id/i)
+                ||
+                ($fixrc && $hline =~ /\tSN:$sequence_id/i)
+            ){
+                say $hline;
+            }
+        }
+        else{
+            say $hline;
+        }
+    }
+    else{
+        say $hline;
+    }
+
+}
 
 while (defined(my $sam = $parser->next())){
     next if (defined $min_quality and $sam->mapq < $min_quality);
-    next if (defined $sequence_id and $sequence_id ne $sam->seqid);
+    my $sam_seqid = $sam->seqid ? $sam->seqid =~ s/^RC_//r : undef;
+    next if (defined $sequence_id and defined $sam_seqid and lc($sequence_id) ne lc($sam_seqid));
     say $sam;
 }
 
