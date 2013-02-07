@@ -17,7 +17,7 @@ my @files = @ARGV;
 
 use YAML qw/Load Dump LoadFile DumpFile/;
 
-exit 1 if -f 'meta.yml';
+die "meta.yml already exists? delete manually if you really want to overwrite" if -f 'meta.yml';
 DumpFile('meta.yml', {
         name =>  'test',
         annotations =>[
