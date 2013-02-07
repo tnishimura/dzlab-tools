@@ -88,10 +88,8 @@ for my $methylgff_file (@ARGV){
 
                 # append
                 my $sortedfh = IO::File->new($tmpfile);
+                $outfh->print("variableStep chrom=$seq span=$width\n");
                 while (defined(my $line = <$sortedfh>)){
-                    # $tmpfiles{methyl}{$feature}{$seq}->print("variableStep chrom=$seq  span=$width\n");
-                    # $tmpfiles{coverage}{$feature}{$seq}->print("variableStep chrom=$seq  span=$width\n");
-                    $outfh->print("variableStep chrom=$seq span=$width\n");
                     $outfh->print($line);
                 }
             }
