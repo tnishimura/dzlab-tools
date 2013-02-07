@@ -39,9 +39,12 @@ for my $methylgff_file (@ARGV){
     # write each feature/seqid combo to seperate tmpfile, combine later
     my %tmpfiles; # {methyl|coverage}{feature}{seqid}
     while (defined(my $gffline = $infh->getline)){
+        chomp $gffline;
         my ($seq, undef, $feature, $start, $end, $score, undef, undef, $attr) = split /\t/, $gffline;
 
-        if (all { $_ ne '.' } $seq, $feature, $start, $end, $score, $attr){
+        use Scalar::Util qw/looks_like_number/;
+        # say $score if ! looks_like_number($score);
+        if (looks_like_number($score) and all { $_ ne '.' } $seq, $feature, $start, $end, $attr){
             if (! exists $tmpfiles{methyl}{$feature}{$seq}){
                 $tmpfiles{methyl}{$feature}{$seq} = File::Temp->new(DIR => $tmp_dir, UNLINK => 1);
                 $tmpfiles{coverage}{$feature}{$seq} = File::Temp->new(DIR => $tmp_dir, UNLINK => 1);
@@ -62,8 +65,9 @@ for my $methylgff_file (@ARGV){
             my ($c, $t);
             if ($attr=~/c=(\d+)/){ $c = $1; }
             if ($attr=~/t=(\d+)/){ $t = $1; }
-            if ($c && $t){
+            if (defined $c && defined $t){
                 my $coverage = $c + $t;
+                next if $coverage == 0;
                 my $methylation = $c / $coverage;
                 $tmpfiles{methyl}{$feature}{$seq}->print("$start\t$methylation\n");
                 $tmpfiles{coverage}{$feature}{$seq}->print("$start\t$coverage\n");
