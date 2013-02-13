@@ -1,4 +1,4 @@
-outFile "dzlab-tools-__VERSION__.exe"
+outFile "dzlab-tools-[% version %].exe"
  
 InstallDir C:\dzlab-tools
 !define UNINSTALLER $INSTDIR\uninstaller.exe
@@ -23,4 +23,3 @@ Delete "$SMPROGRAMS\Zilberman Lab\Help.lnk"
 delete ${UNINSTALLER}
 rmdir /r $INSTDIR\*
 sectionEnd
-
