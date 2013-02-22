@@ -108,8 +108,8 @@ sub create_sample{
     my %opt = validate(@_, {
             insert_file    => 1,
             reference_file => 1,
-            bootstrap       => 1,
-            output          => 1,
+            bootstrap      => 1,
+            output         => 1,
         });
     lock_keys(%opt);
     say Dumper \%opt;
@@ -135,10 +135,13 @@ sub create_sample{
         my $start = int(rand($len - $insert_length - 2000)) + 1000; # don't touch 1000bp at ends 
         my $end = $start + $insert_length - 1;
         my $sample_name = "${seqid}_${start}_${end}";
-        push @sample_names, $sample_name;
+        my $seq = $reference_fr->get($seqid, $start, $end);
 
+        redo if ($seq =~ /^N*$/); # kludge - bowtie2 apparently doesn't parse fastas appropriate on extended N? 
+        
+        push @sample_names, $sample_name;
         say $fh ">$sample_name";
-        say $fh $reference_fr->get($seqid, $start, $end);
+        say $fh $seq;
     }
     close $fh;
     return @sample_names;
