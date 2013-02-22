@@ -8,6 +8,9 @@ use autodie;
 use List::MoreUtils qw/all any/;
 use Term::ProgressBar;
 use Params::Validate qw/:all/;
+use IO::File;
+use IO::Uncompress::Gunzip;
+use IO::Uncompress::Bunzip2;
 
 require Exporter;
 our @ISA = qw(Exporter);
@@ -36,7 +39,11 @@ sub check_integrity{
 
     my $nuc = qr/[ABCDGHKMNRSTVWY]+/i;
 
+    FASTQFILE:
     for my $file (@$files) {
+        say "**************************************************************";
+        say "*** $file";
+        say "";
         my $error_count = 0;
         my $increment_error = sub {
             my $error_msg = shift;
@@ -46,11 +53,13 @@ sub check_integrity{
                     say STDERR "WARNING: $error_msg at line $.:\n @_" if $debug;
                 }
                 else{
-                    die "error count exceeded, $error_msg at line $.:\n @_";
+                    carp "$file: error count exceeded, $error_msg at line $.:\n @_";
+                    next FASTQFILE;
                 }
             }
             else{
-                die "$error_msg at line $.: @_";
+                carp "$file: $error_msg at line $.: @_";
+                next FASTQFILE;
             }
         };
 
@@ -62,23 +71,26 @@ sub check_integrity{
 
         my $size = (stat($file))[7];
 
-        say "$file:";
 
-        my $pb = Term::ProgressBar->new({count => $size});
+        my $pb = $file =~ /\.gz|bzip2$/ ? undef : Term::ProgressBar->new({count => $size});
         my $counter = 0;
-        $pb->minor(0);
+        $pb->minor(0) if $pb;
 
-        open my $in, '<', $file;
+        my $in = $file =~ /\.gz$/  ? IO::Uncompress::Gunzip->new($file) : 
+                 $file =~ /\.bz2$/ ? IO::Uncompress::Bunzip2->new($file) : 
+                 IO::File->new($file);
 
         LOOP:
         while (! eof $in){
             my $first_line = <$in>;
             if ($first_line =~ /\r\n$/){
-                die "file has dos line ending, no soup for you.";
+                carp "$file: file has dos line ending, no soup for you.";
+                next FASTQFILE;
             }
             # check alignment of quartets.
             if ($first_line !~ /\@/){
-                $increment_error->("quartet doesn't start with @", $first_line);
+                $increment_error->("quartet doesn't start with @, skipping a line to see if simple extra/missing line", $first_line);
+                next LOOP;
             }
             my @lines = ($first_line, map { scalar <$in> } (2 .. 4));
             my @lens = map { length $_ } @lines;
@@ -90,7 +102,8 @@ sub check_integrity{
             else{
                 # only some undef
                 if (grep { ! defined $_ } @lines){
-                    die "uneven number of lines @ around $."
+                    carp "$file: uneven number of lines @ around $.";
+                    next FASTQFILE;
                 }
                 elsif ($lines[0] !~ /^@/){
                     $increment_error->("first line in quartet doesn't start with \@", @lines);
@@ -114,9 +127,9 @@ sub check_integrity{
                     print $fix_fh @lines;
                 }
             }
-            $pb->update(tell($in)) if ++$counter % 100_000 == 0;
+            $pb->update(tell($in)) if ++$counter % 100_000 == 0 && $pb;
         }
-        $pb->update($size);
+        $pb->update($size) if $pb;
 
         close $in;
         if ($fix) {
