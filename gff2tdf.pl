@@ -7,19 +7,19 @@ use autodie;
 use IO::File;
 use File::Temp;
 use List::MoreUtils qw/all/;
+use Parallel::ForkManager;
+use Pod::Usage;
+use Getopt::Long;
 
 use FindBin;
 use lib "$FindBin::Bin/lib";
 use GFF::Parser;
 use GFF::Statistics qw/gff_detect_width/;
-use Pod::Usage;
-use Getopt::Long;
 use Conjure;
-use Parallel::ForkManager;
 
 my $result = GetOptions (
     "reference-genomee|r=s" => \(my $reference_genomee),
-    "igv-tools-jar|j=s" => \(my $igv_tools_jar),
+    "igv-tools-jar|j=s" => \(my $igv_tools_jar = "$FindBin::Bin/share/igvtools.jar"),
     # "score-from-ct|ct" => \(my $score_from_ct),
     "tmp-dir|d=s" => \(my $tmp_dir),
     "no-feature-in-filename|nff" => \(my $no_feature_in_filename),
@@ -113,7 +113,7 @@ $pm->wait_all_children;
 
 Usage examples:
 
- gff2tdf.pl -r reference.fas -j path/to/igvtools.jar input.gff
+ gff2tdf.pl [-p #threads] -r reference.fas input.gff
 
 =cut
 
