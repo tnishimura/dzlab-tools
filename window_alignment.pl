@@ -6,14 +6,15 @@ use Data::Dumper;
 use autodie;
 use Pod::Usage;
 use Getopt::Long;
+use IO::File;
 use FindBin;
-
 use lib "$FindBin::Bin/lib";
 use BowtieParser;
 use BigArray;
 use FastaReader;
 use Eland::Parser;
 use GFF::Parser;
+use Sam::Parser;
 END {close STDOUT}
 $| = 1;
 
@@ -30,7 +31,7 @@ my $result = GetOptions (
 );
 
 pod2usage(-verbose => 2, -noperldoc => 1) 
-if (!$result || !$reference || ! $format || $format !~ /^(?:gff|eland|bowtie|g|e|b)$/);
+if (!$result || !$reference || ! $format || $format !~ /^(?:gff|eland|bowtie|sam|g|e|b|s)$/);
 
 my $fasta_reader = FastaReader->new(file => $reference, slurp => 0);
 
@@ -46,6 +47,8 @@ my %counters = map {
         ),
     }
 } $fasta_reader->sequence_list();
+
+my %touched; # record touched sequences in output only
 
 {
     my $c = 0;
@@ -111,24 +114,42 @@ elsif ($format eq 'b' || $format eq 'bowtie'){
         counter();
     }
 }
+elsif ($format eq 's' || $format eq 'sam'){
+    my $sam_reader = Sam::Parser->new(file => \*ARGV, convert_rc => $check_rc, skip_unmapped => 1);
+    while (defined(my $sam = $sam_reader->next())){
+        my $strand = $sam->is_reverse() ? '-' : '+';
+        if ($do_strand){
+            $counters{uc $sam->seqid}{$strand}->increment_range($sam->leftmost, $sam->rightmost);
+        }
+        else{
+            $counters{uc $sam->seqid}{'.'}->increment_range($sam->leftmost, $sam->rightmost);
+        }
+        counter();
+        $touched{uc $sam->seqid}++;
+    }
+}
+
+say STDERR "Done counting, now outputting to $output" if $verbose;
+say STDERR Dumper(\%touched) if $verbose;
 
 my @strands = $do_strand ? qw/+ -/ : qw/./;
 
-if ($output ne '-'){
-    open my $output_fh, '>', $output;
-    select $output_fh;
-}
+my $output_fh = $output eq '-' ? *STDOUT : IO::File->new($output, 'w');
 
 for my $seq (sort $fasta_reader->sequence_list()) {
+    next unless exists($touched{uc $seq}) || $noskip;
+    my $numreads = $touched{uc $seq};
+    say STDERR "outputting $seq ($numreads reads)" if $verbose;
+
     my $start = 1;
     my $max = $fasta_reader->get_length($seq);
-    #say STDERR "$seq from $start to $max";
     while ($start <= $max){
         if ($window_size == 1){
             for my $s (@strands) {
                 my $value  = $counters{uc $seq}{$s}->{pdl}->at($start - $base); 
                 if ($value > 0 || $noskip){
-                    say join "\t", $seq, qw/. ./, $start, $start, $value, $s, qw/. ./;
+                    $output_fh->print(join "\t", $seq, qw/. ./, $start, $start, $value, $s, qw/. ./);
+                    $output_fh->print("\n");
                 }
             }
             ++$start;
@@ -143,13 +164,16 @@ for my $seq (sort $fasta_reader->sequence_list()) {
                 my $count  = $pdl->max();
 
                 if ($count  > 0 || $noskip){ 
-                    say join "\t", $seq, qw/. ./, $start, $end, $count , $s, qw/. ./; 
+                    $output_fh->print(join "\t", $seq, qw/. ./, $start, $end, $count , $s, qw/. ./); 
+                    $output_fh->print("\n");
                 }
             }
             $start += $window_size;
         }
     }
 }
+
+close $output_fh if $output ne '-';
 
 =head1 NAME
 
