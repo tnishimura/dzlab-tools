@@ -249,8 +249,8 @@ sub _build_cigar{
         my $count = $1;
         my $type = $2;
         push @accum, [$type, $count];
-        croak "I haven't added support for hard clipping yet, sorry"
-        if $type eq 'H';
+        # croak "I haven't added support for hard clipping yet, sorry"
+        # if $type eq 'H';
     }
     if ($self->fixrc){
         # pretty sure this is wrong but g'nuff initially.
@@ -409,7 +409,7 @@ has mismatch_string => ( is => 'ro', lazy_build => 1 );
 sub _build_mismatch_string{
     my $self = shift;
     if ($self->fixrc){
-        return map 
+        return join "", map 
         {
             my ($type, $token) = @$_;
             if ($type eq 'M'){
@@ -449,8 +449,8 @@ sub stringify{
         $self->tlen, 
         $self->readseq, 
         $self->readqual, 
-        ($self->mapped ?  ("MD:Z:" . $self->mismatch_string) : ""),
-        ($self->mapped ?  ("NM:i:" . $self->edit_distance) : ""),
+        ($self->mapped ?  ("MD:Z:" . $self->mismatch_string) : ()),
+        ($self->mapped ?  ("NM:i:" . $self->edit_distance) : ()),
         # more options...
     );
 
