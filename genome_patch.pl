@@ -16,9 +16,10 @@ my $help;
 my $reference;
 my $result = GetOptions (
     "reference|r=s" => \$reference,
-    "help"    => \$help,
 );
-pod2usage(-verbose => 1) if (!$result || $help);  
+if (! $result || ! $reference || (! @ARGV && -t STDIN)){
+    pod2usage(-verbose => 2, -noperldoc => 1);
+}
 
 my $genome = slurp_fasta($reference);
 
@@ -62,3 +63,16 @@ while (defined(my $line = <ARGV>)){
 for my $seq (sort keys %$genome) {
     say format_fasta($seq, $genome->{$seq});
 }
+=head1 genome_patch.pl 
+
+ genome_patch.pl -r reference.fas snplist.gff > new-reference.fas
+
+snplist.gff should be a gff file with the following columns:
+
+ column 1: sequence id 
+ column 4: coord
+ column 7: strand (if '.', assumed to be + strand).
+ column 9: SNP, written as "A>C" or "C>G".  Should be with respect to
+           the strand (column 7). 
+
+=cut
