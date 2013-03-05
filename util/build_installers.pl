@@ -26,7 +26,7 @@ make_path($release_dir);
 
 my $dzlab_tools_master     = "$FindBin::Bin/..";
 my $installer_nsi_template = "$FindBin::Bin/installer.nsi.tt2";
-my $dzlab_check_template   = "$FindBin::Bin/dzlab-check.pl..tt2";
+my $dzlab_check_template   = "$FindBin::Bin/dzlab-check.pl.tt2";
 
 die unless -f $installer_nsi_template;
 chdir $dzlab_tools_master;
