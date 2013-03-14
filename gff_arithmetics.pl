@@ -76,7 +76,6 @@ while (defined(my $left = $parser_left->next)){
     }
 }
 while (defined(my $right = $parser_right->next)){
-    $right->score(-$right->score);
     say $right->to_string;
 }
 
