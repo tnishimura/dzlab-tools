@@ -17,6 +17,7 @@ use BigArray;
 use DZUtil qw/approximate_line_count/;
 use GFF::Parser::Correlated;
 use GFF::Split;
+use File::Copy qw/move/;
 
 use Params::Validate qw/:all/;
 # types: SCALAR ARRAYREF HASHREF CODEREF GLOB GLOBREF SCALARREF UNDEF OBJECT(blessed) BOOLEAN(UNDEF | SCALAR) HANDLE
@@ -374,7 +375,7 @@ sub output_single_c { # and also count stats
     close $_ for values %filehandles;
 
     while (my ($tmp,$real) = each %temp2real) {
-        rename $tmp, $real;
+        move $tmp, $real;
     }
 }
 
