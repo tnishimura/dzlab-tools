@@ -15,6 +15,7 @@ use FindBin;
 use lib "$FindBin::Bin/lib";
 use Launch qw/cast/;
 
+use File::Copy qw/move/;
 use File::Temp qw/tempfile/;
 
 END {close STDOUT}
@@ -26,6 +27,8 @@ my $result = GetOptions (
     "already-sorted|s" => \(my $assume_sorted),
 );
 
+our $ATTRIBUTE;
+
 my $expression = shift;
 my $file_a = shift;
 my $file_b = shift;
@@ -36,7 +39,7 @@ if (! $assume_sorted){
     for ($file_a, $file_b){
         my $tmp = [tempfile("$_-XXXXXX", UNLINK => 1)]->[1];
         cast("sort -k1,1 -k4,4n -i $_ -o $tmp");
-        rename $tmp, $_;
+        move $tmp, $_;
     }
 }
 
@@ -51,6 +54,7 @@ while (defined(my $left = $parser_left->next)){
     RIGHT:
     while (defined(my $right = $parser_right->next)){
         if(GFF::start_position_equal($left,$right)){
+            local $ATTRIBUTE = $add_attributes ? add_attributes($left, $right) : combine_attributes($left, $right);
 
             say join "\t", 
             $left->sequence(), 
@@ -61,8 +65,7 @@ while (defined(my $left = $parser_left->next)){
             eval_expression($left->score(), $right->score()), 
             $left->strand() // '.', 
             $left->frame() //'.',
-            combine_attributes($left, $right);
-            #"asdf";
+            $ATTRIBUTE;
             last RIGHT;
         }
         elsif(GFF::start_position_lessthan($left,$right)){
@@ -106,10 +109,86 @@ sub eval_expression{
     }
 }
 
+sub methyl{
+    my $c = $ATTRIBUTE =~ /c=(\d+)/ ? $1 : 0;
+    my $t = $ATTRIBUTE =~ /t=(\d+)/ ? $1 : 0;
+    return $c + $t == 0 ? 0 : ($c / ($c + $t));
+}
+
 #######################################################################
 # attribute combiner
 
+sub add_attributes{
+    my ($left_gff, $right_gff) = @_;
 
+    my %left_keys = map { $_ => 1 } $left_gff->list_attribute();
+    my %right_keys = map { $_ => 1 } $right_gff->list_attribute();
+
+    # find keys in both
+    my @common_keys = do {
+        my %key_counter;
+        for (keys(%left_keys), keys(%right_keys)){
+            $key_counter{$_}++;
+        }
+        grep { $key_counter{$_} > 1 } keys %key_counter;
+    };
+
+    # delete common from left and right
+    for my $k (@common_keys) {
+        delete $left_keys{$k};
+        delete $right_keys{$k};
+    }
+
+    # sort the common keys 
+    my @identical_nonnumeric_keys;
+    my @numeric_common_keys;
+    my @nonnumeric_common_keys;
+
+    for my $k (@common_keys) {
+        if (# identical
+            $left_gff->get_attribute($k) eq $right_gff->get_attribute($k) &&
+            # and non-numeric. only check one since we know they're equal.
+            ! looks_like_number($left_gff->get_attribute($k)) 
+        ){
+            push @identical_nonnumeric_keys, $k;
+        }
+        elsif ( 
+            looks_like_number($left_gff->get_attribute($k)) &&
+            looks_like_number($right_gff->get_attribute($k)) 
+        ){
+            push @numeric_common_keys, $k;
+        }
+        else{
+            push @nonnumeric_common_keys, $k;
+        }
+    }
+
+    my @accum;
+
+    # print identical only once each. 
+    for my $k (@identical_nonnumeric_keys) {
+        push @accum, "$k=" . $left_gff->get_attribute($k);
+    }
+    # print left-only keys
+    for my $k (sort keys %left_keys) {
+        push @accum, "$k=" . $left_gff->get_attribute($k);
+    }
+    # print right-only keys
+    for my $k (sort keys %right_keys) {
+        push @accum, "$k=" . $right_gff->get_attribute($k);
+    }
+    for my $k (@nonnumeric_common_keys) {
+        push @accum, "$k=" . $left_gff->get_attribute($k);
+        push @accum, "$k=" . $right_gff->get_attribute($k);
+    }
+    # add numeric common keys
+    for my $k (@numeric_common_keys) {
+        push @accum, "$k=" . ($left_gff->get_attribute($k) + $right_gff->get_attribute($k));
+    }
+    return join ";", @accum;
+}
+
+# original - leaving untouched b/c I don't have tests for this scripts so combining later
 sub combine_attributes{
     my ($left_gff, $right_gff) = @_;
 
@@ -125,7 +204,7 @@ sub combine_attributes{
         map{ $_ => 1 } grep { $key_counter{$_} > 1 } keys %key_counter;
     };
 
-    # collect keys with identical values in both
+    # collect non-numberical keys with identical values in both
     my %identical_keys = do{
         map {
             $_ => $left_gff->get_attribute($_) 
