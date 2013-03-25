@@ -22,7 +22,7 @@ my $result = GetOptions (
     "reference|r=s"   => \my $reference,
     "window-size|w=i" => \(my $window_size = 50),
     "no-skip|k"       => \(my $noskip),
-    "base|b=i"        => \(my $base = 1),
+    # "base|b=i"        => \(my $base = 1),
     "format|f=s"      => \(my $format),
     "strand|s"        => \(my $do_strand),
     "verbose|v"       => \(my $verbose),
@@ -39,10 +39,10 @@ my %counters = map {
     uc($_) => {
         (
             $do_strand ?  (
-                '+' => BigArray->new(base => $base, size => $fasta_reader->get_length($_)),
-                '-' => BigArray->new(base => $base, size => $fasta_reader->get_length($_))
+                '+' => BigArray->new(base => 1, size => $fasta_reader->get_length($_)),
+                '-' => BigArray->new(base => 1, size => $fasta_reader->get_length($_))
             ) : (
-                '.' => BigArray->new(base => $base, size => $fasta_reader->get_length($_)),
+                '.' => BigArray->new(base => 1, size => $fasta_reader->get_length($_)),
             )
         ),
     }
@@ -71,6 +71,7 @@ if ($format eq 'e' || $format eq 'eland'){
                 $counters{uc $chr}{'.'}->increment_range($start, $end);
             }
             counter();
+	    $touched{uc $chr}++;
         }
     }
 }
@@ -85,6 +86,7 @@ elsif ($format eq 'g' || $format eq 'gff'){
             $counters{uc $gff->sequence}{'.'}->increment_range($gff->start(), $gff->end());
         }
         counter();
+        $touched{uc $gff->sequence}++;
     }
 }
 elsif ($format eq 'b' || $format eq 'bowtie'){
@@ -112,6 +114,7 @@ elsif ($format eq 'b' || $format eq 'bowtie'){
             $counters{uc $chr}{'.'}->increment_range($pos, $end);
         }
         counter();
+        $touched{uc $chr}++;
     }
 }
 elsif ($format eq 's' || $format eq 'sam'){
@@ -136,8 +139,13 @@ my @strands = $do_strand ? qw/+ -/ : qw/./;
 
 my $output_fh = $output eq '-' ? *STDOUT : IO::File->new($output, 'w');
 
+# warn Dumper [sort $fasta_reader->sequence_list()];
+
 for my $seq (sort $fasta_reader->sequence_list()) {
-    next unless exists($touched{uc $seq}) || $noskip;
+	unless (exists($touched{uc $seq}) || $noskip){ 
+        # warn "skipping $seq" ; 
+        next;
+    }
     my $numreads = $touched{uc $seq};
     say STDERR "outputting $seq ($numreads reads)" if $verbose;
 
@@ -146,7 +154,7 @@ for my $seq (sort $fasta_reader->sequence_list()) {
     while ($start <= $max){
         if ($window_size == 1){
             for my $s (@strands) {
-                my $value  = $counters{uc $seq}{$s}->{pdl}->at($start - $base); 
+                my $value  = $counters{uc $seq}{$s}->get_pdl()->at($start); 
                 if ($value > 0 || $noskip){
                     $output_fh->print(join "\t", $seq, qw/. ./, $start, $start, $value, $s, qw/. ./);
                     $output_fh->print("\n");
@@ -211,12 +219,6 @@ Default 50.
 =item --no-skip | -k 
 
 Print window even if nothing maps to it.
-
-=item --base <b> | -b <b>
-
-The base of the coordinates in the file (ie, is the first coordinate of the
-chromosomes 0 or 1?)  This should match the -B options passed to bowtie.
-Default 1.
 
 =item --strand | -s 
 
