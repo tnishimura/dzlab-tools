@@ -38,14 +38,25 @@ my $tmp_filename = $tmpfh->filename;
 
 warn "tmp filename: $tmp_filename";
 
+use List::Util qw/sum/;
+use Scalar::Util qw/looks_like_number/;
 # while (defined(my $sam = $parser->next())){ $tmpfh->print($sam->readid() . "\n"); }
 while (defined(my $line = <ARGV>)){
     chomp $line;
     next if ($line =~ /^@/);
-    my ($readid, $flags) = split /\t/, $line;
+
+    my @fields = split /\t/, $line;
+    my ($readid, $flags) = @fields;
+    my ($mdzstring) = grep { s/^MD:Z://; $_ } @fields[12 .. $#fields];
+
     die "$ARGV ($.): $line" unless $readid && defined $flags;
     my $mapped = ! ($flags & 0x4);
-    $tmpfh->print("$readid\t$mapped\n");
+    my $bases = 0;
+    if (defined $mdzstring){
+        $bases = sum map { looks_like_number($_) ? $_ : 1 } ($mdzstring =~ /(\d+|\w)/xmg);
+    }
+
+    $tmpfh->print("$readid\t$mapped\t$bases\n");
 }
 
 $tmpfh->close;
@@ -57,15 +68,17 @@ my $num_at_least_one_alignment = 0;
 my $num_multiple_alignments = 0;
 my $lastid;
 my $lastid_already_counted;
+my $total_bases;
 
 my $reopened = IO::File->new($tmp_filename);
 while (defined(my $line = <$reopened>)){
     chomp $line;
-    my ($readid, $mapped) = split /\t/, $line;
+    my ($readid, $mapped, $bases) = split /\t/, $line;
     if (! $mapped){
         $num_reads++;
         next;
     }
+    $total_bases += $bases;
     if ($lastid && $readid eq $lastid){
         if ($lastid_already_counted){
 
@@ -90,6 +103,7 @@ $outfh->print(<<END);
 number of reads total: $num_reads
 number of reads aligning at least once: $num_at_least_one_alignment ($once_percentage%)
 number of reads aligning multiple times: $num_multiple_alignments ($multiple_percentage%)
+number of total bases from all aligning reads: $total_bases
 END
 
 $outfh->close;
