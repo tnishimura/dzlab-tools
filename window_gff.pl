@@ -6,7 +6,8 @@ use Data::Dumper;
 use Carp;
 use Getopt::Long qw(:config bundling);
 use Pod::Usage;
-use List::Util qw(sum);
+use List::Util qw/max min sum/;
+
 use Statistics::Descriptive;
 #use Devel::Size qw(size total_size);
 
@@ -728,13 +729,29 @@ sub microarray_average{
             overlap($_->{start}, $_->{end}, $tstart, $tend) 
         } @lines;
 
+        # print Dumper \@lines;
+        # internal overlapping between inputs in the window
+        my $inter_overlap = 0;
+        for (my $i = 0 ; $i <= $#lines ; $i ++ ){
+            for (my $j = $i + 1 ; $j <= $#lines ; $j ++ ){
+                my $x_min = max($lines[$i]->{start}, $tstart);
+                my $x_max = min($lines[$i]->{end}, $tend);
+                my $y_min = max($lines[$j]->{start}, $tstart);
+                my $y_max = min($lines[$j]->{end}, $tend);
+                print "$i $j overlap($x_min, $x_max, $y_min, $y_max)\n";
+                $inter_overlap += overlap($x_min, $x_max, $y_min, $y_max);
+            }
+        }
+
         my $score = (sum map {
             overlap($_->{start}, $_->{end}, $tstart, $tend) * $_->{score} 
-        } @lines) / $total_overlapped;
+        } @lines) / ($total_overlapped - $inter_overlap);
 
         return {
             score => $score,
             n => scalar(@lines),
+            # total_overlap => $total_overlapped, 
+            # inter_overlap => $inter_overlap, 
         }
     }
 }
@@ -1021,9 +1038,7 @@ If there are multiple input query windows mapping, take its weighed average. For
           |-----------|          target window (size 50)
 
 If A overlaps with the target by 11 bases, and B overlaps by 15, the output
-score will be ((11 * 45) + (15 * 123)) / (50 - 26).  
-
-Limitation: the input query windows should not be overlapping amongst themselves.
+score will be ((11 * 45) + (15 * 123)) / (26).  
 
 =head1 REVISION
 
