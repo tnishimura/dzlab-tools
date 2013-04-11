@@ -699,6 +699,7 @@ COORD:
 # microarray
 
 sub microarray_average{
+    # print STDERR "+\n";
     my ($brs_iterator, %opt) = @_;
     my $targets = $opt{targets};
 
@@ -725,33 +726,30 @@ sub microarray_average{
         }
     }
     elsif (@lines > 1){
-        my $total_overlapped = sum map { 
-            overlap($_->{start}, $_->{end}, $tstart, $tend) 
-        } @lines;
+        my @window = (0) x ($tend - $tstart + 1);
+        for my $line (@lines) {
+            # min and max coord within the window
+            my $min = max($line->{start}, $tstart);
+            my $max = min($line->{end}, $tend);
 
-        # print Dumper \@lines;
-        # internal overlapping between inputs in the window
-        my $inter_overlap = 0;
-        for (my $i = 0 ; $i <= $#lines ; $i ++ ){
-            for (my $j = $i + 1 ; $j <= $#lines ; $j ++ ){
-                my $x_min = max($lines[$i]->{start}, $tstart);
-                my $x_max = min($lines[$i]->{end}, $tend);
-                my $y_min = max($lines[$j]->{start}, $tstart);
-                my $y_max = min($lines[$j]->{end}, $tend);
-                print "$i $j overlap($x_min, $x_max, $y_min, $y_max)\n";
-                $inter_overlap += overlap($x_min, $x_max, $y_min, $y_max);
-            }
+            my $relmin = $min - $tstart;
+            my $relmax = $max - $tstart;
+
+            @window[$relmin .. $relmax] = (1) x ($relmax - $relmin + 1);
+            #print STDERR "$min ($relmin) $max ($relmax)\n";
         }
+
+        my $total_coverage = sum @window;
+        die Dumper \@lines, [$tstart, $tend] if $total_coverage == 0;
 
         my $score = (sum map {
             overlap($_->{start}, $_->{end}, $tstart, $tend) * $_->{score} 
-        } @lines) / ($total_overlapped - $inter_overlap);
+        } @lines) / ($total_coverage);
 
         return {
             score => $score,
             n => scalar(@lines),
-            # total_overlap => $total_overlapped, 
-            # inter_overlap => $inter_overlap, 
+            total_coverage => $total_coverage, 
         }
     }
 }
