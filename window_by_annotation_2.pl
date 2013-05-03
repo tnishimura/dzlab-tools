@@ -14,8 +14,7 @@ use Pod::Usage;
 use Log::Log4perl qw/:easy/;
 use Counter;
 
-Log::Log4perl->easy_init({ level => $DEBUG, layout => '%d{HH:mm:ss} %.1p > %m%n' });
-my $logger = get_logger();
+sub info { say STDERR @_; }
 
 pod2usage(-verbose => 2,-noperldoc => 1)
 if $opt_help || !$opt_gff || !$opt_input || !$opt_tag;
@@ -42,9 +41,9 @@ if ($opt_output ne '-'){
 
 #######################################################################
 
-say STDERR "reading $opt_gff into GFF::Tree...";
+info("reading $opt_gff into GFF::Tree...");
 my $gt = GFF::Tree->new(file => $opt_gff,normalize => 1, lenient => 1);
-say STDERR "done";
+info("done");
 
 #######################################################################
 # create scores hash
@@ -62,7 +61,7 @@ while (defined(my $gff = $pp->next())){
 # Main loop
 
 my $input_parser = GFF::Parser->new(file => $opt_input,normalize => 1);
-my $counter = Counter->new();
+my $counter = Counter->new(verbose => $opt_verbose, increment => 100_000);
 
 while (defined(my $gff = $input_parser->next())){
     my ($seq, $start, $end, $strand, $score, $c, $t, $n) 
@@ -268,6 +267,8 @@ an annotation entry by 20 bases, 40% of the score of the input would contribute
 to the annotation.
 
 =item --help | -h
+
+=item --verbose | -v
 
 =back
 
