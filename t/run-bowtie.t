@@ -28,7 +28,7 @@ my $output = catfile($dir, "run-bowtie.out");
     my ($processed, $aligned, $suppressed, $reported, @loglines) = bowtie(
         '-1' => $reads, 
         output => $output, 
-        index => $ref,
+        reference => $ref,
         verbose => 1,
         seed => 12345,
     );
@@ -52,7 +52,7 @@ my $output = catfile($dir, "run-bowtie.out");
     my ($processed, $aligned, $suppressed, $reported, @loglines) = bowtie(
         '-1'       => $reads,
         output     => $output,
-        index      => $ref,
+        reference  => $ref,
         verbose    => 1,
         seed       => 12345,
         maxhits    => 10,
@@ -79,7 +79,7 @@ ok(sub{
     bowtie(
         '-1'       => $reads,
         output     => $output,
-        index      => $ref,
+        reference  => $ref,
         seed       => 12345,
         maxhits    => 10,
         splice     => [5,25],
@@ -89,7 +89,7 @@ dies_ok(sub{
     bowtie(
         '-1'       => $reads,
         output     => $output,
-        index      => $ref,
+        reference  => $ref,
         seed       => 12345,
         maxhits    => 10,
         splice     => [5,25],
@@ -102,7 +102,7 @@ dies_ok(sub{
     bowtie(
         '-1'    => $reads,
         output  => $output,
-        index   => $ref,
+        reference => $ref,
         seed    => 12345,
         maxhits => 10,
         best    => 1

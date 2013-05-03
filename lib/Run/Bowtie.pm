@@ -15,13 +15,27 @@ our @ISA = qw(Exporter);
 our @EXPORT_OK = qw();
 our @EXPORT = qw(bowtie);
 
+sub _esc{ return q{"} . shift . q{"}; }
+
 sub _construct_common_args{
     my %opt = @_;
-    my @args;
-    if (! exists $opt{index} || notall { -s "$opt{index}.$_" } qw/ 1.ebwt 2.ebwt rev.1.ebwt rev.2.ebwt/){ # 3.ebwt 4.ebwt not needed for single ends
-        croak "need index";
+    if (! exists $opt{index} and ! exists $opt{reference}){
+        croak "need reference or index";
     }
-    push @args, $opt{index};
+    elsif (! exists $opt{index} and exists $opt{reference}){
+        $opt{index} = $opt{colorspace} ? "$opt{reference}.cs" : $opt{reference};
+    }
+    # elsif index and not reference, do nothing -- don't need reference directly
+    # elsif index and reference, do nothing for same reason above
+    
+    my @expected_index_files = map { "$opt{index}.$_" } qw/1.ebwt 2.ebwt rev.1.ebwt rev.2.ebwt/;
+    # (3.ebwt 4.ebwt not needed for single ends)
+
+    my @args;
+    if (notall { -s } @expected_index_files){
+        croak "index files do not exist? did you run bowtie-build? expected files: " . join(", ", @expected_index_files);
+    }
+    push @args, _esc $opt{index};
 
     # maxhits
     if (defined $opt{maxhits}  and $opt{maxhits} > 0){
@@ -36,6 +50,11 @@ sub _construct_common_args{
         push @args, '--strata'              if exists $opt{strata} && $opt{strata} == 1;
         push @args, '--best'                if exists $opt{best} && $opt{best} == 1;
     }
+
+    if ($opt{colorspace}){
+        push @args, '-C';
+    }
+
     # splice
     if (exists $opt{splice}){
         if (any {exists $opt{$_}} qw/trim5 trim3/){
@@ -79,10 +98,18 @@ Most basic bowtie invocation. Read from file, output to file, log returned
     my ($processed, $aligned, $suppressed, $reported, @loglines) = bowtie(
         '-1'       => $reads,
         output     => $output,
-        index      => $ref,
+        reference  => $ref,
+        index      => $index,
         maxhits    => 10,
         splice     => [0,50],
         readlength => 100,
+        format     => fastq | fasta | raw 
+        norc       => 1,
+        threads    => 8,
+        seed       => 123,
+        base       => 1,
+        mismatches => 2,
+        colorspace => 1,
     );
 
 =cut
@@ -104,18 +131,18 @@ sub bowtie{
     if (exists $opt{-1}){
         croak "-1 unreadable" if ! -s $opt{-1};
         if (exists $opt{-2}){
-            push @args, ('-1', $opt{-1});
+            push @args, ('-1', _esc $opt{-1});
         }
         else{
-            push @args, $opt{-1};
+            push @args, _esc $opt{-1};
         }
     }
     if (exists $opt{-2}){
         croak "-2 unreadable" if ! -s $opt{-2};
         croak "-2 specified without -1?" if ! -s $opt{-1};
-        push @args, ('-2', $opt{-2});
+        push @args, ('-2', _esc $opt{-2});
     }
-    push @args, $opt{output};
+    push @args, _esc $opt{output};
     
     #######################################################################
     # run 
@@ -125,11 +152,16 @@ sub bowtie{
     my $output_buffer;
     if (scalar run( command => $bowtie_cmd, verbose => 0, buffer  => \$output_buffer)) {
         say $output_buffer;
+        if (exists $opt{log}){
+            open my $fh, '>', $opt{log};
+            say $fh $output_buffer;
+            close $fh;
+        }
         my @split = split /\n/, $output_buffer;
         return _parse_bowtie_log(@split), @split;
     }
     else{
-        croak "running bowtie with IPC::Cmd failed";
+        croak "running bowtie with IPC::Cmd failed (cmd was: \n$bowtie_cmd\n)";
     }
 }
 

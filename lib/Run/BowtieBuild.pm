@@ -17,7 +17,16 @@ our @ISA = qw(Exporter);
 our @EXPORT_OK = qw();
 our @EXPORT = qw(bowtie_build);
 
-=head2 bowtie_build(file => 'reference.fas', noref => BOOL, bs => ['c2t' | 'g2a'], rc => BOOL, force => BOOL)
+=head2 
+
+ my ($converted_file_name, $index_prefix_name, @ebwt_files) = bowtie_build(
+     file => 'reference.fas', 
+     noref => BOOL, 
+     bs => ['c2t' | 'g2a'], 
+     rc => BOOL, 
+     force => BOOL,
+     colorspace => BOOL,
+ )
 
 Returns ($converted_file_name, $index_prefix_name, @ebwt_files);
 
@@ -52,6 +61,7 @@ sub bowtie_build{
                 default => 1, 
                 regex => qr/^1|2$/,
             },
+            colorspace => 0,
         });
 
     my $executable = $opt{version} == 1 ? 'bowtie-build' : 'bowtie2-build';
@@ -72,7 +82,14 @@ sub bowtie_build{
         $opt{file} = $bs_file;
     }
 
-    $opt{index} //= $opt{file};
+    if (! $opt{index}){
+        if ($opt{colorspace}){
+            $opt{index} = $opt{file} . ".cs";
+        }
+        else{
+            $opt{index} = $opt{file};
+        }
+    }
 
     my @expected_files = map { "$opt{index}.$_" } ("1.$suffix","2.$suffix","3.$suffix","4.$suffix", $opt{noref} ? () : ("3.$suffix", "4.$suffix"));
 
