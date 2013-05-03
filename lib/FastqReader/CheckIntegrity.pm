@@ -41,6 +41,9 @@ sub check_integrity{
 
     FASTQFILE:
     for my $file (@$files) {
+        if (!-f $file){
+            croak "no such file $file";
+        }
         say "**************************************************************";
         say "*** $file";
         say "";
@@ -70,7 +73,6 @@ sub check_integrity{
         }
 
         my $size = (stat($file))[7];
-
 
         my $pb = $file =~ /\.gz|bzip2$/ ? undef : Term::ProgressBar->new({count => $size});
         my $counter = 0;
