@@ -15,12 +15,14 @@ my $singlec;
 my $inter;
 my $divorce;
 my $copy;
+my $bam;
 my $result = GetOptions (
     "copy|c=s" => \$copy,
     "single-c|s" => \$singlec,
     "windows|w"  => \$windows,
     "intermidiate|i" => \$inter,
     "divorce|d" => \$divorce,
+    "bam|b" => \$bam,
 );
 if (!@ARGV || !$result){
     say "usage: ";
@@ -70,6 +72,9 @@ find( sub {
         }
 
         if ($divorce && ( /\.7\.w50.*\.gff$/ || /\.3\.elfiltered$/ || /\.4\.gff$/)){
+            $accum{$File::Find::name} = 1;
+        }
+        if ($bam && /\.bam$/){
             $accum{$File::Find::name} = 1;
         }
     }, @dirs) if @dirs;
