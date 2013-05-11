@@ -53,12 +53,15 @@ while (my ($side,$file) = each %elands) {
 }
 
 my %ccounts = (ALL => 0, NM => 0, UT => 0, RT => 0, RR => 0, UU => 0);
+use Scalar::Util qw/looks_like_number/;
 
 if ($correl) {
     open my $CORR, '<', $correl or die "Can't open $correl";
   CORREL_LINE:
     while (<$CORR>) {
         my @cfields = split /\t/, $_;
+        next if @cfields != 9 || ! looks_like_number $cfields[5] ;
+
 
         ++$ccounts{ALL};
 
