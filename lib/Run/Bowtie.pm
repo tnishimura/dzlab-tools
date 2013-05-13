@@ -76,7 +76,7 @@ sub _construct_common_args{
     push @args, (-v => $opt{mismatches} // 2);
 
     push @args, '--norc'                 if exists $opt{norc} && $opt{norc} == 1;
-    push @args, (-p => $opt{threads})    if exists $opt{threads} && $opt{threads} == 1;
+    push @args, (-p => $opt{threads})    if exists $opt{threads} && $opt{threads} > 1;
     push @args, ('--seed' => $opt{seed}) if exists $opt{seed};
 
     given ($opt{format}){
