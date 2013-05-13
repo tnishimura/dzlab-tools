@@ -17,6 +17,7 @@ my $result = GetOptions (
     "sequence-id|s=s" => \(my $sequence_id),
     "output|o=s"      => \(my $output),
     "fix-rc|rc"       => \(my $fixrc),
+    "to-gff|g"        => \(my $to_gff),
 );
 if (! $result || (! @ARGV && -t STDIN)){
     pod2usage(-verbose => 2, -noperldoc => 1);
@@ -36,6 +37,7 @@ my $parser = Sam::Parser->new(
 #######################################################################
 # print header lines, but omit irrelevant @SQ lines when filtering by seqid
 
+if (! $to_gff){
 for my $hline (@{$parser->header_lines}) {
     # @SQ	SN:chr2	LN:19705359
     # @SQ	SN:chr3	LN:23470805
@@ -56,14 +58,30 @@ for my $hline (@{$parser->header_lines}) {
     else{
         say $hline;
     }
-
+}
 }
 
 while (defined(my $sam = $parser->next())){
     next if (defined $min_quality and $sam->mapq < $min_quality);
     my $sam_seqid = $sam->seqid ? $sam->seqid =~ s/^RC_//r : undef;
     next if (defined $sequence_id and defined $sam_seqid and lc($sequence_id) ne lc($sam_seqid));
-    say $sam;
+    if ($to_gff){
+        if ($sam->mapped){
+            say join "\t", (
+                $sam->seqid, 
+                qw/. ./,
+                $sam->leftmost,
+                $sam->rightmost,
+                1,
+                ($sam->is_reverse ? '-' : '+'), 
+                '.',
+                "cigar=" . $sam->cigar_string . ";" .  "seq=" . $sam->readseq 
+            );
+        }
+    }
+    else{
+        say $sam;
+    }
 }
 
 if ($output){
@@ -72,7 +90,7 @@ if ($output){
 
 =head1 NAME
 
- sam-filter.pl [-m|--mapped] [-q|--min-quality 10] [-s|--sequence-id chr1] [--fix-rc|-rc] in.sam > out.sam
+ sam-filter.pl [--to-gff | -g] [-m|--mapped] [-q|--min-quality 10] [-s|--sequence-id chr1] [--fix-rc|-rc] in.sam > out.sam
 
 =cut
 
