@@ -17,7 +17,9 @@ my $result = GetOptions (
 if (@ARGV == 0){ say STDERR  "$0 input.sam"; exit 1}
 
 for my $sam (@ARGV) {
-    my $bam_sorted_prefix = $sam =~ s/\.sam$//r;
+    # my $bam_sorted_prefix = $sam =~ s/\.sam$//r;
+    my $bam_sorted_prefix = $sam;
+    $bam_sorted_prefix =~ s/\.sam$//;
     my $bam_unsorted      = "$bam_sorted_prefix.unsorted.bam";
     my $bam_sorted        = "$bam_sorted_prefix.bam";
     my $bam_index         = "$bam_sorted_prefix.bam.bai";

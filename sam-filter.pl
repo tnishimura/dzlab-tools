@@ -63,7 +63,11 @@ for my $hline (@{$parser->header_lines}) {
 
 while (defined(my $sam = $parser->next())){
     next if (defined $min_quality and $sam->mapq < $min_quality);
-    my $sam_seqid = $sam->seqid ? $sam->seqid =~ s/^RC_//r : undef;
+    # my $sam_seqid = $sam->seqid ? $sam->seqid =~ s/^RC_//r : undef;
+    my $sam_seqid = $sam->seqid;
+    if ($sam_seqid){
+        $sam->seqid =~ s/^RC_//;
+    }
     next if (defined $sequence_id and defined $sam_seqid and lc($sequence_id) ne lc($sam_seqid));
     if ($to_gff){
         if ($sam->mapped){
