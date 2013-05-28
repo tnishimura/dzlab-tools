@@ -14,8 +14,8 @@ use Getopt::Long;
 use FindBin;
 use lib "$FindBin::Bin/lib";
 use GFF::Parser;
+use FastaReader;
 use GFF::Statistics qw/gff_detect_width/;
-use Conjure;
 
 my $result = GetOptions (
     "reference-genomee|r=s" => \(my $reference_genomee),
@@ -28,6 +28,7 @@ my $result = GetOptions (
 pod2usage(-verbose => 2, -noperldoc => 1) 
 if (!$result || ! $igv_tools_jar || ! $reference_genomee || ! -f $igv_tools_jar || ! -f $reference_genomee);  
 
+my $ref = FastaReader->new(file => $reference_genomee);
 my $pm = Parallel::ForkManager->new($parallel);
 
 # GFF high-density single-c/windows files
@@ -41,6 +42,7 @@ for my $methylgff_file (@ARGV){
     while (defined(my $gffline = $infh->getline)){
         chomp $gffline;
         my ($seq, undef, $feature, $start, $end, $score, undef, undef, $attr) = split /\t/, $gffline;
+	$seq = $ref->get_original_name($seq);
 
         use Scalar::Util qw/looks_like_number/;
         # say $score if ! looks_like_number($score);
@@ -78,7 +80,13 @@ for my $methylgff_file (@ARGV){
     for my $type (qw/methyl coverage/) {
         my %feature2seq2fh = %{$tmpfiles{$type}};
         while (my ($feature,$seq2fh_ref) = each %feature2seq2fh) {
-            my $outfile = $no_feature_in_filename ?  $methylgff_file =~ s/\.gff$/.$type.wig/r : $methylgff_file =~ s/\.gff$/.$feature-$type.wig/r;
+		my $outfile = $methylgff_file;
+		if ($no_feature_in_filename){
+			$outfile =~ s/\.gff$/.$type.wig/; 
+		}
+		else{
+			$outfile =~ s/\.gff$/.$feature-$type.wig/;
+		}
             my $outfh = IO::File->new($outfile, 'w');
 
             for my $seq (sort keys %$seq2fh_ref) {
@@ -88,7 +96,7 @@ for my $methylgff_file (@ARGV){
 
                 # sort
                 warn "sorting $tmpfile";
-                conjure program => "sort -k1,1n -i $tmpfile -o $tmpfile";
+                system "sort -k1,1n -i $tmpfile -o $tmpfile";
 
                 # append
                 my $sortedfh = IO::File->new($tmpfile);
@@ -98,11 +106,9 @@ for my $methylgff_file (@ARGV){
                 }
             }
             close $outfh;
-            my $tdf = $outfile =~ s/\.wig$/\.tdf/r;
-            conjure(program => "java -jar $igv_tools_jar toTDF $outfile $tdf $reference_genomee",
-                on_stderr => sub { say },
-                on_stdout => sub { say },
-            );
+	    my $tdf = $outfile;
+            $tdf =~ s/\.wig$/\.tdf/;
+            system "java -jar $igv_tools_jar toTDF $outfile $tdf $reference_genomee";
         }
     }
     $pm->finish; 
