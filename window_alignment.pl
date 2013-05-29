@@ -154,7 +154,7 @@ for my $seq (sort $fasta_reader->sequence_list()) {
     while ($start <= $max){
         if ($window_size == 1){
             for my $s (@strands) {
-                my $value  = $counters{uc $seq}{$s}->get_pdl()->at($start); 
+                my $value  = $counters{uc $seq}{$s}->get_pdl()->at($start - 1); 
                 if ($value > 0 || $noskip){
                     $output_fh->print(join "\t", $seq, qw/. ./, $start, $start, $value, $s, qw/. ./);
                     $output_fh->print("\n");
