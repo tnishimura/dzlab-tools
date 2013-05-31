@@ -28,10 +28,13 @@ my $result = GetOptions (
     "verbose|v"       => \(my $verbose),
     "check-rc|rc"     => \(my $check_rc),
     "output|o=s" => \(my $output = '-'),
+    "first-base-only|1" => \(my $first_base_only),
 );
 
 pod2usage(-verbose => 2, -noperldoc => 1) 
-if (!$result || !$reference || ! $format || $format !~ /^(?:gff|eland|bowtie|sam|g|e|b|s)$/);
+if (!$result || !$reference || ! $format 
+    || $format !~ /^(?:gff|eland|bowtie|sam|g|e|b|s)$/ 
+    || ($format !~ /^(?:sam|s)$/ && $first_base_only));
 
 my $fasta_reader = FastaReader->new(file => $reference, slurp => 0);
 
@@ -121,10 +124,18 @@ elsif ($format eq 's' || $format eq 'sam'){
     my $sam_reader = Sam::Parser->new(file => \*ARGV, convert_rc => $check_rc, skip_unmapped => 1);
     while (defined(my $sam = $sam_reader->next())){
         my $strand = $sam->is_reverse() ? '-' : '+';
-        if ($do_strand){
+        my $first_base = $sam->is_reverse() ? $sam->rightmost : $sam->leftmost;
+
+        if ($do_strand && $first_base_only){
+            $counters{uc $sam->seqid}{$strand}->push_increment($first_base);
+        }
+        elsif ($do_strand && ! $first_base_only){
             $counters{uc $sam->seqid}{$strand}->increment_range($sam->leftmost, $sam->rightmost);
         }
-        else{
+        elsif (! $do_strand && $first_base_only){
+            $counters{uc $sam->seqid}{'.'}->push_increment($first_base);
+        }
+        else { # ! $do_strand && ! $first_base_only
             $counters{uc $sam->seqid}{'.'}->increment_range($sam->leftmost, $sam->rightmost);
         }
         counter();
@@ -210,7 +221,7 @@ bytes of memory.  If --strand is used, it will use double that.
 
 =item --format <f> | -f <f>
 
-Format of alignment file. Can be "gff", "g", "eland", "e", "bowtie", "b".  
+Format of alignment file. Can be "gff", "g", "eland", "e", "bowtie", "b", "sam", "s"  
 
 =item --window-size <window_size> | -w <window_size>
 
@@ -225,6 +236,10 @@ Print window even if nothing maps to it.
 Preserve strand information.  Default off.
 
 =item --verbose | -v 
+
+=item --first-base-only | -1 
+
+Only supported for SAM file format currently.
 
 =back
 
