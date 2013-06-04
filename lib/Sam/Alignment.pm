@@ -243,6 +243,27 @@ sub _build_cigarlength{
 #          GTTTTGTTGTTTATGAGGATGTTAAGATGG*TTTTGAGGTTAGCTTGTTGTCAATATTAATAATTTTTTTTGGGTAACATTGAAAAAAATAG>>>>>>>>>>TTTTTTTTT
 #                                        Deletion (1D)        Insertion (1I)                           Gap 9M
 
+sub matched_chunks{
+    my $self = shift;
+    my $left = $self->leftmost;
+    my $cigar = $self->cigar;
+    my @accum;
+    for my $c (@$cigar) {
+        my ($type, $count) = @$c;
+        if ($type eq 'M'){
+            my $right = $left + $count - 1;
+            push @accum, [$left, $right];
+            $left = $right + 1;
+        }
+        elsif ($type eq 'I' || $type eq 'D' || $type eq 'N'){
+            $left += $count;
+        }
+        else{
+            croak "sorry, S/H/P/=/X unsupported currently";
+        }
+    }
+    return @accum;
+}
 
 has cigar => ( is => 'ro', lazy_build => 1 );
 

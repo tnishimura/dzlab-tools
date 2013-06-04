@@ -130,13 +130,19 @@ elsif ($format eq 's' || $format eq 'sam'){
             $counters{uc $sam->seqid}{$strand}->push_increment($first_base);
         }
         elsif ($do_strand && ! $first_base_only){
-            $counters{uc $sam->seqid}{$strand}->increment_range($sam->leftmost, $sam->rightmost);
+            for my $aln ($sam->matched_chunks) {
+                $counters{uc $sam->seqid}{$strand}->increment_range(@$aln);
+            }
+            # $counters{uc $sam->seqid}{$strand}->increment_range($sam->leftmost, $sam->rightmost);
         }
         elsif (! $do_strand && $first_base_only){
             $counters{uc $sam->seqid}{'.'}->push_increment($first_base);
         }
         else { # ! $do_strand && ! $first_base_only
-            $counters{uc $sam->seqid}{'.'}->increment_range($sam->leftmost, $sam->rightmost);
+            for my $aln ($sam->matched_chunks) {
+                $counters{uc $sam->seqid}{'.'}->increment_range(@$aln);
+            }
+            # $counters{uc $sam->seqid}{'.'}->increment_range($sam->leftmost, $sam->rightmost);
         }
         counter();
         $touched{uc $sam->seqid}++;
