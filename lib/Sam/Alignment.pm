@@ -227,14 +227,22 @@ sub _build_cigarlength{
 # manual = http://samtools.sourceforge.net/SAM1.pdf
 # CIGAR: Description
 # M alignment match (can be a sequence match or mismatch)
-# I insertion to the reference
-# D deletion from the reference
+# I insertion to the reference (# bases were inserted with w.r.t. the genome)
+# D deletion from the reference (# bases were deleted from the genome)
 # N skipped region from the reference
 # S soft clipping (clipped sequences present in SEQ)
 # H hard clipping (clipped sequences NOT present in SEQ)
 # P padding (silent deletion from padded reference)
 # = sequence match
 # X sequence mismatch
+
+# 30M1D20M1I40M10N9M:           1234567890          1234567890*
+# 1         11        21        31        41        51         61        71        81        91        101       111       121
+# NNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN*NNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN
+#          GTTTTGTTGTTTATGAGGATGTTAAGATGGKTTTTGAGGTTAGCTTGTTGT AATATTAATAATTTTTTTTGGGTAACATTGAAAAAAATAGKKKKKKKKKKTTTTTTTTT
+#          GTTTTGTTGTTTATGAGGATGTTAAGATGG*TTTTGAGGTTAGCTTGTTGTCAATATTAATAATTTTTTTTGGGTAACATTGAAAAAAATAG>>>>>>>>>>TTTTTTTTT
+#                                        Deletion (1D)        Insertion (1I)                           Gap 9M
+
 
 has cigar => ( is => 'ro', lazy_build => 1 );
 
