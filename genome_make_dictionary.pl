@@ -21,6 +21,38 @@ sub parse_delta{
     my $line = <$fh>;
 
     my @accum;
+    # 20682761 21247247 20754282 21318768 2 2 0
+    # -427283
+    # 134487
+    # 0
+    # 20757486 20757566 4099982 4100062 0 0 0
+    # 0
+    # 21195575 21195644 4202480 4202549 0 0 0
+    # 0
+    # 21247248 21529623 21318770 21601146 3 3 0
+    # -58838
+    # 215882
+    # -7619
+    # 0
+    # 21307531 21307666 8056517 8056652 0 0 0
+    # 0
+    # 21307535 21307697 8054529 8054691 0 0 0
+    # 0
+    # 21307990 21308089 8056976 8057075 0 0 0
+    # 0
+    # 21312830 21312923 8087201 8087294 0 0 0
+    # 0
+    # 21312845 21312913 8020335 8020403 0 0 0
+    # 0
+    # 21529629 21934924 21601152 22006449 6 6 0
+    # 1070
+    # -35281
+    # 19137
+    # -54701
+    # -44
+    # -285693
+    # 0
+
     while ($line =~ 
         m/  
         (
@@ -32,29 +64,50 @@ sub parse_delta{
         ^0$                       # until a 0
         /gxms){
 
-        my ($start1, $end1, $start2, $end2, $numindels, undef, undef, $indel_coord, @other_indels) 
-        = split /\s/, $1;
+        # The four coordinates are the start and end in the reference and the
+        # start and end in the query respectively. The three digits following
+        # the location coordinates are the number of errors (non-identities +
+        # indels), similarity errors (non-positive match scores), and stop
+        # codons (does not apply to DNA alignments, will be "0"). 
 
-        if (! all { $_ == 1 } @other_indels){
-            die "more than one indel not supported yet";
-        }
+        my ($start1, $end1, $start2, $end2, $numindels, undef, undef, @indel_coords)
+        = split /\s/, $1; # $1 is the outer paren
 
-        if ($numindels > 0 && $indel_coord > 0){
-            push @accum, [$start1, $start1+$indel_coord-1, 
-            $start2, $start2+$indel_coord-1];
-            push @accum, [$start1+$indel_coord+$numindels, $end1,
-            $start2+$indel_coord,            $end2];
+        # numindels should be the count of @indel_coords, except when there's a single indel at the border,
+        # which we can detect by equality of the length of the segments
+        die "not the expected number of indels?: $line" 
+        if ($numindels != @indel_coords && $end2 - $start2 != $end1 - $start1);
+
+        # positive indel # = deletion from B. 
+        # negative indel # = deletion from A.
+        # A = XXXABCDACBDCAC$
+        # B = XXXBCCDACDCAC$
+        # Delta = (4, -3, 4, 0) # zero is terminator, not in @indel_coords
+        # A = XXXABC.DACBDCAC$
+        # B = XXX.BCCDAC.DCAC$
+
+        for my $coord (@indel_coords) {
+            if ($coord > 0){
+                push @accum, [$start1, $start1 + $coord - 1, 
+                              $start2, $start2 + $coord - 1, $1];
+                # there was a deletion from 2, which means we skip a coord on 1
+                $start1 = $start1 + $coord + 1;
+                $start2 = $start2 + $coord ;
+            }
+            elsif ($coord < 0){
+                $coord = abs($coord);
+
+                push @accum, [$start1, $start1 + $coord - 1, 
+                              $start2, $start2 + $coord - 1, $1];
+                # and vice versa
+                $start1 = $start1 + $coord;
+                $start2 = $start2 + $coord + 1;
+            }
+            else{
+                die "should not be a zero here";
+            }
         }
-        elsif ($numindels > 0 && $indel_coord < 0){
-            $indel_coord *= -1;
-            push @accum, [$start1, $start1+$indel_coord-1, 
-            $start2, $start2+$indel_coord-1];
-            push @accum, [$start1+$indel_coord,            $end1,
-            $start2+$indel_coord+$numindels, $end2];
-        }
-        else{
-            push @accum, [$start1, $end1, $start2, $end2];
-        }
+        push @accum, [$start1, $end1, $start2, $end2, $1];
     }
 
     for my $coords (@accum) {
