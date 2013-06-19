@@ -14,13 +14,18 @@ use FastaReader;
 pod2usage(-verbose => 99,-sections => [qw/NAME SYNOPSIS OPTIONS/]) 
 if $opt_help || ! $opt_from || !$opt_to || !$opt_dictionary;
 
-my $config = LoadFile("$FindBin::Bin/conf/$opt_dictionary.alignment");
+my $config = LoadFile($opt_dictionary);
 my %alignment = %{$config->{alignment}};
 
 my $from = FastaReader->new(file => $opt_from, slurp => 1);
 my $to   = FastaReader->new(file => $opt_to,   slurp => 1);
 
 for my $chr (sort keys %alignment) {
+    my $from_length = $from->get_length($chr);
+    my $to_length   = $to->get_length($chr);
+    my $from_coverage = 0;
+    my $to_coverage = 0;
+
     for my $fragment (@{$alignment{$chr}}){
         my ($from_start, $from_end, $to_start, $to_end) = @{$fragment};
         my $size = abs($from_end - $from_start + 1);
@@ -33,6 +38,8 @@ for my $chr (sort keys %alignment) {
         );
 
         say "$chr ($from_start, $from_end, $to_start, $to_end) = $diff / $size";
+        $from_coverage += $from_end - $from_start + 1;
+        $to_coverage   += $to_end - $to_start + 1;
 
         # if ($diff > 100){
         #     die 
@@ -41,6 +48,8 @@ for my $chr (sort keys %alignment) {
         #     $to->get($chr, $to_start, $to_end)
         # }
     }
+    printf("%s from coverage: %d / %d = %.2f\n", $chr, $from_coverage, $from_length, $from_coverage / $from_length);
+    printf("%s to coverage: %d / %d = %.2f\n", $chr, $to_coverage, $to_length, $to_coverage / $to_length);
 }
 
 sub change{
@@ -78,14 +87,9 @@ Convert column 4 and 5 in input.gff to output.gff according to rice-5.0-to-6.1:
 
 =item  -d <dict> | --dictionary <dict>
 
-Conversion dictionary.  These are files found in the coord/ directory in the
-install path (c:\dzlab-tools\coord on windows).  The '.alignment' prefix is
-optional. Currently available are:
-
- rice-5.0-to-6.1
- rice-6.1-to-5.0
- at-tair8-to-tair10
- at-tair10-to-tair8
+Conversion dictionary, output by genome_make_dictionary.pl These are
+*.alignment files found in the coord/ directory in the install path
+(c:\dzlab-tools\coord on windows).  
 
 =item -h | --help
 
