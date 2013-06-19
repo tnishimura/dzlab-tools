@@ -25,6 +25,7 @@ for my $chr (sort keys %alignment) {
     my $to_length   = $to->get_length($chr);
     my $from_coverage = 0;
     my $to_coverage = 0;
+    my $diff_total = 0;
 
     for my $fragment (@{$alignment{$chr}}){
         my ($from_start, $from_end, $to_start, $to_end) = @{$fragment};
@@ -40,6 +41,7 @@ for my $chr (sort keys %alignment) {
         say "$chr ($from_start, $from_end, $to_start, $to_end) = $diff / $size";
         $from_coverage += $from_end - $from_start + 1;
         $to_coverage   += $to_end - $to_start + 1;
+        $diff_total += $diff;
 
         # if ($diff > 100){
         #     die 
@@ -48,8 +50,9 @@ for my $chr (sort keys %alignment) {
         #     $to->get($chr, $to_start, $to_end)
         # }
     }
-    printf("%s from coverage: %d / %d = %.2f\n", $chr, $from_coverage, $from_length, $from_coverage / $from_length);
-    printf("%s to coverage: %d / %d = %.2f\n", $chr, $to_coverage, $to_length, $to_coverage / $to_length);
+    printf("summary: %s from coverage: %d / %d = %.2f\n", $chr, $from_coverage, $from_length, $from_coverage / $from_length);
+    printf("summary: %s to coverage: %d / %d = %.2f\n", $chr, $to_coverage, $to_length, $to_coverage / $to_length);
+    say "summary: total # of diffs: $diff_total";
 }
 
 sub change{
