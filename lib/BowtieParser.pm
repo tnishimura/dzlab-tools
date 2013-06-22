@@ -91,6 +91,9 @@ sub next_fixrc{
         if ($isrc){
             ($start, $end) = $fr->range_reverse2forward($seqid, $start, $end, $base);
             $strand = $strand eq '-' ? '+' : '-';
+            $read = reverse_complement($read);
+            $quality = scalar reverse($quality);
+	 
         }
 
         my $fixed_mismatches = [];
@@ -108,7 +111,9 @@ sub next_fixrc{
             $fixed_mismatches = $mismatches;
         }
 
-        return [$readid, $strand, $seqid, $start, reverse_complement($read), scalar(reverse($quality)), $mystery, $fixed_mismatches];
+	# return [$readid, $strand, $seqid, $start, reverse_complement($read), scalar(reverse($quality)), $mystery, $fixed_mismatches];
+	return [$readid, $strand, $seqid, $start, $read, $quality, $mystery, $fixed_mismatches];
+		
     }
     return;
 }
