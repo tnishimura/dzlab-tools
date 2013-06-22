@@ -74,7 +74,8 @@ sub load_avg{
     while (defined(my $line = <$fh>)){
         chomp $line;
         my ($pos, $sc) = split /\t/, $line;
-        if (! looks_like_number($pos) || ! looks_like_number($sc)){
+        # if (! looks_like_number($pos) || ! looks_like_number($sc)){
+        if (! looks_like_number($pos)){
             die "line $. of $file does not look like part of and ends average file: \n$line\n";
         }
         $scores{$pos} = $sc;
