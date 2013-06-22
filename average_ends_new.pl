@@ -63,8 +63,8 @@ for my $k (0 .. $scores - 1){
     if ($count){
         my $mean = smean(@$vals);
         my $var = svar(@$vals);
-        my $std = sqrt($var);
-        my $ste = $std/sqrt($count);
+        my $std = $var eq 'na' ? 'na' : sqrt($var);
+        my $ste = $var eq 'na' ? 'na' : $std/sqrt($count);
         my @quartiles = quartiles(@$vals);
 
         printf("%d\t" . ("%s\t" x 4) . "%d\t" . ("%s\t" x 3) . "\n",
