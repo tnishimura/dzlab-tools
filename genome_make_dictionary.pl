@@ -4,15 +4,111 @@ use warnings;
 use Data::Dumper;
 use feature 'say';
 use autodie;
-use lib "$ENV{HOME}/dzlab-tools/lib";
-use Launch;
 use Parallel::ForkManager;
-use Log::Log4perl qw/:easy/;
 use Pod::Usage;
 use Getopt::Long;
 use File::Basename;
-use File::Spec::Functions;
 use List::MoreUtils qw/all/;
+use YAML qw/LoadFile DumpFile/;
+use File::Path qw/make_path/;
+
+use FindBin;
+use lib "$FindBin::Bin/lib";
+use Launch;
+use FastaReader;
+
+my $result = GetOptions (
+    "help"     => \my $help,
+    "conf|c=s" => \my $config_file,
+    "dry|n"    => \my $dry,
+    "tmpdir|d" => \(my $tmpdir = 'tmp'),
+);
+pod2usage(-verbose => 99,-sections => [qw/NAME SYNOPSIS OPTIONS/]) 
+if ($help || !$result || !$config_file);  
+
+make_path($tmpdir);
+my $config = LoadFile($config_file);
+
+my          ($organism, $left_ecotype, $right_ecotype, $left_reference_file, $right_reference_file, $seqid_correlation) = 
+@{$config}{qw/organism   left_ecotype   right_ecotype   left_reference_file   right_reference_file   seqid_correlation/};
+
+# split reference into individual chromosomes
+# seqid => filename
+my %left_pieces  = split_reference($left_reference_file, $tmpdir);
+my %right_pieces = split_reference($right_reference_file, $tmpdir);
+
+my @seqid_names = sort keys %$seqid_correlation;
+
+# prepare file names
+my $conf_basename = basename($config_file, ".conf");
+my %prefix = map { $_ => "$tmpdir/$_-$left_ecotype-vs-$right_ecotype" } @seqid_names;
+my %global = map { $_ => "$prefix{$_}.global" } @seqid_names;
+my %delta  = map { $_ => "$prefix{$_}.delta"  } @seqid_names;
+
+# die Dumper \%prefix, \%global, \%delta;
+
+#######################################################################
+# run nucmer/delta-filter
+
+my $pm = Parallel::ForkManager->new(4);
+for my $seqid (@seqid_names) {
+    my $left_piece  = $left_pieces{$seqid_correlation->{$seqid}[0]};
+    my $right_piece = $right_pieces{$seqid_correlation->{$seqid}[1]};
+
+    warn("$seqid $left_piece $right_piece $prefix{$seqid} $delta{$seqid} $global{$seqid}");
+
+    $pm->start and next;
+
+    launch("nucmer -p $prefix{$seqid} -g 0 --noextend -f $left_piece $right_piece",
+        dryrun => $dry,expected => $delta{$seqid});
+    launch("delta-filter -g $delta{$seqid} > $global{$seqid}",
+        dryrun => $dry,expected => $global{$seqid});
+
+    $pm->finish;
+}
+$pm->wait_all_children;
+
+my %l2r_alignment = (left => $left_ecotype, right => $right_ecotype);
+my %r2l_alignment = (right => $left_ecotype, left => $right_ecotype);
+
+while (my ($chr,$file) = each %global) {
+    open my $fh, '<', $file;
+    GLOBAL:
+    for my $coords (parse_delta($fh)) {
+        for my $c (@$coords) {
+            my @s = @$c;
+            push @{$l2r_alignment{alignment}{uc $chr}}, [ @s[0,1,2,3] ];
+            push @{$r2l_alignment{alignment}{uc $chr}}, [ @s[2,3,0,1] ];
+        }
+    }
+    close $fh;
+}
+
+# say Dumper \%l2r_alignment;
+
+DumpFile("$organism-$left_ecotype-to-$right_ecotype.alignment", \%l2r_alignment);
+DumpFile("$organism-$right_ecotype-to-$left_ecotype.alignment", \%r2l_alignment);
+
+#######################################################################
+#######################################################################
+
+sub split_reference{
+    my $reference = shift;
+    my $dir = shift;
+    my $fr = FastaReader->new(file => $reference, slurp => 0);
+    my $basename = basename($reference, '.fa', '.fasta', '.fas');
+    my %accum;
+    for my $seqid ($fr->sequence_list) {
+        my $split = "$dir/$basename.$seqid.fasta";
+        if (! -f $split){
+            open my $fh, '>', $split;
+            $fr->dump_pretty($fh, $seqid, $seqid);
+            close $fh;
+        }
+        $accum{$seqid} = $split;
+    }
+    return %accum;
+}
 
 sub parse_delta{
     my $fh = shift;
@@ -110,82 +206,15 @@ sub parse_delta{
         push @accum, [$start1, $end1, $start2, $end2, $1];
     }
 
-    for my $coords (@accum) {
-        my ($start1, $end1, $start2, $end2) = @$coords;
-        if ($start1-$end1 != $start2-$end2){
-            die Dumper $coords;
-        }
-        print join(",", @$coords) . "\n";
-    }
+    # for my $coords (@accum) {
+    #     my ($start1, $end1, $start2, $end2) = @$coords;
+    #     if ($start1-$end1 != $start2-$end2){
+    #         die Dumper $coords;
+    #     }
+    #     print join(",", @$coords) . "\n";
+    # }
     return \@accum;
 }
-
-
-my $help;
-my $config_file;
-my $dry;
-my $result = GetOptions (
-    "help"     => \$help,
-    "conf|c=s" => \$config_file,
-    "dry|n" => \$dry,
-);
-pod2usage(-verbose => 99,-sections => [qw/NAME SYNOPSIS OPTIONS/]) 
-if ($help || !$result || !$config_file);  
-
-Log::Log4perl->easy_init( { 
-    level    => $DEBUG,
-    #file     => ">run.log",
-    layout   => '%d{HH:mm:ss} %.1p> (%L) %m%n',
-} );
-my $logger = get_logger();
-my $pm = Parallel::ForkManager->new(4);
-
-use YAML qw/LoadFile DumpFile/;
-my $config = LoadFile($config_file);
-
-my ($left,$right,$organism,$pairs) = @{$config}{qw/left right organism pairs/};
-
-my $outfile_l2r = "$organism-$left-to-$right.alignment";
-my $outfile_r2l = "$organism-$right-to-$left.alignment";
-
-my %globals;
-while (my ($chr,$pair) = each %$pairs) {
-    my ($leftfile, $rightfile) = @$pair;
-    my $prefix = basename($config_file,'.conf') . "-$organism-$chr-$left-vs-$right";
-    my $delta = "$prefix.delta";
-    my $global = "$prefix.global";
-    $globals{$chr} = $global;
-
-    $logger->info("$leftfile $rightfile $prefix $delta $global");
-    $pm->start and next;
-    launch("nucmer -p $prefix -g 0 --noextend -f $leftfile $rightfile",dryrun => $dry,expected => $delta);
-    launch("delta-filter -g $delta > $global",dryrun => $dry,expected => $global);
-
-    $pm->finish;
-}
-$pm->wait_all_children;
-
-my %l2r = (left => $left, right => $right);
-my %r2l = (right => $left, left => $right);
-
-while (my ($chr,$file) = each %globals) {
-    open my $fh, '<', $file;
-    GLOBAL:
-    for my $coords (parse_delta($fh)) {
-        for my $c (@$coords) {
-            my @s = @$c;
-            push @{$l2r{alignment}{uc $chr}}, [ @s[0 .. 3] ];
-            push @{$r2l{alignment}{uc $chr}}, [ @s[2,3,0,1] ];
-        }
-    }
-    close $fh;
-}
-
-say Dumper \%l2r;
-
-DumpFile($outfile_l2r, \%l2r);
-DumpFile($outfile_r2l, \%r2l);
-
 
 =head1 NAME
 
@@ -200,23 +229,19 @@ Usage examples:
 Where the config.file looks like: 
 
  ---
- left: 5.0            # name of the 'from' sequence
- right: 6.1           # name of the 'to' sequence
- organism: rice       # name of organism
+ left_reference_file  : whatever-5.0.fasta
+ right_reference_file : whatever-6.1.fasta
+ left_ecotype         : 5.0
+ right_ecotype        : 6.1
  
- pairs:
-   chr01:             # name of sequence.  
-     - 5.0/chr01.con  # left file name, relative to run dir.
-     - 6.1/chr01.con  # right file name, relative to run dir.
- 
-   chr02:             # can be repeated as necessary
-     - 5.0/chr02.con
-     - 6.1/chr02.con
- 
-   chr03: 
-     - 5.0/chr03.con
-     - 6.1/chr03.con
- 
+ seqid_correlation:
+   chr01:             # name of sequence to use in final file
+     - Chr01          # name in left reference
+     - chromosome1    # name in right reference
 
+   chr02:             
+     - Chr02
+     - chromosome2
+ 
 =cut
 
