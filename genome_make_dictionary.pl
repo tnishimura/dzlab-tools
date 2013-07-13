@@ -14,14 +14,13 @@ use File::Path qw/make_path/;
 
 use FindBin;
 use lib "$FindBin::Bin/lib";
-use Launch;
 use FastaReader;
 
 my $result = GetOptions (
     "help"     => \my $help,
     "conf|c=s" => \my $config_file,
-    "dry|n"    => \my $dry,
     "tmpdir|d" => \(my $tmpdir = 'tmp'),
+    "note|n=s" => \my $note,
 );
 pod2usage(-verbose => 99,-sections => [qw/NAME SYNOPSIS OPTIONS/]) 
 if ($help || !$result || !$config_file);  
@@ -59,10 +58,10 @@ for my $seqid (@seqid_names) {
 
     $pm->start and next;
 
-    launch("nucmer -p $prefix{$seqid} -g 0 --noextend -f $left_piece $right_piece",
-        dryrun => $dry,expected => $delta{$seqid});
-    launch("delta-filter -g $delta{$seqid} > $global{$seqid}",
-        dryrun => $dry,expected => $global{$seqid});
+    run("nucmer -p $prefix{$seqid} -g 0 --noextend -f $left_piece $right_piece");
+    # run("nucmer -p $prefix{$seqid} --maxmatch -g 0 --noextend -f $left_piece $right_piece");
+    # run("nucmer -p $prefix{$seqid} -g 0 --noextend $left_piece $right_piece");
+    run("delta-filter -g $delta{$seqid} > $global{$seqid}");
 
     $pm->finish;
 }
@@ -71,26 +70,42 @@ $pm->wait_all_children;
 my %l2r_alignment = (left => $left_ecotype, right => $right_ecotype);
 my %r2l_alignment = (right => $left_ecotype, left => $right_ecotype);
 
+# while (my ($chr,$file) = each %global) {
+#     open my $fh, '<', $file;
+#     say Dumper [parse_delta($fh)];
+#     close $fh;
+# }
+
 while (my ($chr,$file) = each %global) {
     open my $fh, '<', $file;
     GLOBAL:
-    for my $coords (parse_delta($fh)) {
-        for my $c (@$coords) {
-            my @s = @$c;
-            push @{$l2r_alignment{alignment}{uc $chr}}, [ @s[0,1,2,3] ];
-            push @{$r2l_alignment{alignment}{uc $chr}}, [ @s[2,3,0,1] ];
-        }
+    for my $c (parse_delta($fh)) {
+        my @s = @$c;
+        push @{$l2r_alignment{alignment}{uc $chr}}, [ @s[0,1,2,3] ];
+        push @{$r2l_alignment{alignment}{uc $chr}}, [ @s[2,3,0,1] ];
     }
     close $fh;
 }
 
 # say Dumper \%l2r_alignment;
 
-DumpFile("$organism-$left_ecotype-to-$right_ecotype.alignment", \%l2r_alignment);
-DumpFile("$organism-$right_ecotype-to-$left_ecotype.alignment", \%r2l_alignment);
+if ($note){
+    DumpFile("$organism-$left_ecotype-to-$right_ecotype.$note.alignment", \%l2r_alignment);
+    DumpFile("$organism-$right_ecotype-to-$left_ecotype.$note.alignment", \%r2l_alignment);
+}
+else{
+    DumpFile("$organism-$left_ecotype-to-$right_ecotype.alignment", \%l2r_alignment);
+    DumpFile("$organism-$right_ecotype-to-$left_ecotype.alignment", \%r2l_alignment);
+}
 
 #######################################################################
 #######################################################################
+
+sub run{
+    my $cmd = shift;
+    say $cmd;
+    system($cmd) == 0 or die "couldn't run [$cmd]";
+}
 
 sub split_reference{
     my $reference = shift;
@@ -152,9 +167,9 @@ sub parse_delta{
     while ($line =~ 
         m/  
         (
-          ^\d+ (\h \d+) {6} $ \n  # 7 numbers
+          ^\-?\d+ (\h \-?\d+) {6} $ \n  # 7 numbers
           (?: 
-            ^\d+$ \n              # single number lines
+            ^\-?\d+$ \n              # single number lines
           )*?                    
         )
         ^0$                       # until a 0
@@ -166,13 +181,14 @@ sub parse_delta{
         # indels), similarity errors (non-positive match scores), and stop
         # codons (does not apply to DNA alignments, will be "0"). 
 
-        my ($start1, $end1, $start2, $end2, $numindels, undef, undef, @indel_coords)
+        my ($start1, $end1, $start2, $end2, $numchanges, undef, undef, @indel_coords)
         = split /\s/, $1; # $1 is the outer paren
 
-        # numindels should be the count of @indel_coords, except when there's a single indel at the border,
+        # numchanges = number of indels + number of mutations (i think). 
+        # so should be at least count of @indel_coords, except when there's a single indel at the border,
         # which we can detect by equality of the length of the segments
         die "not the expected number of indels?: $line" 
-        if ($numindels != @indel_coords && $end2 - $start2 != $end1 - $start1);
+        if ($numchanges < @indel_coords && $end2 - $start2 != $end1 - $start1);
 
         # positive indel # = deletion from B. 
         # negative indel # = deletion from A.
@@ -213,7 +229,7 @@ sub parse_delta{
     #     }
     #     print join(",", @$coords) . "\n";
     # }
-    return \@accum;
+    return @accum;
 }
 
 =head1 NAME
