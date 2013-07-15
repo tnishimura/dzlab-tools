@@ -85,6 +85,16 @@ Search (for exact match):
   # set all attributes (column 3) to "ID=AT123" in output:
   $0 find -s ACGT --attribute "ID=AT123" input.fasta
 
+Insert a sequence in insertion.fasta at --sequence/-s and --position/-p:
+
+  $0 insert -s chr1 -p 123 -i insertion.fasta reference.fasta > with-insertion.fasta
+
+  Note: Inserted AFTER position given by -p.
+
+Delete a subsequence:
+
+  $0 delete -s chr1 -r 123 456 reference.fasta > with-deletion.fasta
+
 END
 
     exit 1;
@@ -139,6 +149,30 @@ for ($cmd){
 
         my $fasta = shift || usage();
         FastaReader::BaseComposition::report($fasta, 3, 1);
+    }
+    when ([qw/split/]){
+        my $fasta = shift || usage();
+        my $basename = $fasta;
+        $basename =~ s/\.([^.]+)$//;
+        my $ext = $1;
+
+        open my $infh, '<:crlf', $fasta;
+        my $outfh;
+        while (defined(my $line = <$infh>)){
+            if ($line =~ /^>([^\s]+)/){
+                my $chr = $1;
+                open $outfh, '>', "$basename-$chr.$ext";
+                print $outfh ">$chr\n";
+            }
+            elsif (defined $outfh){
+                print $outfh $line;
+            }
+            else{
+                die "first line is not a sequence header?";
+            }
+        }
+        close $outfh;
+        close $infh;
     }
     when ([qw/reverse-coord reverse-coordinate/]){
         my @range;
@@ -205,8 +239,6 @@ for ($cmd){
             );
         }
     }
-    # when (qw/split/){
-    # }
     when ([qw/bsrc bs/]){
         my $result = GetOptions (
             "c2t|c2t" => \(my $c2t),
@@ -322,6 +354,126 @@ for ($cmd){
         for my $match ($input_fr->find(@search)) {
             my ($seqid, $start, $end, $rc) = @$match;
             say join "\t", $seqid, qw/./, $feature, $start, $end, q/./, ($rc ? '-' : '+'), qw/./, $attribute;
+        }
+    }
+    when ('insert'){
+        my $result = GetOptions (
+            "sequence|seq|s=s" => \(my $sequence),
+            "position|p=i" => \(my $position),
+            "base|b=i"       => \(my $base = 1),
+            "reverse-complement|rc" => \(my $reverse_complement),
+            "insertion|i=s" => \(my $insertion),
+        );
+        usage() if (
+            ! $result || ! $sequence || ! defined $position || 
+            ($base != 0 && $base != 1) || 
+            ! -f $insertion
+        );  
+        my $fasta = shift || usage();
+
+        # allow either fasta with single sequence, or raw sequence file
+        my $insertion_is_fasta;
+        {
+            open my $fh, '<:crlf', $insertion;
+            while (defined(my $line = <$fh>)){
+                chomp $line;
+                if ($line =~ /^>/){
+                    $insertion_is_fasta = 1;
+                }
+                elsif ($line =~ /^\s*$/){
+                    next;
+                }
+                else{ last; }
+            }
+            close $fh;
+        }
+
+        my $insertion_sequence;
+        if ($insertion_is_fasta){
+            my $i = FastaReader->new(file => $insertion, slurp => 1);
+            my @insertion_file_sequences = $i->sequence_list;
+            if (@insertion_file_sequences != 1){
+                say STDERR "insertion file should only have a single sequence";
+            }
+            $insertion_sequence = $i->get($insertion_file_sequences[0], undef, undef, rc => $reverse_complement);
+        }
+        else{
+            open my $fh, '<:crlf', $insertion;
+            my @accum;
+            while (defined(my $line = <$fh>)){
+                chomp $line;
+                if ($line =~ /^[ABCDGHKMNRSTVWY]+$/){
+                    push @accum, $line;
+                }
+                else{
+                    say STDERR "$insertion does not look like fasta file or a raw sequence file";
+                    exit 1;
+                }
+            }
+            close $fh;
+            $insertion_sequence = join "", @accum;
+            if ($reverse_complement){
+                $insertion_sequence = reverse_complement($insertion_sequence);
+                say STDERR "ASDFASDF";
+            }
+        }
+
+        my $r = FastaReader->new(file => $fasta, slurp => 0);
+
+        for my $s ($r->sequence_list) {
+            if (lc $s eq lc $sequence){
+                say FastaReader::format_fasta(
+                    $s, (
+                        # if position is negative (or zero in base-1),
+                        # insert before everything
+                        ($position < $base ? "" : $r->get($s, undef, $position, base => $base))
+                        .
+                        $insertion_sequence 
+                        .
+                        $r->get($s, $position + 1, undef, base => $base,)
+                    ), 80
+                );
+            }
+            else{
+                $r->dump_pretty(\*STDOUT, $s, $s);
+            }
+        }
+    }
+    when ('delete'){
+        my @range;
+        my $result = GetOptions (
+            "sequence|seq|s=s" => \(my $sequence),
+            "range|r=i{2}"   => \@range,
+            "base|b=i"       => \(my $base = 1),
+        );
+        # die Dumper \@range, $base, $sequence, $result;
+
+        usage() if (
+            ! $result || ! $sequence || @range != 2 || 
+            ($base != 0 && $base != 1) 
+        );  
+        my $fasta = shift || usage();
+
+        my $r = FastaReader->new(file => $fasta, slurp => 0);
+        my ($start, $end) = @range;
+        my @before_range = (undef, $start - 1);
+        my @after_range = ($end + 1, undef);
+
+
+        for my $s ($r->sequence_list) {
+            if (lc $s eq lc $sequence){
+                my $len = \ 
+                print FastaReader::format_fasta(
+                    $s, (
+                        ($r->get($s, @before_range, base => $base, lenient => 1))
+                        .
+                        ($r->get($s, @after_range, base => $base, lenient => 1))
+                    ), 80
+                );
+            }
+            else{
+                $r->dump_pretty(\*STDOUT, $s, $s);
+            }
         }
     }
     default{
