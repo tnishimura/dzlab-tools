@@ -16,6 +16,7 @@ my $help;
 my $reference;
 my $result = GetOptions (
     "reference|r=s" => \$reference,
+    "allow-mismatch|m" => \(my $allow_mismatch),
 );
 if (! $result || ! $reference || (! @ARGV && -t STDIN)){
     pod2usage(-verbose => 2, -noperldoc => 1);
@@ -43,11 +44,17 @@ while (defined(my $line = <ARGV>)){
     BEFORE:
     {
         my $grab = substr $genome->{$seq}, $coord-1,1;
-        last BEFORE if $grab !~ /ACTG/ && $original !~ /ACTG/;
         if ($grab ne $original){
-            say STDERR "BEFORE: $grab doesn't match $original at $line"; 
             ++$counter;
-            next TOP;
+            if ($allow_mismatch){
+                say STDERR "BEFORE: $grab doesn't match $original, but converting anways"; 
+                say STDERR "line was: $line";
+            }
+            else{
+                say STDERR "BEFORE: $grab doesn't match $original, skipping SNP"; 
+                say STDERR "line was: $line";
+                next TOP;
+            }
         }
     }
 
@@ -74,5 +81,12 @@ snplist.gff should be a gff file with the following columns:
  column 7: strand (if '.', assumed to be + strand).
  column 9: SNP, written as "A>C" or "C>G".  Should be with respect to
            the strand (column 7). 
+
+By default, if the "from" base in column 9 does not match what is found in the
+genome, an error will be printed and that SNP will be skipped. With
+--allow-mismatch/-m, the base will be converted to the "to" base even if there
+is an error.
+
+ genome_patch.pl -m -r reference.fas snplist.gff > new-reference.fas
 
 =cut
