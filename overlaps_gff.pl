@@ -39,32 +39,32 @@ while (defined(my $gff = $p->next())){
     my $outputted;
 
     if ($annotation_has_seq{uc $seq}){
-    my @results = $gt->search_overlap($seq,$start,$end);
+        my @results = $gt->search_overlap($seq,$start,$end);
 
-    for my $result (@results){
-        my $overlap = $result->{overlap};
-        if ($opt_proportion_threshold == 0 || 
-            ($opt_proportion_threshold == 1 && $overlap == $gff->length) || 
-            $overlap / $gff->length() >= $opt_proportion_threshold
-        ){
-            if (defined $opt_tag && defined(my $locus = $result->{item}->get_column($opt_tag))){
-                if ($opt_tag_only){
-                    $gff->attribute_string($locus);
-                    say $gff;
+        for my $result (@results){
+            my $overlap = $result->{overlap};
+            if ($opt_proportion_threshold == 0 || 
+                ($opt_proportion_threshold == 1 && $overlap == $gff->length) || 
+                $overlap / $gff->length() >= $opt_proportion_threshold
+            ){
+                if (defined $opt_tag && defined(my $locus = $result->{item}->get_column($opt_tag))){
+                    if ($opt_tag_only){
+                        $gff->attribute_string($locus);
+                        say $gff;
+                    }
+                    else{
+                        say "$gff;$opt_tag=$locus";
+                    }
+                    $outputted = 1;
                 }
                 else{
-                    say "$gff;$opt_tag=$locus";
+                    say STDERR "Warning: overlapping but no $opt_tag for " . $result->{item}; 
                 }
-                $outputted = 1;
             }
-            else{
-                say STDERR "Warning: overlapping but no $opt_tag for " . $result->{item}; 
+            if ($outputted && $opt_one_each){
+                last;
             }
         }
-        if ($outputted && $opt_one_each){
-            last;
-        }
-    }
     }
 
     if (! $outputted && $opt_no_skip){
@@ -133,6 +133,7 @@ reported with a null score). Default to 0, mean any overlap is enough.
 
 Only print one entry for multiply overlapping input.
 
+
 =item --help | -h
 
 =back
@@ -141,3 +142,22 @@ Only print one entry for multiply overlapping input.
 
 
 
+# =item  -up <bp> | --upstream <bp>
+# 
+# =for Euclid
+#     bp.default:     0
+#     bp.type:        int, bp >= 0 
+#     bp.type.error:  <bp> must be greater than 0
+# 
+# =item  -down <bp> | --downstream <bp>
+# 
+# =for Euclid
+#     bp.default:     0
+#     bp.type:        int, bp >= 0 
+#     bp.type.error:  <bp> must be greater than 0
+# 
+# =item --no-body | -nb
+# 
+# Do not look for overlaps with body only.  This is useful when looking for overlaps with 
+# upstream/downstream regions only.  For example, -nb -down 100 -up 100 searches for overlaps
+# with 100 bp upstream and downstream of a input window, but NOT the window itself.
