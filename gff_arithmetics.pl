@@ -25,6 +25,7 @@ my $result = GetOptions (
     "propagate-dots|d" => \(my $propagate_dots),
     "add-attributes|a" => \(my $add_attributes),
     "already-sorted|s" => \(my $assume_sorted),
+    "zero-as-empty|z" => \(my $zero_as_empty),
 );
 
 our $ATTRIBUTE;
@@ -37,7 +38,7 @@ pod2usage(-verbose => 99) unless ($result && defined $expression && defined $fil
 
 if (! $assume_sorted){
     for ($file_a, $file_b){
-        my $tmp = [tempfile("$_-XXXXXX", UNLINK => 1)]->[1];
+        my $tmp = [tempfile("$_-XXXXXX", UNLINK => 0)]->[1];
         cast("sort -k1,1 -k4,4n -i $_ -o $tmp");
         move $tmp, $_;
     }
@@ -70,11 +71,27 @@ while (defined(my $left = $parser_left->next)){
         }
         elsif(GFF::start_position_lessthan($left,$right)){
             $parser_right->rewind($right);
-            say $left->to_string;
+
+            if ($zero_as_empty){
+                local $ATTRIBUTE = $left->attribute_string;
+                $left->score(eval_expression($left->score(), 0));
+                say $left->to_string;
+            }
+            else{
+                say $left->to_string;
+            }
+
             last RIGHT;
         }
         elsif(GFF::start_position_lessthan($right,$left)){
-            say $right->to_string;
+            if ($zero_as_empty){
+                local $ATTRIBUTE = $right->attribute_string;
+                $right->score(eval_expression(0,$right->score()));
+                say $right->to_string;
+            }
+            else{
+                say $right->to_string;
+            }
         }
     }
 }
@@ -359,6 +376,11 @@ Also note: division by zero are detected and replaced with a dot.
 =head1 OPTIONS
 
 =over
+
+=item  -z | --empty-as-zero
+
+When a position is in one file but not the other, the empty position score is treated as a zero and expression is evaluated accordingly.
+Default is to print line as-is.
 
 =item -d | --propagate-dots
 
