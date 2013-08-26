@@ -83,7 +83,7 @@ sub new {
             },
         });
 
-    $self->{pdl}         = zeroes $type_dispatch{$opt{type}}, $opt{size};
+    $self->{pdl}         = zeroes $type_dispatch{$opt{type}}, $opt{size} + 1;
     $self->{size}        = $opt{size};
     $self->{buffer_size} = $opt{buffer_size};
     $self->{base}        = $opt{base};
@@ -128,6 +128,11 @@ sub increment_range{
     my ($self, $start, $end, $val) = @_;
     $start -= $self->{base};
     $end -= $self->{base};
+    # ??? - probably due to bug in sam parser, we get weird out of range errors
+    if ($start >= $self->get_size || $end >= $self->get_size){
+        warn "out of range: $start $end " . $self->get_size;
+        return;
+    }
     $self->{pdl}->slice("$start:$end") += $val//1;
 }
 
