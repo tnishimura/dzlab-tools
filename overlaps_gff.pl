@@ -24,7 +24,10 @@ if ($opt_proportion_threshold != 0 && ($opt_no_body || $opt_downstream || $opt_u
     exit 1;
 }
 
-
+if ($opt_invert && ($opt_proportion_threshold != 0 || $opt_no_body || $opt_downstream || $opt_upstream)){
+    say STDERR "Sorry, --invert is not currently compatible with -p, --no-body, -down or -up." ;
+    exit 1;
+}
 
 if ($opt_output ne '-'){
     open my $fh, '>', $opt_output;
@@ -62,33 +65,42 @@ while (defined(my $gff = $p->next())){
             $results_set{refaddr $_} = $_ for $gt->search_overlap($seq,$start -  $opt_upstream, $start - 1);
         }
 
-        my @results = values %results_set;
-
-        for my $result (@results){
-            my $overlap = $result->{overlap};
-            if ($opt_proportion_threshold == 0 || 
-                ($opt_proportion_threshold == 1 && $overlap == $gff->length) || 
-                $overlap / $gff->length() >= $opt_proportion_threshold
-            ){
-
-                if (defined $opt_tag && defined(my $locus = $result->{item}->get_column($opt_tag))){
-                    if ($opt_tag_only){
-                        $gff->attribute_string($locus);
-                        say $gff;
-                    }
-                    else{
-                        say "$gff;$opt_tag=$locus";
-                    }
-                    $outputted = 1;
-                }
-                else{
-                    say STDERR "Warning: overlapping but no $opt_tag for " . $result->{item}; 
-                }
-            }
-            if ($outputted && $opt_one_each){
-                last;
+        if ($opt_invert){
+            if (keys %results_set == 0){
+                say "$gff";
             }
         }
+        # commit note: following block not changed for adding invert block below, only indented
+        else{
+            my @results = values %results_set;
+
+            for my $result (@results){
+                my $overlap = $result->{overlap};
+                if ($opt_proportion_threshold == 0 || 
+                    ($opt_proportion_threshold == 1 && $overlap == $gff->length) || 
+                    $overlap / $gff->length() >= $opt_proportion_threshold
+                ){
+
+                    if (defined $opt_tag && defined(my $locus = $result->{item}->get_column($opt_tag))){
+                        if ($opt_tag_only){
+                            $gff->attribute_string($locus);
+                            say $gff;
+                        }
+                        else{
+                            say "$gff;$opt_tag=$locus";
+                        }
+                        $outputted = 1;
+                    }
+                    else{
+                        say STDERR "Warning: overlapping but no $opt_tag for " . $result->{item}; 
+                    }
+                }
+                if ($outputted && $opt_one_each){
+                    last;
+                }
+            }
+        }
+
     }
 
     if (! $outputted && $opt_no_skip){
@@ -186,6 +198,10 @@ with 100 bp upstream and downstream of a input window, but NOT the window itself
 Replace column 8 (normally the GFF 'frame' column) with 1 when input window has
 an overlap.  This is useful when used with --no-skip, so that you can quickly
 differentiation between windows with or without overlaps.
+
+=item --invert | -v 
+
+Filter out all gff entries which DO overlap with something in the annotation.
 
 =item --help | -h
 
