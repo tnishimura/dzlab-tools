@@ -186,7 +186,7 @@ for my $seq (sort $fasta_reader->sequence_list()) {
             }
             for my $s (@strands) {
                 my $pdl  = $counters{uc $seq}{$s}->get_range($start, $end);
-                my $count  = $pdl->max();
+                my $count  = $first_base_only ? $pdl->sum() : $pdl->max() ;
 
                 if ($count  > 0 || $noskip){ 
                     $output_fh->print(join "\t", $seq, qw/. ./, $start, $end, $count , $s, qw/. ./); 
