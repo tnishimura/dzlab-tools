@@ -130,10 +130,10 @@ if ($opt_split_strand){
 # bowtie-windowing
 
 if ($opt_window_by_fixed && ! $opt_skip_whole_wf){
-    for my $b (@bowties){
-        my $w50 = $b;
+    for my $bowtie (@bowties){
+        my $w50 = $bowtie;
         $w50 =~ s/bowtie/w$opt_window_by_fixed\.gff/;
-        launch(qq{perl -S window_alignment.pl -r $opt_reference_a -f bowtie -w $opt_window_by_fixed -k -b 1 -v $b -o $w50});
+        launch(qq{perl -S window_alignment.pl -r $opt_reference_a -f bowtie -w $opt_window_by_fixed -k -v $bowtie -o $w50});
     }
 }
 
@@ -275,30 +275,30 @@ if (! $opt_no_windowing){
     my $winanno_filtered_a = "$basename_a.7.win-anno-filtered.gff$nocc";
     my $winanno_filtered_b = "$basename_b.7.win-anno-filtered.gff$nocc";
 
-    my ($w50_a, $w50_b, $w50_filtered_a, $w50_filtered_b);
-    if ($opt_window_by_fixed){
-        $w50_a = "$basename_a.7.w$opt_window_by_fixed.gff$nocc";
-        $w50_b = "$basename_b.7.w$opt_window_by_fixed.gff$nocc";
-        $w50_filtered_a = "$basename_a.7.w$opt_window_by_fixed-filtered.gff$nocc";
-        $w50_filtered_b = "$basename_b.7.w$opt_window_by_fixed-filtered.gff$nocc";
-    }
+    my $w50_a = "$basename_a.7.w$opt_window_by_fixed.gff$nocc";
+    my $w50_b = "$basename_b.7.w$opt_window_by_fixed.gff$nocc";
+    my $w50_filtered_a = "$basename_a.7.w$opt_window_by_fixed-filtered.gff$nocc";
+    my $w50_filtered_b = "$basename_b.7.w$opt_window_by_fixed-filtered.gff$nocc";
 
     if ($pm->start == 0){
         launch("perl -S window_gff.pl -t $opt_locus_tag $gff_sorted_a -g $opt_annotation -k -c sum -o ?? -r", expected => $winanno_a);
         launch("perl -S window_gff.pl -t $opt_locus_tag $gff_filtered_a -g $opt_annotation -k -c sum -o ?? -r", expected => $winanno_filtered_a);
-        if ($opt_window_by_fixed){
-            launch("perl -S window_by_fixed.pl -n -w $opt_window_by_fixed -r $opt_reference_a -o ?? -k $gff_sorted_a", expected => $w50_a);
-            launch("perl -S window_by_fixed.pl -n -w $opt_window_by_fixed -r $opt_reference_a -o ?? -k $gff_filtered_a", expected => $w50_filtered_a);
-        }
+        # launch("perl -S window_by_fixed.pl -n -w $opt_window_by_fixed -r $opt_reference_a -o ?? -k $gff_sorted_a", expected => $w50_a);
+        # launch("perl -S window_by_fixed.pl -n -w $opt_window_by_fixed -r $opt_reference_a -o ?? -k $gff_filtered_a", expected => $w50_filtered_a);
+
+        launch(qq{perl -S window_alignment.pl -w $opt_window_by_fixed -r $opt_reference_a -f gff -o ?? -k $gff_sorted_a}, expected => $w50_a);
+        launch(qq{perl -S window_alignment.pl -w $opt_window_by_fixed -r $opt_reference_a -f gff -o ?? -k $gff_filtered_a}, expected => $w50_filtered_a,);
+
         $pm->finish();
     }
     if ($pm->start == 0){
         launch("perl -S window_gff.pl -t $opt_locus_tag $gff_sorted_b -g $opt_annotation -k -c sum -o ?? -r", expected => $winanno_b);
         launch("perl -S window_gff.pl -t $opt_locus_tag $gff_filtered_b -g $opt_annotation -k -c sum -o ?? -r", expected => $winanno_filtered_b);
-        if ($opt_window_by_fixed){
-            launch("perl -S window_by_fixed.pl -n -w $opt_window_by_fixed -r $opt_reference_a -o ?? -k $gff_sorted_b", expected => $w50_b);
-            launch("perl -S window_by_fixed.pl -n -w $opt_window_by_fixed -r $opt_reference_a -o ?? -k $gff_filtered_b", expected => $w50_filtered_b);
-        }
+        # launch("perl -S window_by_fixed.pl -n -w $opt_window_by_fixed -r $opt_reference_a -o ?? -k $gff_sorted_b", expected => $w50_b);
+        # launch("perl -S window_by_fixed.pl -n -w $opt_window_by_fixed -r $opt_reference_a -o ?? -k $gff_filtered_b", expected => $w50_filtered_b);
+        launch(qq{perl -S window_alignment.pl -w $opt_window_by_fixed -r $opt_reference_a -f gff -o ?? -k $gff_sorted_b}, expected => $w50_b);
+        launch(qq{perl -S window_alignment.pl -w $opt_window_by_fixed -r $opt_reference_a -f gff -o ?? -k $gff_filtered_b}, expected => $w50_filtered_b,);
+
         $pm->finish();
     }
     if ($opt_split_strand){
