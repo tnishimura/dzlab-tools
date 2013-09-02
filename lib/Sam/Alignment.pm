@@ -24,6 +24,7 @@ our %flag_bits = (
 );
 
 # my $sam = Sam::Alignment->new($line, \%sequence_length_hash, $tryfixrc);
+
 around BUILDARGS => sub{
     my ($orig, $class, $line, $seqlengths, $tryfixrc) = @_;
     chomp($line);
@@ -65,7 +66,7 @@ around BUILDARGS => sub{
         # tlen probably unchanged 
         $readseq = reverse_complement($readseq);
         # $readqual = scalar reverse $readseq;
-        $readqual = reverse_complement($readseq);
+        $readqual = reverse_complement($readqual);
         
         # edit_distance can remain same
         # $mismatch_string should be reversed like cigar lazily.
@@ -119,6 +120,18 @@ has fixrc => ( is => 'ro', required => 1 );
 # length of chromosome
 has seqlen => ( is => 'ro', required => 1 );
 
+sub readlength {    length($_[0]->readseq)                 }
+
+# bit flag extraction
+sub is_reverse {    $_[0]->flag & $flag_bits{reverse};     }
+sub failed_qc  {    $_[0]->flag & $flag_bits{failed_qc};   }
+sub mapped     { !( $_[0]->flag & $flag_bits{unmapped}   ) }
+sub is_mapped  { !( $_[0]->flag & $flag_bits{unmapped}   ) }
+sub is_first_segment       { $_[0]->flag & $flag_bits{first_segment} }
+sub is_second_segment      { $_[0]->flag & $flag_bits{last_segment} }
+sub is_primary_alignment   { !($_[0]->flag & $flag_bits{secondary_alignment}) }
+sub is_secondary_alignment { $_[0]->flag & $flag_bits{secondary_alignment} }
+
 # two alternatives for leftmost/rightmost when we know 
 # the alignment has no gaps, like for bowtie1.
 sub dumbstart { 
@@ -140,30 +153,6 @@ sub dumbend {
     }
 } 
 
-# other fields are calculated and maybe memo'd
-
-sub readlength {    length($_[0]->readseq)                 }
-sub is_reverse {    $_[0]->flag & $flag_bits{reverse};     }
-sub failed_qc  {    $_[0]->flag & $flag_bits{failed_qc};   }
-sub mapped     { !( $_[0]->flag & $flag_bits{unmapped}   ) }
-sub is_mapped  { !( $_[0]->flag & $flag_bits{unmapped}   ) }
-sub is_first_segment       { $_[0]->flag & $flag_bits{first_segment} }
-sub is_second_segment      { $_[0]->flag & $flag_bits{last_segment} }
-sub is_primary_alignment   { !($_[0]->flag & $flag_bits{secondary_alignment}) }
-sub is_secondary_alignment { $_[0]->flag & $flag_bits{secondary_alignment} }
-
-# multiple_segments   => 0x1,
-# each_segment_aligns => 0x2,
-# unmapped            => 0x4,
-# next_unmapped       => 0x8,
-# reverse             => 0x10,
-# next_reverse        => 0x20,
-# first_segment       => 0x40,
-# last_segment        => 0x80,
-# secondary_alignment => 0x100,
-# failed_qc           => 0x200,
-# duplicate           => 0x400,
-
 #######################################################################
 # rightmost is the right most position in the genome that read aligns
 
@@ -178,7 +167,6 @@ sub is_secondary_alignment { $_[0]->flag & $flag_bits{secondary_alignment} }
 
 has rightmost => ( is => 'ro', lazy_build => 1 );
 has leftmost  => ( is => 'ro', lazy_build => 1 );
-
 has span => (is => 'ro', lazy_build => 1);
 
 sub _build_span{
@@ -320,12 +308,28 @@ sub _build_cigar_string{
     return join "", map { $_->[1] . $_->[0] } @{$self->cigar};
 }
 
+# hack to compensate for the improper handling to ref pos in MDZ string.
+sub cigar_is_all_m{
+    my $self = shift;
+    return $self->original_cigar_string =~ /^\d+M$/;
+}
+
 #######################################################################
-# mismatch (MD:Z: in opt fields) string.  (slightly less) idiotic format.  returns:
+# mismatch string parseing (MD:Z: in opt fields) string.  
+# (slightly less) idiotic format.  
+
+# mismatch_tokens is the parse MD:Z: string, which no more information
+
+# mismatches looks like:
 # [ 
 #      [ 'M', COUNT ] match for COUNT bases
 #   or [ 'C', POSITION, BASE_IN_REF, BASE_IN_READ ] CHANGE. reference base is BASE, read base is something else
 #   or [ 'D', POSITION, BASE_IN_REF ]               DELETION of BASE from reference.
+# ]
+
+# snps returns 
+# [ 
+#   [ POSITION, BASE_IN_REF, BASE_IN_READ ]  # just the 'C' from above.
 # ]
 
 # "The MD field aims to achieve SNP/indel calling without looking at the
@@ -335,6 +339,8 @@ sub _build_cigar_string{
 # matches followed by a 2bp deletion from the reference; the deleted sequence
 # is AC; the last 6 bases are matches. The MD field ought to match the CIGAR
 # string."
+
+# 2013-09-02 - Wait, so when would cigar ever be useful? Answer: see bug note below
 
 has mismatch_tokens => ( is => 'ro', lazy_build => 1 );
 
@@ -361,12 +367,14 @@ sub _build_mismatch_tokens {
             | 
             (\^?)([A-Z])
         }xmg){
+        # number means match of that many bases.
         if ($1){
             # $ref_position += $rcpos * $token;
             # $read_position += $rcpos * $token;
 
             push @accum, ['M', $1];
         }
+        # carat means deletion
         elsif ($2){
             if ($fixrc){
                 push @accum, ['D', reverse_complement $3];
@@ -376,6 +384,7 @@ sub _build_mismatch_tokens {
             }
             # $ref_position += $rcpos;
         }
+        # no carat means change of base
         elsif ($3){
             if ($fixrc){
                 push @accum, ['C', reverse_complement $3];
@@ -392,22 +401,25 @@ sub _build_mismatch_tokens {
     return \@accum;
 }
 
-has mismatches => ( is => 'ro', lazy_build => 1 );
-
 # 'C' only: [ [ POSITION, BASE_IN_REF, BASE_IN_READ ]  ... ]
 sub snps{
     my $self = shift; 
     return [map { [@{$_}[1,2,3]] } grep { $_->[0] eq 'C' } @{$self->mismatches}]
 }
 
+# BUG:
+# below does not work for gapped alignments-- only works when the cigar string is like
+# 100M. the ref_position needs to be correlated with whether there have been gaps/clipping 
+# in the CIGAR string.  Instead of trying to increment ref_position, need a subroutine
+# read_pos_to_ref_pos which 'walks' the cigar string. i hate this format. 
+has mismatches => ( is => 'ro', lazy_build => 1 );
+
 sub _build_mismatches { 
     my $self = shift; 
 
-    my $mdstring = $self->original_mismatch_string;
-
     my $read = $self->readseq(); # already RC'd. 
 
-    my $ref_position  = $self->leftmost;
+    my $ref_position  = $self->leftmost; # see bugnote above
     my $read_position = 0;
 
     my @accum;
@@ -435,7 +447,7 @@ sub _build_mismatches {
             my $bases_in_reference = $token->[1];
 
             for my $base (split //, $bases_in_reference) {
-                push @accum, ['C', $ref_position, $base, substr $read, $read_position, 1, ];
+                push @accum, ['C', $ref_position, $base, substr($read, $read_position, 1) ];
                 $ref_position += 1;
                 $read_position += 1;
             }
@@ -449,6 +461,8 @@ sub _build_mismatches {
 
     return \@accum;
 }
+
+# rebuild MD:Z: field from tokens. if no fixrc, just the original.
 
 has mismatch_string => ( is => 'ro', lazy_build => 1 );
 
