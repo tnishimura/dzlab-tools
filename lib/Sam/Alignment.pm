@@ -10,14 +10,14 @@ use DZUtil qw/reverse_complement/;
 use Mouse;
 
 our %flag_bits = (
-    multiple_segments   => 0x1,
+    multiple_segments   => 0x1,   # for paired
     each_segment_aligns => 0x2,
     unmapped            => 0x4,
     next_unmapped       => 0x8,
     reverse             => 0x10,
     next_reverse        => 0x20,
-    first_segment       => 0x40,
-    last_segment        => 0x80,
+    first_segment       => 0x40,  # for paired
+    last_segment        => 0x80,  # for paired
     secondary_alignment => 0x100,
     failed_qc           => 0x200,
     duplicate           => 0x400,
@@ -146,6 +146,23 @@ sub readlength {    length($_[0]->readseq)                 }
 sub is_reverse {    $_[0]->flag & $flag_bits{reverse};     }
 sub failed_qc  {    $_[0]->flag & $flag_bits{failed_qc};   }
 sub mapped     { !( $_[0]->flag & $flag_bits{unmapped}   ) }
+sub is_mapped  { !( $_[0]->flag & $flag_bits{unmapped}   ) }
+sub is_first_segment       { $_[0]->flag & $flag_bits{first_segment} }
+sub is_second_segment      { $_[0]->flag & $flag_bits{last_segment} }
+sub is_primary_alignment   { !($_[0]->flag & $flag_bits{secondary_alignment}) }
+sub is_secondary_alignment { $_[0]->flag & $flag_bits{secondary_alignment} }
+
+# multiple_segments   => 0x1,
+# each_segment_aligns => 0x2,
+# unmapped            => 0x4,
+# next_unmapped       => 0x8,
+# reverse             => 0x10,
+# next_reverse        => 0x20,
+# first_segment       => 0x40,
+# last_segment        => 0x80,
+# secondary_alignment => 0x100,
+# failed_qc           => 0x200,
+# duplicate           => 0x400,
 
 #######################################################################
 # rightmost is the right most position in the genome that read aligns
