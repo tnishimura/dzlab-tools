@@ -65,7 +65,7 @@ my @header_lines;
 # sort
 
 if ($by_readid){
-    if (0 != system("sort", "-S10%", "-k1,1", "-o", $tmp, $tmp)){
+    if (0 != system("sort", "-S10%", "-u", "-k1,1", "-o", $tmp, $tmp)){
         die "sort failed?";
     }
 }
