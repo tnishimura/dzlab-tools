@@ -1,0 +1,19 @@
+---
+tophat: 
+    num-threads         : 2
+    # default 2
+    read-mismatches     : 3
+    # default 2
+    read-edit-dist      : 3
+    min-intron-length   : 20
+    max-intron-length   : 20000
+    max-multihits       : 20
+    library-type        : fr-firststrand
+    b2-very-fast        :
+cufflinks:
+    library-type        : fr-firststrand
+    min-intron-length   : 20
+    max-intron-length   : 20000
+cuffdiff:
+    library-norm-method : classic-fpkm
+    library-type        : fr-firststrand
