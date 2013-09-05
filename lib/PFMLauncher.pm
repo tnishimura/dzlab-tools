@@ -13,7 +13,7 @@ use Sys::Info;
 has processes => (
     is => 'ro',
     required => 0, 
-    default => sub { cpucount() },
+    default => sub { _cpucount() },
 );
 
 has pfm => (
@@ -66,16 +66,37 @@ sub wait_all_children{
     }
 }
 
+sub launch_and_wait{
+    my ($self, $cmd, %opt) = @_;
+    $opt{wait} = 1;
+    $self->launch($cmd, %opt);
+}
 
 sub launch{
     my ($self, $cmd, %opt) = @_;
 
+    my $wait        = delete $opt{wait};
     my $stdin_spec  = delete $opt{stdin};
     my $stdout_spec = delete $opt{stdout};
     my $stderr_spec = delete $opt{stderr};
-    my @expected    = exists $opt{expected} && ref $opt{expected} eq 'ARRAY' ? @{$opt{expected}} : ();
+    my @expected;
+    if (exists $opt{expected}){
+        if (ref $opt{expected} eq 'ARRAY'){
+            @expected = @{$opt{expected}};
+        }
+        elsif (! ref $opt{expected}){
+            @expected = ($opt{expected});
+        }
+    }
     delete $opt{expected};
 
+    use List::MoreUtils qw/all/;
+    
+    if (@expected && all { -f } @expected){
+        _info("All expected files listed below already existed, not rerunning", @expected);
+        $self->wait_all_children if $wait;
+        return;
+    }
 
     my $placeholder = $cmd =~ /%/;
     my $tempfile;
@@ -96,12 +117,15 @@ sub launch{
     
     if ($pid != 0){ # in parent
         $self->set_pid_to_cmd($pid, $cmd);
+        $self->wait_all_children if $wait;
         return;
     }
     else{ # in child
-        setup_input_fh (\*STDIN , $stdin_spec  );
-        setup_output_fh(\*STDOUT, $stdout_spec );
-        setup_output_fh(\*STDERR, $stderr_spec );
+        _setup_input_fh (\*STDIN , $stdin_spec  );
+        _setup_output_fh(\*STDOUT, $stdout_spec );
+        _setup_output_fh(\*STDERR, $stderr_spec );
+
+        _info("launching [$cmd]");
 
         my $rc = system($cmd);
 
@@ -139,12 +163,13 @@ sub launch{
             $pfm->finish($rc);
         }
     }
+
     
     return 1;
 }
 
 
-sub setup_input_fh{
+sub _setup_input_fh{
     my $target_fh = shift;
     my $fh_or_filename = shift;
     if (! defined $fh_or_filename){
@@ -162,7 +187,7 @@ sub setup_input_fh{
     }
 }
 
-sub setup_output_fh{
+sub _setup_output_fh{
     my $target_fh = shift;
     my $fh_or_filename = shift;
     if (! defined $fh_or_filename){
@@ -183,7 +208,7 @@ sub setup_output_fh{
     }
 }
 
-sub cpucount{
+sub _cpucount{
     my $info = Sys::Info->new;
     my $cpu = $info->device('CPU');
     return $cpu->count;
@@ -207,4 +232,21 @@ __PACKAGE__->meta->make_immutable;
 
 1;
 
+
+__END__
+
+=head1 PFMLauncher.pl 
+
+ use aliased PFMLauncher => 'PFM';
+
+ PFM->launch_and_wait("ls -l"); # adds wait => 1 to opt
+
+ PFM->launch("sleep 1; ls -l", stderr => 'qwer', stdout => 'asdf');
+ PFM->launch("sleep 1; echo foo > %", expected => ['asdf2'], wait => 1);
+ PFM->launch("sleep 1; asdfasdf");
+ PFM->launch("sleep 1; touch a; touch b", expected => ['a', 'b']);
+ PFM->launch("sleep 1; touch a; touch b", expected => ['a', 'b','c']);
+ PFM->wait_all_children();
+
+=cut
 
