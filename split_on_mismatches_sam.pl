@@ -7,6 +7,7 @@ use autodie;
 
 use Pod::Usage;
 use Getopt::Long;
+use Test::Deep::NoTest;
 
 use FindBin;
 use lib "$FindBin::Bin/lib";
@@ -49,8 +50,8 @@ while (
 
     my $a_mapped = $a_sam->mapped;
     my $b_mapped = $b_sam->mapped;
-    my @a_snps = $a_mapped ? @{$a_sam->snps} : undef;
-    my @b_snps = $b_mapped ? @{$b_sam->snps} : undef;
+    my @a_snps = $a_mapped ? @{$a_sam->snps} : ();
+    my @b_snps = $b_mapped ? @{$b_sam->snps} : ();
     my $a_num_snps = scalar @a_snps;
     my $b_num_snps = scalar @b_snps;
 
@@ -70,6 +71,11 @@ while (
             $aout->print("$a_sam\n");
         }
         elsif ($a_sam->mapq < $b_sam->mapq) {
+            $bout->print("$b_sam\n");
+        }
+        # diff snps... not sure about this.\    
+        elsif (! eq_deeply(\@a_snps, \@b_snps)){
+            $aout->print("$a_sam\n");
             $bout->print("$b_sam\n");
         }
         else{
