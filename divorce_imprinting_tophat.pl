@@ -26,6 +26,7 @@ my $result = GetOptions (
     "reads-label|l=s"     => \(my $reads_label),
     "annotation|a=s"      => \(my $annotation),
     "skip-novel-detection|s" => \(my $skip_novel_detection),
+    "output-directory|o=s" => \(my $output_directory),
 );
 pod2usage(-verbose => 2, -noperldoc => 1) if (
     !$result 
@@ -35,16 +36,24 @@ pod2usage(-verbose => 2, -noperldoc => 1) if (
     || ! $ecotype_a      || ! $ecotype_b
     || ! $bowtie_index_a || ! $bowtie_index_b
     || ! $reads_label
+    || ! $output_directory 
 );  
 
-my $output_dir_a = "$reads_label-vs-$ecotype_a";
-my $output_dir_b = "$reads_label-vs-$ecotype_b";
+make_path($output_directory);
+
+if (! -d $output_directory){
+    die "couldn't make $output_directory";
+}
+
+my $output_dir_a       = catdir $output_directory, "$reads_label-vs-$ecotype_a";
+my $output_dir_b       = catdir $output_directory, "$reads_label-vs-$ecotype_b";
+my $cuffdiff_dir       = catdir $output_directory, "$reads_label-cuffdiff";
 my $full_cufflinks_dir = "$output_dir_a-cufflinks";
+
 my $split_cufflinks_dir_a = "$output_dir_a-split-cufflinks";
 my $split_cufflinks_dir_b = "$output_dir_b-split-cufflinks";
 my $accepted_hits_a = catfile($output_dir_a, "accepted_hits.bam");
 my $accepted_hits_b = catfile($output_dir_b, "accepted_hits.bam");
-my $cuffdiff_dir = "$reads_label-cuffdiff";
 
 my $transcriptome = "$annotation-transcriptome";
 
@@ -114,6 +123,12 @@ if ($skip_novel_detection){
 }
 else{
     $annotation_plus_novel_transcripts = catfile($full_cufflinks_dir, "transcripts.gtf");
+    say catfile($full_cufflinks_dir, "genes.fpkm_tracking");  
+    say catfile($full_cufflinks_dir, "isoforms.fpkm_tracking");  
+    say catfile($full_cufflinks_dir, "skipped.gtf");  
+    say $annotation_plus_novel_transcripts;
+    say $full_cufflinks_dir;
+    # die "asdf";
 
     PFM->launch(
         create_cmd($conf_file, 'cufflinks', {
@@ -241,6 +256,8 @@ divorce_imprinting_tophat.pl - divorce imprinting with tophat instead of bowtie.
 =over
 
 =item --reads <reads.fastq> | -r <reads.fastq>
+
+=item --output-directory <dir> | -o <dir>
 
 =item -l <label>
 
