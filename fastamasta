@@ -95,6 +95,17 @@ Delete a subsequence:
 
   $0 delete -s chr1 -r 123 456 reference.fasta > with-deletion.fasta
 
+Insertion:
+
+  Insert sequence from insertion.fasta (which is requred to have exactly 1
+  sequence) between position 123 and 123+1=124 of chr1 input.fasta, print to
+  output.fasta.
+
+  $0 insert -i insertion.fasta -s chr1 -p 123 input.fasta output.fasta  
+
+  Same as above, but reverse-complement insertion.
+
+  $0 insert -i insertion.fasta -s chr1 -p 123 -rc input.fasta output.fasta  
 END
 
     exit 1;
@@ -239,6 +250,47 @@ for ($cmd){
             );
         }
     }
+    when ([qw/insert/]){
+        # insert between pos and pos+1
+        my $result = GetOptions (
+            "sequence|seq|s=s"      => \(my $target_sequence),
+            "position|p=i"          => \(my $position),
+            "reverse-complement|rc" => \(my $reverse_complement), # should we rc insertion?
+            "insertion|i=s"         => \(my $insertion_file),
+        );
+
+        usage() if ( ! $result || ! $target_sequence || ! $position );  
+        my $input_file = shift || usage();
+        my $output_file = shift || usage();
+
+        my $input_fr = FastaReader->new(file => $input_file, slurp => 0, normalize => 0);
+        my $insertion_fr = FastaReader->new(file => $insertion_file, slurp => 0, normalize => 0);
+
+        usage() if ($position < 1 || $position > $input_fr->get_length($target_sequence));
+        my @insertion_seqids = $insertion_fr->sequence_list();
+        usage() if (@insertion_seqids != 1);
+
+        my $insertion_seq = $insertion_fr->get($insertion_seqids[0], undef, undef, rc => $reverse_complement);
+
+        my $outfh = IO::File->new($output_file, 'w');
+
+        for my $s (sort $input_fr->sequence_list) {
+            if (lc $s eq lc $target_sequence){
+                $outfh->print( FastaReader::format_fasta( $s, 
+                        (
+                            $input_fr->get($s, undef, $position)
+                            . $insertion_seq
+                            . $input_fr->get($s, $position + 1)
+                        ), 80, 1)
+                );
+            }
+            else{
+                $outfh->print(FastaReader::format_fasta($s, $input_fr->get($s, undef, undef), 80));
+            }
+        }
+        $outfh->close();
+    }
+
     when ([qw/bsrc bs/]){
         my $result = GetOptions (
             "c2t|c2t" => \(my $c2t),
