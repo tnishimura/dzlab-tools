@@ -448,6 +448,9 @@ sub get{
             $end_pad = 'N' x ($end - $lastindex) if $opt{pad};
             $end = $lastindex; 
         }
+        if ($start > $end){
+            return '';
+        }
     }
 
     ###
