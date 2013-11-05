@@ -56,16 +56,16 @@ around 'next' => sub{
         # parse for read, target sequence
 
         my ($read_seq, $target_seq);
-        if ($col3 =~ /([A-Z]+)$/){
-            $read_seq= $1;
+        if ($col3 =~ /([A-Z]+)$/i){
+            $read_seq= uc $1;
         }
-        if ($col9 =~ /target=([A-Z]+)$/){
-            $target_seq = $1;
+        if ($col9 =~ /target=([A-Z]+)$/i){
+            $target_seq = uc $1;
         }
 
         croak "strand should be + or -" unless $strand ~~ [qw/+ -/];
         croak "can't get read sequence from column 3 ($.)" if ! defined $read_seq;
-        croak "can't get target sequence from column 3 ($.)" if ! defined $target_seq;
+        croak "can't get target sequence from column 3 ($.: $gff)" if ! defined $target_seq;
         croak "read seq is not the right length ($.)" if (length($read_seq) != ($end-$start+1));
         my $target_len = length($target_seq);
         my $read_len = length($read_seq);

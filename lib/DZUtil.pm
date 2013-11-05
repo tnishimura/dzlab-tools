@@ -662,6 +662,9 @@ sub deprecation_message{
 
 sub single_c_concat{
     my @contextual_files = @_;
+    if (@contextual_files == 1){
+        return @contextual_files;
+    }
 
     my $prefix = common_prefix(@contextual_files);
     my $suffix = common_suffix(@contextual_files);

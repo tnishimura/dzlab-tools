@@ -384,7 +384,7 @@ sub output_single_c { # and also count stats
 
 sub rat{
     my ($x,$y) = @_;
-    if ($x+$y != 0){
+    if (defined $x && defined $y && $x+$y != 0){
         return sprintf("%.6f", $x/($x+$y));
     }
     else {
