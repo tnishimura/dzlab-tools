@@ -63,9 +63,11 @@ for my $pair (@files) {
         my $numcells;
         while (defined(my $line = <$output_read>)){
             chomp $line;
+            # warn "output line: $line";
             # -1 to split b/c when stata mangles output file, dots are turned to blank...
             my ($seq, $coord, @cells) = split /\t/, $line, -1; 
             $numcells //= @cells;
+            my $output_line_cells_printed = 0;
 
             # header
             if ($seq =~ /^Sequence/i){
@@ -77,23 +79,27 @@ for my $pair (@files) {
                     while (defined (my $gff = $parser->next())){
                         # gff behind output. new line with gff.
                         if (gff_lessthan($gff->sequence, $gff->start, $seq, $coord)){
+                            # warn "<";
                             say $tempout join "\t", $gff->sequence, $gff->start, (map { '.' } @cells), get_columns($gff, @columns);
                         }
                         # gff past output. new line with output. and move to next output
                         elsif (gff_greaterthan($gff->sequence, $gff->start, $seq, $coord)){
+                            # warn ">";
                             say $tempout join "\t", $seq, $coord, @cells, map { '.' } @columns;
+                            $output_line_cells_printed = 1;
                             $parser->rewind($gff);
                             last PARSER;
                         }
                         # coincides
                         elsif (gff_equal($gff->sequence, $gff->start, $seq, $coord)){
+                            # warn "=";
                             say $tempout join "\t", $seq, $coord, @cells, get_columns($gff, @columns);
+                            $output_line_cells_printed = 1;
                             last PARSER;
                         }
                     }
                 }
-                else {
-                    # print excess outputs on new line
+                if (! $output_line_cells_printed){
                     say $tempout join "\t", $seq, $coord, @cells, map { '.' } @columns;
                 }
             }
