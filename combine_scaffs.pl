@@ -64,7 +64,7 @@ for my $group_name (keys %groups) {
         push @accum, $padding;
 
         my $len = length($seq);
-        $output_gff->print(join("\t", $group_name, $id, '.', $pos, $pos + $len - 1, '.', '.', '.', "ID=$group_name") . "\n");
+        $output_gff->print(join("\t", $group_name, '.', '.', $pos, $pos + $len - 1, '.', '.', '.', "ID=$id") . "\n");
 
         $pos += $len + length($padding);
     }
