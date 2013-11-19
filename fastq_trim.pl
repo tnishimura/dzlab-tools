@@ -4,26 +4,19 @@ use warnings;
 use Data::Dumper;
 use feature 'say';
 use autodie;
-use Log::Log4perl qw/:easy/;
 use English;
-Log::Log4perl->easy_init({ 
-        level    => $DEBUG,
-        layout   => "%d{HH:mm:ss} %p> (%L) %M - %m%n", 
-        #file     => ">>log4perl.log",
-    });
-
 use Getopt::Euclid qw( :vars<opt_> );
 use Pod::Usage;
 
 pod2usage(-verbose => 99,-sections => [qw/NAME SYNOPSIS OPTIONS/]) 
-if ! ($opt_input);
+if ! ($opt_input || ! $opt_adapter );
+
+$opt_header_length //= length($opt_adapter);
 
 my $header_seq = substr $opt_adapter, 0, $opt_header_length;
 my $header = q/$header_seq/;
 
-DEBUG("$header_seq");
-
-my ($counter, $too_short, $no_header) = (0,0,0);
+my ($counter, $too_short, $too_long, $no_header) = (0,0,0,0);
 
 open my $fh, '<', $opt_input;
 my $output_file = $opt_out || $opt_input . '.trimmed';
@@ -36,8 +29,11 @@ while (defined (my $line = readfastq($fh))){
         my $p = $PREMATCH;
         my $len = length $p;
 
-        if ($len < $opt_minimum_insert_size){
+        if (defined $opt_minimum_insert_size && $len < $opt_minimum_insert_size){
             ++$too_short;
+        }
+        elsif (defined $opt_maximum_insert_size && $len > $opt_maximum_insert_size){
+            ++$too_long;
         } else{
             printf $outfh "%s\n%s\n%s\n%s\n", $line->[0], $p, $line->[2],  (substr $line->[3], 0, $len);
         }
@@ -50,7 +46,10 @@ close $outfh;
 
 INFO("total number of read: $counter");
 INFO("inserts that were too short: $too_short");
+INFO("inserts that were too long:  $too_long");
 INFO("inserts that did not have the adapter header: $no_header");
+INFO("number of passing reads: " . ($counter - $too_short - $too_long - $no_header));
+INFO("percentage of passing reads: " . ($counter - $too_short - $too_long - $no_header) / $counter);
 
 sub readfastq{
     my $fh = shift;
@@ -59,6 +58,11 @@ sub readfastq{
         return \@line;
     }
     return;
+}
+
+sub INFO{
+    my $msg = shift;
+    say STDERR $msg;
 }
 
 =head1 NAME
@@ -83,28 +87,30 @@ Even when you pass a custom adapter, only '-h' bases will be used.
 
 =item  --adapter <seq> | -a <seq>
 
-Adapter sequence.  By default it is:
+Adapter sequence.  For example:
 
- AGATCGGAAGAGCGGTTCAGCAGGAATGCCGAGACCGATCTCGTATGCCGTCTTCTGCTTG
-
-=for Euclid
-    seq.default: "AGATCGGAAGAGCGGTTCAGCAGGAATGCCGAGACCGATCTCGTATGCCGTCTTCTGCTTG"
+ -a AGATCGGAAGA
 
 =item --header-length <len> | -h <len>
 
-Number of bases from the adapter sequence to use to search.  Default is 7.
+Number of bases from the adapter sequence to use to search.  Default to entire adapter length.
 
 =for Euclid
     len.type: int > 0 
-    len.default: 7
 
 =item  --minimum-insert-size <size> | -m <size>
 
-Don't report files under this long. Default to 39.
+Don't report post-trim reads under this long. 
 
 =for Euclid
     size.type:    int > 0
-    size.default: 39
+
+=item  --maximum-insert-size <size> | -M <size>
+
+Don't report post-trim reads over this long. 
+
+=for Euclid
+    size.type:    int > 0
 
 =item --input <file> | -i <file>
 
