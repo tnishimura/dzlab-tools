@@ -29,6 +29,7 @@ my $result = GetOptions (
     "check-rc|rc"     => \(my $check_rc),
     "output|o=s" => \(my $output = '-'),
     "first-base-only|1" => \(my $first_base_only),
+    "rpkm" => \(my $rpkm),
 );
 
 pod2usage(-verbose => 2, -noperldoc => 1) 
@@ -56,7 +57,11 @@ my %touched; # record touched sequences in output only
 {
     my $c = 0;
     sub counter { 
-        say STDERR $c if ($verbose && ++$c % 50000 == 0); 
+        ++$c;
+        say STDERR $c if ($verbose && $c % 50000 == 0); 
+    }
+    sub get_count{
+        return $c;
     }
 }
 
@@ -158,6 +163,8 @@ my $output_fh = $output eq '-' ? *STDOUT : IO::File->new($output, 'w');
 
 # warn Dumper [sort $fasta_reader->sequence_list()];
 
+die if get_count == 0;
+
 for my $seq (sort $fasta_reader->sequence_list()) {
 	unless (exists($touched{uc $seq}) || $noskip){ 
         # warn "skipping $seq" ; 
@@ -172,6 +179,7 @@ for my $seq (sort $fasta_reader->sequence_list()) {
         if ($window_size == 1){
             for my $s (@strands) {
                 my $value  = $counters{uc $seq}{$s}->get_pdl()->at($start - 1); 
+                $value /= get_count() if $rpkm;
                 if ($value > 0 || $noskip){
                     $output_fh->print(join "\t", $seq, qw/. ./, $start, $start, $value, $s, qw/. ./);
                     $output_fh->print("\n");
@@ -187,6 +195,7 @@ for my $seq (sort $fasta_reader->sequence_list()) {
             for my $s (@strands) {
                 my $pdl  = $counters{uc $seq}{$s}->get_range($start, $end);
                 my $count  = $first_base_only ? $pdl->sum() : $pdl->max() ;
+                $count /= get_count() if $rpkm;
 
                 if ($count  > 0 || $noskip){ 
                     $output_fh->print(join "\t", $seq, qw/. ./, $start, $end, $count , $s, qw/. ./); 
@@ -246,6 +255,8 @@ Preserve strand information.  Default off.
 =item --first-base-only | -1 
 
 Only supported for SAM file format currently.
+
+=item  -rpkm
 
 =back
 
