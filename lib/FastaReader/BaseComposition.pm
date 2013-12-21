@@ -18,6 +18,7 @@ our @EXPORT = qw(base_composition);
 
 our $VERBOSE = 0;
 
+# return an iterator which returns aref of length $motif_length every call.
 sub make_iterator{
     my ($fr, $seq, $motif_length) = @_;
     my @buffer;
@@ -52,6 +53,7 @@ sub base_composition{
     my %composite_score;        # everything
     my %rc_score;
     my %single_score; # slightly redundant... 
+    my %length;
 
 
     # prepopulate, so that 0 counts are not omitted. A C G T AA AC AG AT .. TG TT ..
@@ -78,6 +80,8 @@ sub base_composition{
     #die Dumper \%score, \%rc_score;
 
     for my $seq ($fr->sequence_list()) {
+        warn $seq;
+        $length{$seq} = $fr->get_length($seq);
         my $iter = make_iterator($fr, $seq, $motif_length);
         my $counter = 0;
 
@@ -95,7 +99,6 @@ sub base_composition{
                             ++$rc_score{$seq}{$joined};
                         }
                     }
-
                 }
             }
             say STDERR "$seq $counter/" . $fr->get_length($seq) if ++$counter % 100_000 == 0 && $VERBOSE;
@@ -111,31 +114,41 @@ sub base_composition{
         }
     }
 
-    return (\%single_score, \%composite_score);
+    return (\%single_score, \%composite_score, \%length);
 }
 
 
+# Seq	Length A       C       G       T       CG      CHG     CHH
+# AT1TE00010      24      22      7       27      4       2       22
+# AT1TE00020      44      24      17      42      6       4       31
+# AT1TE00025      792     216     208     685     44      42      338
+# AT1TE00030      107     60      38      107     20      14      64
+# AT1TE00150      328     184     108     281     48      40      204
+# AT1TE00220      173     104     160     220     30      29      205
+# AT1TE00225      212     40      62      184     12      8       82
+# AT1TE00470      40      10      6       32      2       0       14
+# AT1TE00600      248     71      57      214     8       9       111
 sub report{
     my ($file, $max, $methylation) = @_;
 
-    my ($single, $compo) = base_composition $file, $max, $methylation;
-    my @seq_list = sort keys %$single;
+    # single: { $seq => { [ACGT]   => count } }
+    # compo:  { $seq => { context  => count } }
+    # length: { $seq => length }
+    my ($single, $compo, $length) = base_composition $file, $max, $methylation;
 
-    #say Dumper $score;
-    say join "\t", "Context", @seq_list;
+    my @seqs = sort keys %$single;
+    my $first_seq = $seqs[0];
+    my @single_keys = sort(keys %{$single->{$first_seq}});
+    my @compo_keys = sort(keys %{$compo->{$first_seq}});
 
-    for my $context (qw/A C G T/){
-        say join "\t", $context, map { $single->{$_}{$context} } @seq_list;
-    }
+    say join "\t", 'Seq', 'Length', @single_keys, @compo_keys;
 
-    my @contexts = sort keys %{$compo->{$seq_list[0]}};
-    for my $l (1 .. $max) {
-        for my $context ( grep { length($_) == $l } @contexts){
-            say join "\t", $context, map { $compo->{$_}{$context} } @seq_list;
-        }
+    for my $s (@seqs) {
+        say join "\t", $s, $length->{$s}, 
+        map({ $single->{$s}{$_}} @single_keys), 
+        map({ $compo->{$s}{$_}} @compo_keys); 
     }
 }
-
 
 # convert a base10 number to digits in base $base, wrapping around.
 # convert_base(10,2,4) => [1,0,1,0]
