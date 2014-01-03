@@ -1,0 +1,40 @@
+Config::General         | libconfig-general-perl
+DBI                     | libdbi-perl
+Devel::Size             | libdevel-size-perl
+File::Which             | libfile-which-perl
+Getopt::Euclid          | libgetopt-euclid-perl
+IO::All                 | libio-all-perl
+IPC::Run                | libipc-run-perl
+List::MoreUtils         | liblist-moreutils-perl
+Log::Dispatch           | liblog-dispatch-perl
+Log::Log4perl           | liblog-log4perl-perl
+Math::BigInt            | libmath-bigint-perl
+Math::BigFloat          | libmath-bigint-perl
+Moose                   | libmoose-perl
+MooseX::Singleton       | libmoosex-singleton-perl
+Mouse                   | libmouse-perl
+Parallel::ForkManager   | libparallel-forkmanager-perl
+Params::Validate        | libparams-validate-perl
+Path::Class             | libpath-class-perl
+PDL                     | pdl
+PDL::Stats              | libpdl-stats-perl
+Perl6::Slurp            | libperl6-slurp-perl
+POE                     | libpoe-perl
+Readonly                | libreadonly-perl
+Smart::Comments         | libsmart-comments-perl
+Statistics::Descriptive | libstatistics-descriptive-perl
+Term::ProgressBar       | libterm-progressbar-perl
+Test::Exception         | libtest-exception-perl
+Tie::IxHash             | libtie-ixhash-perl
+URI                     | liburi-perl
+XML::Simple             | libxml-simple-perl
+YAML                    | libyaml-perl
+Text::CSV_XS            | libtext-csv-xs-perl
+DBD::SQLite             | libdbd-sqlite3-perl
+LWP::Simple             | libwww-perl
+
+# not in deb
+Test::Deep::NoTest
+Getopt::Std
+IO::Scalar
+IPC::Cmd
