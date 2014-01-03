@@ -9,7 +9,7 @@ use Pod::Usage;
 use File::Basename qw/basename/;
 
 use FindBin;
-use lib "$FindBin::Bin/lib";
+use lib "$FindBin::Bin/../lib";
 use GFF::Statistics qw/methyl_stats/;
 # use YAML qw/Dump/;
 

@@ -6,8 +6,8 @@ use Data::Dumper;
 
 use autodie;
 use FindBin;
-use lib "$FindBin::Bin/lib";
-use lib "$FindBin::Bin/Tree-Range/lib";
+use lib "$FindBin::Bin/../lib";
+use lib "$FindBin::Bin/../Tree-Range/lib";
 use GFF::Tree;
 use Getopt::Euclid qw( :vars<opt_> );
 use Pod::Usage;

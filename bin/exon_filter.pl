@@ -9,7 +9,7 @@ use autodie;
 use Pod::Usage;
 use Getopt::Long;
 use FindBin;
-use lib "$FindBin::Bin/lib";
+use lib "$FindBin::Bin/../lib";
 use GFF;
 
 my $locus_tag = q/ID/;

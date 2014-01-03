@@ -9,7 +9,7 @@ use Getopt::Long;
 use Pod::Usage;
 
 use FindBin;
-use lib "$FindBin::Bin/lib";
+use lib "$FindBin::Bin/../lib";
 use FastaReader;
 
 my @excluded_sequences;

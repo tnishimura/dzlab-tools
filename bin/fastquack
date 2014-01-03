@@ -8,7 +8,7 @@ use Pod::Usage;
 use Getopt::Long;
 use File::Basename qw/basename/;
 use FindBin;
-use lib "$FindBin::Bin/lib";
+use lib "$FindBin::Bin/../lib";
 use DZUtil qw/fastq_read_length/;
 use FastqReader;
 use FastqReader::CountReads;

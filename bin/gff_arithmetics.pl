@@ -5,14 +5,14 @@ use 5.010_000;
 use Data::Dumper;
 use autodie;
 use FindBin;
-use lib "$FindBin::Bin/lib";
+use lib "$FindBin::Bin/../lib";
 use GFF::Parser;
 use Getopt::Long;
 use Scalar::Util qw/looks_like_number/;
 use Pod::Usage;
 
 use FindBin;
-use lib "$FindBin::Bin/lib";
+use lib "$FindBin::Bin/../lib";
 use Launch qw/cast/;
 
 use File::Copy qw/move/;

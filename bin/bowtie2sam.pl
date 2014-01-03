@@ -8,7 +8,7 @@ use IO::All;
 use Pod::Usage;
 use Getopt::Long;
 use FindBin;
-use lib "$FindBin::Bin/lib";
+use lib "$FindBin::Bin/../lib";
 use BowtieParser;
 use FastaReader;
 use DZUtil qw/reverse_complement/;

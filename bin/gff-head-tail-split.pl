@@ -5,7 +5,7 @@ use autodie;
 use Data::Dumper;
 
 use FindBin;
-use lib "$FindBin::Bin/lib";
+use lib "$FindBin::Bin/../lib";
 use GFF::Parser;
 
 use Pod::Usage;

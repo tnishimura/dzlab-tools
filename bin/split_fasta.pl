@@ -10,7 +10,7 @@ use File::Path qw/make_path remove_tree/;
 use File::Spec::Functions qw/rel2abs canonpath catdir catfile updir/;
 use File::Copy;
 use FindBin;
-use lib "$FindBin::Bin/lib";
+use lib "$FindBin::Bin/../lib";
 use DZUtil qw/open_maybe_compressed/;
 
 END {close STDOUT}

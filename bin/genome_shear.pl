@@ -9,7 +9,7 @@ use Pod::Usage;
 use Getopt::Long;
 use List::Util qw/sum/;
 use FindBin;
-use lib "$FindBin::Bin/lib";
+use lib "$FindBin::Bin/../lib";
 use FastaReader::MethylSimulator;
 
 END {close STDOUT}

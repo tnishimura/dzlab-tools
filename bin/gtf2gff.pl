@@ -8,7 +8,7 @@ END {close STDOUT}
 $| = 1;
 
 use FindBin;
-use lib "$FindBin::Bin/lib";
+use lib "$FindBin::Bin/../lib";
 use GFF::Parser;
 
 my $p = GFF::Parser->new(file => \*ARGV);

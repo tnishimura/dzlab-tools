@@ -13,7 +13,7 @@ use YAML qw/LoadFile DumpFile/;
 use File::Path qw/make_path/;
 
 use FindBin;
-use lib "$FindBin::Bin/lib";
+use lib "$FindBin::Bin/../lib";
 use FastaReader;
 
 my $result = GetOptions (

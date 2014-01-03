@@ -7,7 +7,7 @@ use autodie;
 END {close STDOUT}
 $| = 1;
 use FindBin;
-use lib "$FindBin::Bin/lib";
+use lib "$FindBin::Bin/../lib";
 use FastaReader;
 use GFF::Parser;
 

@@ -13,7 +13,7 @@ use File::Spec::Functions qw/catfile/;
 use Parallel::ForkManager;
 
 use FindBin;
-use lib "$FindBin::Bin/lib";
+use lib "$FindBin::Bin/../lib";
 
 use FastqReader::Convert;
 use Run::BowtieBuild;

@@ -8,7 +8,7 @@ use autodie;
 use Getopt::Euclid qw( :vars<opt_> );
 use Pod::Usage;
 use FindBin;
-use lib "$FindBin::Bin/lib";
+use lib "$FindBin::Bin/../lib";
 use Launch;
 use File::Basename;
 use Log::Log4perl qw/:easy/;

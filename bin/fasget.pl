@@ -5,7 +5,7 @@ use Data::Dumper;
 use feature 'say';
 use autodie;
 use FindBin;
-use lib "$FindBin::Bin/lib";
+use lib "$FindBin::Bin/../lib";
 use FastaReader;
 
 use Getopt::Euclid qw( :vars<opt_> );

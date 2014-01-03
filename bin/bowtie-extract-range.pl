@@ -8,7 +8,7 @@ use Pod::Usage;
 use Getopt::Long;
 
 use FindBin;
-use lib "$FindBin::Bin/lib";
+use lib "$FindBin::Bin/../lib";
 use GFF::Parser::Correlated;
 use FastaReader;
 use BowtieParser;

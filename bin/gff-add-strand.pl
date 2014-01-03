@@ -15,7 +15,7 @@ use List::Util qw/first max min shuffle sum/;
 use File::Temp;
 
 use FindBin;
-use lib "$FindBin::Bin/lib";
+use lib "$FindBin::Bin/../lib";
 use FastaReader;
 
 my $result = GetOptions (

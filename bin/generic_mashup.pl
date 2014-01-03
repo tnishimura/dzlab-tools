@@ -3,7 +3,7 @@ use strict;
 use warnings FATAL => "all";
 use 5.010_000;
 use FindBin;
-use lib "$FindBin::Bin/lib";
+use lib "$FindBin::Bin/../lib";
 use autodie;
 use Data::Dumper;
 use File::Temp qw/tempdir tempfile/;

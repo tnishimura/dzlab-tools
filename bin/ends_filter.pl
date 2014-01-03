@@ -8,7 +8,7 @@ use Getopt::Euclid qw( :vars<opt_> );
 use Pod::Usage;
 use List::Util qw/max/;
 use FindBin;
-use lib "$FindBin::Bin/lib";
+use lib "$FindBin::Bin/../lib";
 use DZUtil qw/overlap/;
 use GFF::Slurp;
 

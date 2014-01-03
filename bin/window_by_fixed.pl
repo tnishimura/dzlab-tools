@@ -7,7 +7,7 @@ use autodie;
 use DBI;
 use Pod::Usage;
 use FindBin;
-use lib "$FindBin::Bin/lib";
+use lib "$FindBin::Bin/../lib";
 use GFF::Parser;
 use DZUtil qw/timestamp/;
 use File::Temp qw/mktemp/;

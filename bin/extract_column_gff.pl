@@ -8,7 +8,7 @@ use Pod::Usage;
 use Getopt::Long;
 
 use FindBin;
-use lib "$FindBin::Bin/DZLab-Tools/lib";
+use lib "$FindBin::Bin/../DZLab-Tools/lib";
 use DZLab::Tools::GFF qw/gff_make_iterator/;
 
 my $help;

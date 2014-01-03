@@ -8,7 +8,7 @@ END {close STDOUT}
 $| = 1;
 
 use FindBin;
-use lib "$FindBin::Bin/lib";
+use lib "$FindBin::Bin/../lib";
 use AGP;
 
 use Getopt::Euclid qw( :vars<opt_> );

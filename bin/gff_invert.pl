@@ -7,7 +7,7 @@ use autodie;
 use List::Util qw/max min/;
 use List::MoreUtils qw/all/;
 use FindBin;
-use lib "$FindBin::Bin/lib";
+use lib "$FindBin::Bin/../lib";
 use GFF::Parser;
 use FastaReader;
 use IntervalMerge;

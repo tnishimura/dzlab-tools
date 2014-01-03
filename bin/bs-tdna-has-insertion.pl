@@ -9,7 +9,7 @@ use Getopt::Long;
 use IO::All;
 
 use FindBin;
-use lib "$FindBin::Bin/lib";
+use lib "$FindBin::Bin/../lib";
 use FastaReader;
 use Run::BowtieBuild;
 use FastqReader::Convert;

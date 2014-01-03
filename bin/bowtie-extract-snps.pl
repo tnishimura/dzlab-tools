@@ -6,7 +6,7 @@ use Data::Dumper;
 use autodie;
 
 use FindBin;
-use lib "$FindBin::Bin/lib";
+use lib "$FindBin::Bin/../lib";
 use BowtieParser;
 use FastaReader;
 use BigArray;

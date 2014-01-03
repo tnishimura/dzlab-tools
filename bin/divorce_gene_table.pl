@@ -8,7 +8,7 @@ use Pod::Usage;
 use Getopt::Euclid qw( :vars<opt_> );
 use File::Basename;
 use FindBin;
-use lib "$FindBin::Bin/lib";
+use lib "$FindBin::Bin/../lib";
 use GFF::Parser;
 
 

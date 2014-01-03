@@ -7,7 +7,7 @@ use Getopt::Long;
 use Pod::Usage;
 use List::Util qw(min max sum);
 use FindBin;
-use lib "$FindBin::Bin/lib";
+use lib "$FindBin::Bin/../lib";
 use feature 'say';
 #use DZUtil qw/read_conf/;
 
