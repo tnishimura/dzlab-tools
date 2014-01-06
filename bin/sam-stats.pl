@@ -6,7 +6,7 @@ use Data::Dumper;
 use autodie;
 use Scalar::Util qw/looks_like_number/;
 use FindBin;
-use lib "$FindBin::Bin/../lib";
+use lib "$FindBin::Bin/lib";
 # use Sam::Parser;
 use Pod::Usage;
 use Getopt::Long;

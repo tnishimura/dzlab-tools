@@ -9,7 +9,7 @@ use Pod::Usage;
 use List::Util qw/sum/;
 use Cwd qw/abs_path/;
 use FindBin;
-use lib "$FindBin::Bin/../lib";
+use lib "$FindBin::Bin/lib";
 use FastaReader;
 
 pod2usage(-verbose => 99,-sections => [qw/NAME SYNOPSIS OPTIONS/]) 

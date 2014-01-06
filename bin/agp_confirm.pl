@@ -7,7 +7,7 @@ use autodie;
 use Getopt::Euclid qw( :vars<opt_> );
 use Pod::Usage;
 use FindBin;
-use lib "$FindBin::Bin/../lib";
+use lib "$FindBin::Bin/lib";
 use FastaReader;
 use AGP;
 use DZUtil qw/reverse_complement/;

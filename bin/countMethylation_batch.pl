@@ -8,7 +8,7 @@ use Getopt::Euclid qw( :vars<opt_> );
 use Pod::Usage;
 use File::Spec::Functions;
 use FindBin;
-use lib "$FindBin::Bin/../lib";
+use lib "$FindBin::Bin/lib";
 use Launch;
 use Log::Log4perl qw/:easy/;
 use Parallel::ForkManager;

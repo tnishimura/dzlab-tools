@@ -15,7 +15,7 @@ use Tie::File;
 use File::Basename qw/basename dirname/;
 
 use FindBin;
-use lib "$FindBin::Bin/../lib";
+use lib "$FindBin::Bin/lib";
 use BowtieParser;
 use FastaReader;
 use Digest::MD5::Util;

@@ -10,7 +10,7 @@ use Pod::Usage;
 use List::Util qw/sum/;
 
 use FindBin;
-use lib "$FindBin::Bin/../DZLab-Tools/lib";
+use lib "$FindBin::Bin/DZLab-Tools/lib";
 use DZLab::Tools::Fasta;
 
 my $GFF_DATA  = 'ARGV';

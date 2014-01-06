@@ -9,7 +9,7 @@ use Pod::Usage;
 use version; our $VERSION = qv('0.0.1');
 
 use FindBin;
-use lib "$FindBin::Bin/../DZLab-Tools/lib";
+use lib "$FindBin::Bin/DZLab-Tools/lib";
 use DZLab::Tools::RunUtils;
 
 use Data::Dumper;

@@ -8,7 +8,7 @@ use Getopt::Euclid qw( :vars<opt_> );
 use Pod::Usage;
 use YAML qw/LoadFile DumpFile/;
 use FindBin;
-use lib "$FindBin::Bin/../lib";
+use lib "$FindBin::Bin/lib";
 use GFF::Parser;
 use Text::CSV_XS;
 use Scalar::Util qw/looks_like_number/;

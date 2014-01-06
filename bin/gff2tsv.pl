@@ -10,7 +10,7 @@ use autodie;
 use Pod::Usage;
 use Getopt::Long;
 use FindBin;
-use lib "$FindBin::Bin/../lib";
+use lib "$FindBin::Bin/lib";
 #use GFF::Parser::Attributes;
 use GFF::Parser;
 use Log::Log4perl qw/:easy/;

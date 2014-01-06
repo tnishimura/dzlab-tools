@@ -10,7 +10,7 @@ use File::Spec;
 use File::Path;
 use File::Basename;
 use FindBin;
-use lib "$FindBin::Bin/../lib";
+use lib "$FindBin::Bin/lib";
 use DZUtil qw/split_names/;
 
 

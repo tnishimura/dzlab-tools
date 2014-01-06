@@ -11,8 +11,7 @@ use Pod::Usage;
 use IO::All;
 
 use FindBin;
-use lib "$FindBin::Bin/../lib";
-
+use lib "$ENV{HOME}/dzlab-tools/lib";
 
 use FastqReader;
 use DZUtil qw/fastq_read_length/;

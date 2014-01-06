@@ -11,7 +11,7 @@ use File::Path qw/make_path/;
 use Getopt::Euclid qw( :vars<opt_> );
 use Pod::Usage;
 use FindBin;
-use lib "$FindBin::Bin/../lib";
+use lib "$FindBin::Bin/lib";
 use Launch;
 use DZUtil qw/chext timestamp/;
 use Parallel::ForkManager;

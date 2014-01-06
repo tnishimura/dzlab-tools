@@ -6,7 +6,7 @@ use feature 'say';
 use autodie;
 use FindBin;
 use List::Util qw/max/;
-use lib "$FindBin::Bin/../lib";
+use lib "$FindBin::Bin/lib";
 #use Fasta qw/slurp_fasta format_fasta/;
 use FastaReader;
 use Getopt::Euclid qw( :vars<opt_> );

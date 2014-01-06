@@ -6,7 +6,7 @@ use feature 'say';
 use autodie;
 
 use FindBin;
-use lib "$FindBin::Bin/../lib";
+use lib "$FindBin::Bin/lib";
 use Fasta;
 
 use Pod::Usage;

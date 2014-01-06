@@ -10,7 +10,7 @@ use Getopt::Long;
 use Test::Deep::NoTest;
 
 use FindBin;
-use lib "$FindBin::Bin/../lib";
+use lib "$FindBin::Bin/lib";
 use Sam::Parser;
 
 my $result = GetOptions (

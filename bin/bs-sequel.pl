@@ -14,7 +14,7 @@ use Getopt::Euclid qw( :vars<opt_> );
 use Pod::Usage;
 
 use File::Copy;
-use lib "$FindBin::Bin/../lib";
+use lib "$FindBin::Bin/lib";
 
 use DZUtil qw/downsample mfor timestamp split_names fastq_read_length single_c_concat/;
 use Launch;

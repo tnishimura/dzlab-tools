@@ -5,7 +5,7 @@ use 5.010_000;
 use Data::Dumper;
 use autodie;
 use FindBin;
-use lib "$FindBin::Bin/../lib";
+use lib "$FindBin::Bin/lib";
 use DZUtil qw/common_suffix common_prefix/;
 use Tie::IxHash;
 use File::Basename qw/basename/;

@@ -8,7 +8,7 @@ use Pod::Usage;
 use Getopt::Long;
 
 use FindBin;
-use lib "$FindBin::Bin/../lib";
+use lib "$FindBin::Bin/lib";
 use GFF::Parser;
 use IntervalMerge qw/interval_merge interval_deinterlace/;
 use GFF::Slurp qw/gff_slurp_index/;

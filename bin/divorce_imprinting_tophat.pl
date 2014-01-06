@@ -10,7 +10,7 @@ use File::Spec::Functions qw/rel2abs canonpath catdir catfile updir/;
 use File::Copy;
 
 use FindBin;
-use lib "$FindBin::Bin/../lib";
+use lib "$FindBin::Bin/lib";
 use aliased PFMLauncher => 'PFM';
 
 use Pod::Usage;

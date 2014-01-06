@@ -13,7 +13,7 @@ use Getopt::Long;
 use Scalar::Util qw/looks_like_number/;
 
 use FindBin;
-use lib "$FindBin::Bin/../lib";
+use lib "$FindBin::Bin/lib";
 use GFF::Parser;
 use FastaReader;
 use GFF::Statistics qw/gff_detect_width/;

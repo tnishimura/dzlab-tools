@@ -13,7 +13,7 @@ use List::Util qw/sum/;
 use Pod::Usage;
 
 use FindBin;
-use lib "$FindBin::Bin/../lib";
+use lib "$ENV{HOME}/dzlab-tools/lib";
 
 use FastqReader;
 use DZUtil qw/c2t fastq_read_length/;

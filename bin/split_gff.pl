@@ -10,7 +10,7 @@ use File::Basename;
 use feature 'say';
 
 use FindBin;
-use lib "$FindBin::Bin/../DZLab-Tools/lib";
+use lib "$FindBin::Bin/DZLab-Tools/lib";
 use DZLab::Tools::GFF qw/gff_to_string gff_make_iterator/;
 
 my $feature;

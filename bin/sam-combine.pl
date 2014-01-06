@@ -6,7 +6,7 @@ use Data::Dumper;
 use List::MoreUtils qw/uniq/;
 
 use FindBin;
-use lib "$FindBin::Bin/../lib";
+use lib "$FindBin::Bin/lib";
 
 use Sam::Parser;
 use Pod::Usage;
