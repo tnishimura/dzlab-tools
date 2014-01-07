@@ -10,6 +10,13 @@ use File::Path qw/make_path remove_tree/;
 use File::Temp qw/mkdtemp/;
 use LWP::Simple;
 use YAML qw/Load/;
+use Getopt::Long;
+use Pod::Usage;
+
+my $result = GetOptions (
+    "debug|d" => \(my $debug),
+);
+pod2usage(-verbose => 2, -noperldoc => 1) if ! $result;
 
 if (0 != system("which fpm")){
     say "can't find fpm in \$PATH?";
@@ -52,12 +59,13 @@ for my $package (@$packages) {
 
     for my $f (@$bin_files) {
         copy($f, $bin);
+        chmod 0755, glob("$bin/*");
     }
 
     copy($license, $share);
 
     system(qq{fpm -a x86_64 -f --url http://dzlab.pmb.berkeley.edu --maintainer dzlab --vendor dzlab --description "For DZLab internal use only" -s dir -t deb -v $version -n $name -C $tmpdir .});
-    remove_tree($tmpdir);
+    remove_tree($tmpdir) unless $debug;
 }
 
 #######################################################################
