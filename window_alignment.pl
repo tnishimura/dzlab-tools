@@ -29,7 +29,7 @@ my $result = GetOptions (
     "check-rc|rc"     => \(my $check_rc),
     "output|o=s" => \(my $output = '-'),
     "first-base-only|1" => \(my $first_base_only),
-    "rpkm" => \(my $rpkm),
+    "normalize|n=s" => \(my $normalize),
 );
 
 pod2usage(-verbose => 2, -noperldoc => 1) 
@@ -37,7 +37,10 @@ if (!$result || !$reference || ! $format
     || $format !~ /^(?:gff|eland|bowtie|sam|g|e|b|s)$/ 
     || ($format !~ /^(?:sam|s)$/ && $first_base_only));
 
+my $normalizer = get_normalization_function($normalize);
+
 my $fasta_reader = FastaReader->new(file => $reference, slurp => 0);
+
 
 my %counters = map { 
     uc($_) => {
@@ -54,16 +57,9 @@ my %counters = map {
 
 my %touched; # record touched sequences in output only
 
-{
-    my $c = 0;
-    sub counter { 
-        ++$c;
-        say STDERR $c if ($verbose && $c % 50000 == 0); 
-    }
-    sub get_count{
-        return $c;
-    }
-}
+
+#######################################################################
+# input
 
 if ($format eq 'e' || $format eq 'eland'){
     my $eland_parser = Eland::Parser->new(file => \*ARGV, fastareader => $fasta_reader);
@@ -78,7 +74,7 @@ if ($format eq 'e' || $format eq 'eland'){
             else{
                 $counters{uc $chr}{'.'}->increment_range($start, $end);
             }
-            counter();
+            increment_read_count();
 	    $touched{uc $chr}++;
         }
     }
@@ -93,7 +89,7 @@ elsif ($format eq 'g' || $format eq 'gff'){
         else{
             $counters{uc $gff->sequence}{'.'}->increment_range($gff->start(), $gff->end());
         }
-        counter();
+        increment_read_count();
         $touched{uc $gff->sequence}++;
     }
 }
@@ -121,7 +117,7 @@ elsif ($format eq 'b' || $format eq 'bowtie'){
         else{
             $counters{uc $chr}{'.'}->increment_range($pos, $end);
         }
-        counter();
+        increment_read_count();
         $touched{uc $chr}++;
     }
 }
@@ -149,10 +145,14 @@ elsif ($format eq 's' || $format eq 'sam'){
             }
             # $counters{uc $sam->seqid}{'.'}->increment_range($sam->leftmost, $sam->rightmost);
         }
-        counter();
+        increment_read_count();
         $touched{uc $sam->seqid}++;
     }
 }
+die if get_read_count() == 0;
+
+#######################################################################
+# Output
 
 say STDERR "Done counting, now outputting to $output" if $verbose;
 say STDERR Dumper(\%touched) if $verbose;
@@ -160,10 +160,6 @@ say STDERR Dumper(\%touched) if $verbose;
 my @strands = $do_strand ? qw/+ -/ : qw/./;
 
 my $output_fh = $output eq '-' ? *STDOUT : IO::File->new($output, 'w');
-
-# warn Dumper [sort $fasta_reader->sequence_list()];
-
-die if get_count == 0;
 
 for my $seq (sort $fasta_reader->sequence_list()) {
 	unless (exists($touched{uc $seq}) || $noskip){ 
@@ -179,7 +175,7 @@ for my $seq (sort $fasta_reader->sequence_list()) {
         if ($window_size == 1){
             for my $s (@strands) {
                 my $value  = $counters{uc $seq}{$s}->get_pdl()->at($start - 1); 
-                $value /= get_count() if $rpkm;
+                $value = $normalizer->($value, get_read_count(), $window_size);
                 if ($value > 0 || $noskip){
                     $output_fh->print(join "\t", $seq, qw/. ./, $start, $start, $value, $s, qw/. ./);
                     $output_fh->print("\n");
@@ -195,7 +191,7 @@ for my $seq (sort $fasta_reader->sequence_list()) {
             for my $s (@strands) {
                 my $pdl  = $counters{uc $seq}{$s}->get_range($start, $end);
                 my $count  = $first_base_only ? $pdl->sum() : $pdl->max() ;
-                $count /= get_count() if $rpkm;
+                $count = $normalizer->($count, get_read_count(), $window_size);
 
                 if ($count  > 0 || $noskip){ 
                     $output_fh->print(join "\t", $seq, qw/. ./, $start, $end, $count , $s, qw/. ./); 
@@ -208,6 +204,51 @@ for my $seq (sort $fasta_reader->sequence_list()) {
 }
 
 close $output_fh if $output ne '-';
+
+#######################################################################
+# normalization
+
+
+sub get_normalization_function{
+    my $method = shift;
+    if (! defined $method){
+        return \&normalize_dont_actually;
+    }
+    elsif ($method eq 'count'){
+        return \&normalize_by_count;
+    }
+    elsif ($method eq 'rpkm'){
+        return \&normalize_rpkm;
+    }
+    else{
+        die "unknown normalization method $method";
+    }
+}
+sub normalize_by_count{
+    my ($num_reads_mapped, $num_reads_total, $window_size) = @_;
+    return $num_reads_mapped / $num_reads_total;
+}
+sub normalize_dont_actually{
+    my ($num_reads_mapped, $num_reads_total, $window_size) = @_;
+    return $num_reads_mapped;
+}
+sub normalize_rpkm{
+    my ($num_reads_mapped, $num_reads_total, $window_size) = @_;
+    return $num_reads_mapped / ( $window_size / 1000 ) / ($num_reads_total / 1000000);
+    # rpkm  = [# mapped reads]/([window size]/1000)/([# total reads]/10^6)
+}
+
+{
+    my $c = 0;
+    sub increment_read_count{ 
+        ++$c;
+        say STDERR $c if ($verbose && $c % 50000 == 0); 
+    }
+    sub get_read_count{
+        return $c;
+    }
+}
+
 
 =head1 NAME
 
@@ -256,7 +297,12 @@ Preserve strand information.  Default off.
 
 Only supported for SAM file format currently.
 
-=item  -rpkm
+=item  --normalize <normalization_type> | -n <normalization_type>
+
+normalization type can be "count" or "rpkm":
+
+ count = [# mapped reads] / [# total reads]
+ rpkm  = [# mapped reads]/([window size]/1000)/([# total reads]/10^6)
 
 =back
 
