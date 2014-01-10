@@ -4,7 +4,7 @@
 #include <stdbool.h>
 #include <assert.h>
 #include <math.h>
-#include "cdzutils.h"
+#include "countvec.h"
 
 // constructor
 countvec_t * countvec_new(int size, int base, double initial){

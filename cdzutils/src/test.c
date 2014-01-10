@@ -3,7 +3,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <assert.h>
-#include "cdzutils.h"
+#include "countvec.h"
  
 int main(int argc, char * argv[]) {
     countvec_t * v = countvec_new(20, 1, 1);
