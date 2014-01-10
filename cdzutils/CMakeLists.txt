@@ -22,3 +22,5 @@ add_executable(cdzutils-test
 
 target_link_libraries(cdzutils-test cdzutils)
 
+install (FILES include/countvec.h DESTINATION include)
+install (TARGETS cdzutils DESTINATION lib)
