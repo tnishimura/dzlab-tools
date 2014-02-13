@@ -34,12 +34,16 @@ around BUILDARGS => sub{
 
     my $mismatch_string;
     my $edit_distance = 0;
+    my $mismatches_xm = 0;
     for my $o (@optional) {
         if ($o =~ /MD:Z:([A-Z\d\^]+)/){
             $mismatch_string = $1;
         }
         elsif ($o =~ /NM:i:(\d+)/){
             $edit_distance = $1;
+        }
+        elsif ($o =~ /XM:i:(\d+)/){
+            $mismatches_xm = $1;
         }
     }
 
@@ -88,6 +92,7 @@ around BUILDARGS => sub{
         # from optional
         original_mismatch_string => $mismatch_string,
         edit_distance            => $edit_distance,
+        mismatches_xm            => $mismatches_xm,
 
         fixrc    => $fixrc,
         seqlen   => $tryfixrc && $seqlengths->{uc $seqid},
@@ -113,6 +118,7 @@ has readqual              => ( is => 'ro', required => 1 );
 
 has original_mismatch_string => ( is => 'ro', required => 1,);
 has edit_distance   => ( is => 'ro', required => 1,);
+has mismatches_xm   => ( is => 'ro', required => 0,);
 
 # true if tryfixrc and /^RC_/
 has fixrc => ( is => 'ro', required => 1 );
