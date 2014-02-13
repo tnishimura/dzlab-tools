@@ -50,7 +50,7 @@ for my $eco ([$opt_ecotype_a, $opt_eland_filtered_a], [$opt_ecotype_b, $opt_elan
     open my $fh, '<', $file or die "can't open $file";
     while (defined(my $line = <$fh>)){
         my @split = split /\t/, $line;
-        $split[3] =~ /(?:RC_)?(chr.*?):.*?(\d)$/i;
+        $split[3] =~ /(?:RC_)?((?:chr)?.*?):.*?(\d)$/i;
         my $c = $fr->get_original_name($1);
         $counts{$ecotype}{$c}{$2}++;
         $counts{$ecotype}{$c}{total}++;
