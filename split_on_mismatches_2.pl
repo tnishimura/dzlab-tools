@@ -56,8 +56,8 @@ while (defined (my $a_record = <$ain>) and
     elsif (defined $a_mm && defined $b_mm ){
 
         if ($opt_check_coord){
-            if ($a_rawcoord =~ s/.*chr\w+:(\d+).*/$1/xmsi &&
-                $b_rawcoord =~ s/.*chr\w+:(\d+).*/$1/ixms){
+            if ($a_rawcoord =~ s/.*:(\d+).*/$1/xmsi &&
+                $b_rawcoord =~ s/.*:(\d+).*/$1/ixms){
 
                 # both mapped somewhere
                 if ($a_rawcoord == $b_rawcoord && $a_strand eq $b_strand){
