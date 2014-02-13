@@ -52,8 +52,10 @@ while (
     my $b_mapped = $b_sam->mapped;
     my @a_snps = $a_mapped ? @{$a_sam->snps} : ();
     my @b_snps = $b_mapped ? @{$b_sam->snps} : ();
-    my $a_num_snps = scalar @a_snps;
-    my $b_num_snps = scalar @b_snps;
+    # my $a_num_snps = scalar @a_snps;
+    # my $b_num_snps = scalar @b_snps;
+    my $a_num_snps = $a_sam->mismatches_xm;
+    my $b_num_snps = $b_sam->mismatches_xm;
 
     if ($a_mapped && $b_mapped){
         if ($a_num_snps == 0 and $b_num_snps == 0){
@@ -83,14 +85,14 @@ while (
         }
     }
     elsif ($a_mapped){
-        if ($a_num_snps > 0){
+        # if ($a_num_snps > 0){
             $aout->print("$a_sam\n");
-        }
+            # }
     }
     elsif ($b_mapped){
-        if ($b_num_snps > 0){
+        # if ($b_num_snps > 0){
             $bout->print("$b_sam\n");
-        }
+            # }
     }
     else {
         # both unmapped
