@@ -19,7 +19,14 @@ use File::Copy;
 my $pm = Parallel::ForkManager->new(2);
 
 pod2usage(-verbose => 99,-sections => [qw/NAME SYNOPSIS OPTIONS/]) 
-unless $opt_output_directory && $opt_annotation && $opt_reference_a && $opt_reference_b && $opt_raw && $opt_ecotype_a && $opt_ecotype_b && scalar %opt_splice;
+unless $opt_output_directory 
+    && $opt_annotation 
+    && $opt_reference_a 
+    && $opt_reference_b 
+    && $opt_raw 
+    && $opt_ecotype_a 
+    && $opt_ecotype_b 
+    && scalar %opt_splice;
 
 my $logname = $opt_output_directory . "-" . timestamp() . ".log.txt";
 
@@ -102,13 +109,15 @@ my $bowtie_b = "$basename_b.0.bowtie";
 
 my @bowties = ($bowtie_a, $bowtie_b);
 
+my $strata = $opt_strata ? "-k 1 --strata" : "";
+
 if ($pm->start == 0){
-    launch("bowtie $opt_reference_a -f -B 1 -v $opt_bowtie_mismatches --best -5 $trim5 -3 $trim3 $rawfas $bowtie_a",
+    launch("bowtie $opt_reference_a -f -B 1 -v $opt_bowtie_mismatches $strata --best -5 $trim5 -3 $trim3 $rawfas $bowtie_a",
         expected => $bowtie_a, force => $opt_force, also => $bowtie_logname);
     $pm->finish();
 }
 if ($pm->start == 0){
-    launch("bowtie $opt_reference_b -f -B 1 -v $opt_bowtie_mismatches --best -5 $trim5 -3 $trim3 $rawfas $bowtie_b",
+    launch("bowtie $opt_reference_b -f -B 1 -v $opt_bowtie_mismatches $strata --best -5 $trim5 -3 $trim3 $rawfas $bowtie_b",
         expected => $bowtie_b, force => $opt_force, also => $bowtie_logname);
     $pm->finish();
 }
@@ -129,7 +138,7 @@ if ($opt_split_strand){
 #######################################################################
 # bowtie-windowing
 
-if ($opt_window_by_fixed && ! $opt_skip_whole_wf){
+if ($opt_whole_wf){
     for my $bowtie (@bowties){
         my $w50 = $bowtie;
         $w50 =~ s/bowtie/w$opt_window_by_fixed\.gff/;
@@ -439,16 +448,22 @@ Split the 0.bowtie, 5.sorted.gff file by strand.
 =for Euclid
     size.type:        int, size > 1 
     size.type.error:  <size> must be greater than 1
+    size.default:     50
+
 
 Window the 0.bowtie files and 5.sorted.gff files.
 
-=item --skip-whole-wf
+=item --whole-wf
 
-Don't window 0.bowties for -wf. 
+Window 0.bowties for -wf. 
 
 =item  -nw | --no-windowing
 
 Don't do windowing of .5.sorted.gff or 6.filtered.gff
+
+=item  --strata 
+
+Run bowtie with --strata option.
 
 =back
 
