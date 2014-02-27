@@ -79,11 +79,47 @@ for my $id (sort keys %id_to_isoforms) {
             }
         }
         if ($accepted){
+            die "why is upstream flipped?" if $proposed_upstream_end < $proposed_upstream_start;
             say join("\t", $seqid, $isoforms[0]->source // '.', 'upstream_pad', $proposed_upstream_start, $proposed_upstream_end, qw{. . .}, "$id_tag=$id",);
         }
     }
     for my $iso (@isoforms) {
         say $iso;
+    }
+    if ($isoform_end != $chromosome_end){
+        my $proposed_downstream_start = min($isoform_end + 1, $chromosome_end) ;
+        my $proposed_downstream_end   = min($isoform_end + $pad_size, $chromosome_end) ;
+
+        my $accepted = 1;
+        SEARCH:
+        for my $result ($tree->search_overlap($seqid, $proposed_downstream_start, $proposed_downstream_end)){
+            my $amount_overlap = $result->{overlap};
+            my $overlapping_gff = $result->{item};
+            my $overlapping_start = $overlapping_gff->{start};
+            my $overlapping_end = $overlapping_gff->{end};
+
+            if ($amount_overlap > 0){
+                # check if the overlapping gff overlaps the isoform_end
+                if (overlap( [$overlapping_start, $overlapping_end], [$isoform_end + 1, $isoform_end + 1])){
+                    info "no acceptance because\n$overlapping_gff\noverlaps with\n$isoforms[0]\n";
+                    $accepted = 0;
+                    last SEARCH;
+                }
+                # so it must be that:
+                #                     proposed 
+                # isoform [----------][------] 
+                #                        [---------] 
+                #                        overlapping
+
+                elsif ($overlapping_start < $proposed_downstream_end){
+                    $proposed_downstream_end = $overlapping_start - 1;
+                }
+            }
+        }
+        if ($accepted){
+            die "why is downstream flipped?" if $proposed_downstream_end < $proposed_downstream_start;
+            say join("\t", $seqid, $isoforms[0]->source // '.', 'downstream_pad', $proposed_downstream_start, $proposed_downstream_end, qw{. . .}, "$id_tag=$id",);
+        }
     }
 }
 
