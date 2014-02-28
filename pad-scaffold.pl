@@ -12,15 +12,17 @@ use DZUtil qw/overlap/;
 use GFF::Parser;
 use GFF::Tree;
 
-sub info;
 
 my $result = GetOptions (
     "debug|d"      => \(my $debug),
     "pad-size|s=i" => \(my $pad_size = 300),
-    "attribute-id|id=i" => \(my $id_tag = "Parent"),
+    "interpad|p=i" => \(my $interpad = 0),
+    "attribute-id|i=i" => \(my $id_tag = "Parent"),
 );
 my $gff_name = shift;
 pod2usage(-verbose => 2, -noperldoc => 1) if (!$result || ! $gff_name);  
+
+sub info{ if ($debug){ say STDERR @_; } }
 
 info("reading into tree");
 my $tree = GFF::Tree->new(file => $gff_name);
@@ -35,6 +37,8 @@ info("reading again into id_to_isoforms");
 }
 
 info("now reprinting with padding");
+my @padding;
+
 # sort by seqid/start coord
 for my $id (sort keys %id_to_isoforms) {
     my @isoforms = sort { $a->sequence cmp $b->sequence || $a->start <=> $b->start } @{$id_to_isoforms{$id}};
@@ -49,8 +53,10 @@ for my $id (sort keys %id_to_isoforms) {
 
     # check that 
     if ($isoform_start != 1){
-        my $proposed_upstream_start = max($isoform_start - $pad_size, $chromosome_start) ;
-        my $proposed_upstream_end   = max($isoform_start - 1, $chromosome_start) ;
+        #my $proposed_upstream_start = max($isoform_start - $pad_size, $chromosome_start) ;
+        #my $proposed_upstream_end   = max($isoform_start - 1, $chromosome_start) ;
+        my $proposed_upstream_start = $isoform_start - $pad_size;
+        my $proposed_upstream_end   = $isoform_start - 1;
 
         my $accepted = 1;
         SEARCH:
@@ -80,7 +86,7 @@ for my $id (sort keys %id_to_isoforms) {
         }
         if ($accepted){
             die "why is upstream flipped?" if $proposed_upstream_end < $proposed_upstream_start;
-            say join("\t", $seqid, $isoforms[0]->source // '.', 'upstream_pad', $proposed_upstream_start, $proposed_upstream_end, qw{. . .}, "$id_tag=$id",);
+            push @padding, [ $seqid, $isoforms[0]->source, "upstream_pad", $proposed_upstream_start, $proposed_upstream_end, ".", ".", ".", "$id_tag=$id", ];
         }
     }
     for my $iso (@isoforms) {
@@ -118,23 +124,46 @@ for my $id (sort keys %id_to_isoforms) {
         }
         if ($accepted){
             die "why is downstream flipped?" if $proposed_downstream_end < $proposed_downstream_start;
-            say join("\t", $seqid, $isoforms[0]->source // '.', 'downstream_pad', $proposed_downstream_start, $proposed_downstream_end, qw{. . .}, "$id_tag=$id",);
+            push @padding, [ $seqid, $isoforms[0]->source, "downstream_pad", $proposed_downstream_start, $proposed_downstream_end, ".", ".", ".", "$id_tag=$id",];
         }
     }
 }
 
 #if ($debug){ say "$_ " . length($id_to_isoforms{$_}) for keys %id_to_isoforms; }
 
-sub info{
-    if ($debug){
-        say STDERR @_;
+for my $i (0 .. $#padding - 1) {
+    my $this = $padding[$i];
+    my $next = $padding[$i + 1];
+    next unless ($this->[2] eq 'downstream_pad' and $next->[2] eq 'upstream_pad');
+    my $this_start = $this->[3];
+    my $this_end   = $this->[4];
+    my $next_start = $next->[3];
+    my $next_end   = $next->[4];
+    if (overlap([$this_start, $this_end], [$next_start, $next_end])){
+        if (
+            ($this_start < $next_start && $next_end < $this_end)
+            ||
+            ($next_start < $this_start && $this_end < $next_end)
+        ){
+            die "why are there engulfings? " . join(",",@$this) . "\n" . join(",", @$next);
+        }
+        my $middle = int(($this_end + $next_start) / 2);
+        $this->[4] = $middle - int($interpad / 2);
+        $next->[3] = $middle + int($interpad / 2) + 1;
     }
 }
+
+for my $pad (@padding) {
+    say join "\t", @$pad;
+}
+
 =head1 pad_scaffold.pl 
 
-Usage examples:
+Add padding to exon annotation file.
 
- pad_scaffold.pl [options]...
+ pad_scaffold.pl [--pad-size 300 | -s 300] single-isoform-annotation.gff > with-padding.gff
+
+This was written for Jessica, originally for single-isoform rice annotation files.
 
 =cut
 
