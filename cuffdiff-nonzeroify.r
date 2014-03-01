@@ -47,8 +47,9 @@ replacement_value2 = exp(replacement_log_value2)
 # replacement_value1 
 # replacement_value2 
 
-indices_with_zero_value1 = gene$value_1 == 0
-indices_with_zero_value2 = gene$value_2 == 0
+indices_with_both_zero = gene$value_1 == 0 & gene$value_2 == 0
+indices_with_zero_value1 = gene$value_1 == 0 & ! indices_with_both_zero
+indices_with_zero_value2 = gene$value_2 == 0 & ! indices_with_both_zero
 indices_with_any_zero = indices_with_zero_value1 | indices_with_zero_value2 
 
 gene[indices_with_zero_value1,'value_1'] = replacement_value1
