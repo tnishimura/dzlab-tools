@@ -31,7 +31,7 @@ my $frame = GFF::DataFrame->new_from_gffs(@files);
 my $iter = $frame->make_iterator;
 while (my @results = $iter->()){
     my ($sequence, $start, $end, %files2gffs) = @results;
-    if (all { defined($files2gffs{$_}) } @files){
+    if (all { defined($files2gffs{$_}) and defined $files2gffs{$_}->score } @files){
         for my $f (@files) {
             say {$output{$f}} $files2gffs{$f};
         }

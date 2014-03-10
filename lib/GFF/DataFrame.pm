@@ -1,3 +1,73 @@
+
+# apparently package {} block syntax is new as of 5.14.0....
+package GFF::DataFrame::Coord;
+
+use v5.12.0;
+use warnings FATAL => "all";
+use autodie;
+use base qw(Class::Accessor);
+__PACKAGE__->mk_accessors(qw(sequence start end));
+use overload q("") => sub { 
+    my $self = shift;
+    return join ";", $self->sequence, $self->start, $self->end // ".";
+};
+
+sub new_from_gff{
+    my (undef, $gff) = @_;
+    GFF::DataFrame::Coord->new({
+            sequence => $gff->sequence,
+            start    => $gff->start,
+            end      => $gff->end,
+        }
+    );
+}
+
+# class methods
+sub compare{
+    my (undef, $left, $right) = @_;
+    return (lc($left->sequence) cmp lc($right->sequence)) || 
+           ($left->start        <=> $right->start) || 
+           ($left->end          <=> $right->end);
+}
+sub compare_no_end{
+    my (undef, $left, $right) = @_;
+    return (lc($left->sequence) cmp lc($right->sequence)) || 
+           ($left->start        <=> $right->start);
+}
+sub find_coord_index{
+    my (undef, $coords, $target_sequence, $target_start, $target_end) = @_;
+    my $target_coord = GFF::DataFrame::Coord->new( {sequence => $target_sequence, start => $target_start, end => $target_end});
+
+    my $min_index = 0;
+    my $max_index = scalar(@$coords) - 1;
+
+    while ($max_index >= $min_index){
+        my $mid_point = int(($max_index + $min_index) / 2);
+        my $try = $coords->[$mid_point];
+        my $cmp = defined $target_end 
+                    ? GFF::DataFrame::Coord->compare($try, $target_coord)
+                    : GFF::DataFrame::Coord->compare_no_end($try, $target_coord);
+                    #say "($min_index, $mid_point, $max_index) $cmp = compare($try, $target_coord)";
+        if ($cmp== 0){
+            return $mid_point;
+        }
+        elsif ($cmp < 0){ # try coord is less than target coord
+            # say "setting min_index to " . ($mid_point + 1);
+            $min_index = $mid_point + 1;
+        }
+        elsif ($cmp > 0){ # try coord is greater than target coord
+            # say "setting max_index to " . ($mid_point - 1);
+            $max_index = $mid_point - 1;
+        }
+        else{
+            die "doubleyouteaeff?"
+        }
+    }
+    return;
+}
+
+#######################################################################
+
 package GFF::DataFrame;
 use v5.12.0;
 use Moose;
@@ -9,73 +79,6 @@ use autodie;
 use FindBin;
 use lib "$FindBin::Bin/lib";
 use GFF::Parser;
-
-package GFF::DataFrame::Coord{
-    use v5.12.0;
-    use warnings FATAL => "all";
-    use autodie;
-    use base qw(Class::Accessor);
-    __PACKAGE__->mk_accessors(qw(sequence start end));
-    use overload q("") => sub { 
-        my $self = shift;
-        return join ";", $self->sequence, $self->start, $self->end // ".";
-    };
-
-    sub new_from_gff{
-        my (undef, $gff) = @_;
-        GFF::DataFrame::Coord->new({
-                sequence => $gff->sequence,
-                start    => $gff->start,
-                end      => $gff->end,
-            }
-        );
-    }
-
-    # class methods
-    sub compare{
-        my (undef, $left, $right) = @_;
-        return (lc($left->sequence) cmp lc($right->sequence)) || 
-               ($left->start        <=> $right->start) || 
-               ($left->end          <=> $right->end);
-    }
-    sub compare_no_end{
-        my (undef, $left, $right) = @_;
-        return (lc($left->sequence) cmp lc($right->sequence)) || 
-               ($left->start        <=> $right->start);
-    }
-    sub find_coord_index{
-        my (undef, $coords, $target_sequence, $target_start, $target_end) = @_;
-        my $target_coord = GFF::DataFrame::Coord->new( {sequence => $target_sequence, start => $target_start, end => $target_end});
-
-        my $min_index = 0;
-        my $max_index = scalar(@$coords) - 1;
-
-        while ($max_index >= $min_index){
-            my $mid_point = int(($max_index + $min_index) / 2);
-            my $try = $coords->[$mid_point];
-            my $cmp = defined $target_end 
-                        ? GFF::DataFrame::Coord->compare($try, $target_coord)
-                        : GFF::DataFrame::Coord->compare_no_end($try, $target_coord);
-                        #say "($min_index, $mid_point, $max_index) $cmp = compare($try, $target_coord)";
-            if ($cmp== 0){
-                return $mid_point;
-            }
-            elsif ($cmp < 0){ # try coord is less than target coord
-                # say "setting min_index to " . ($mid_point + 1);
-                $min_index = $mid_point + 1;
-            }
-            elsif ($cmp > 0){ # try coord is greater than target coord
-                # say "setting max_index to " . ($mid_point - 1);
-                $max_index = $mid_point - 1;
-            }
-            else{
-                die "doubleyouteaeff?"
-            }
-        }
-        return;
-    }
-
-}
 
 sub new_from_gffs{
     shift;
