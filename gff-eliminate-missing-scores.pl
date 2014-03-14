@@ -21,7 +21,8 @@ my @files = @ARGV;
 my %output = map 
 { 
     my $input_file = $_; 
-    my $output_file = ($input_file =~ s/\.gff$//r ) . $suffix; 
+    $input_file =~ s/\.gff$//;
+    my $output_file = $input_file . $suffix; 
     open my $fh, '>', $output_file; 
     $input_file => $fh 
 } @files;
