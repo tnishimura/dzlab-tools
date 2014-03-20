@@ -290,8 +290,14 @@ if (! $opt_no_windowing){
     my $w50_filtered_b = "$basename_b.7.w$opt_window_by_fixed-filtered.gff$nocc";
 
     if ($pm->start == 0){
-        launch("perl -S window_gff.pl -t $opt_locus_tag $gff_sorted_a -g $opt_annotation -k -c sum -o ?? -r", expected => $winanno_a);
-        launch("perl -S window_gff.pl -t $opt_locus_tag $gff_filtered_a -g $opt_annotation -k -c sum -o ?? -r", expected => $winanno_filtered_a);
+        if ($opt_wba){
+            launch("perl -S window_by_annotation.pl -t $opt_locus_tag -k -n -1 -g $opt_annotation -o ?? $gff_sorted_a",   expected => $winanno_a);
+            launch("perl -S window_by_annotation.pl -t $opt_locus_tag -k -n -1 -g $opt_annotation -o ?? $gff_filtered_a", expected => $winanno_filtered_a);
+        }
+        else{
+            launch("perl -S window_gff.pl -t $opt_locus_tag $gff_sorted_a -g $opt_annotation -k -c sum -o ?? -r", expected => $winanno_a);
+            launch("perl -S window_gff.pl -t $opt_locus_tag $gff_filtered_a -g $opt_annotation -k -c sum -o ?? -r", expected => $winanno_filtered_a);
+        }
         # launch("perl -S window_by_fixed.pl -n -w $opt_window_by_fixed -r $opt_reference_a -o ?? -k $gff_sorted_a", expected => $w50_a);
         # launch("perl -S window_by_fixed.pl -n -w $opt_window_by_fixed -r $opt_reference_a -o ?? -k $gff_filtered_a", expected => $w50_filtered_a);
 
@@ -301,8 +307,14 @@ if (! $opt_no_windowing){
         $pm->finish();
     }
     if ($pm->start == 0){
-        launch("perl -S window_gff.pl -t $opt_locus_tag $gff_sorted_b -g $opt_annotation -k -c sum -o ?? -r", expected => $winanno_b);
-        launch("perl -S window_gff.pl -t $opt_locus_tag $gff_filtered_b -g $opt_annotation -k -c sum -o ?? -r", expected => $winanno_filtered_b);
+        if ($opt_wba){
+            launch("perl -S window_by_annotation.pl -t $opt_locus_tag -k -n -1 -g $opt_annotation -o ?? $gff_sorted_b",   expected => $winanno_b);
+            launch("perl -S window_by_annotation.pl -t $opt_locus_tag -k -n -1 -g $opt_annotation -o ?? $gff_filtered_b", expected => $winanno_filtered_b);
+        }
+        else{
+            launch("perl -S window_gff.pl -t $opt_locus_tag $gff_sorted_b -g $opt_annotation -k -c sum -o ?? -r", expected => $winanno_b);
+            launch("perl -S window_gff.pl -t $opt_locus_tag $gff_filtered_b -g $opt_annotation -k -c sum -o ?? -r", expected => $winanno_filtered_b);
+        }
         # launch("perl -S window_by_fixed.pl -n -w $opt_window_by_fixed -r $opt_reference_a -o ?? -k $gff_sorted_b", expected => $w50_b);
         # launch("perl -S window_by_fixed.pl -n -w $opt_window_by_fixed -r $opt_reference_a -o ?? -k $gff_filtered_b", expected => $w50_filtered_b);
         launch(qq{perl -S window_alignment.pl -w $opt_window_by_fixed -r $opt_reference_a -f gff -o ?? -k $gff_sorted_b}, expected => $w50_b);
@@ -464,6 +476,10 @@ Don't do windowing of .5.sorted.gff or 6.filtered.gff
 =item  --strata 
 
 Run bowtie with --strata option.
+
+=item --wba 
+
+Use window_by_annotation.pl instead of window_gff.pl for annotation windowing.
 
 =back
 
