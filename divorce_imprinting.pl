@@ -328,7 +328,13 @@ if (! $opt_no_windowing){
             my $window_50 = $_;
             $window_anno =~ s/\.5\.sorted\./.7.win-anno./;
             $window_50   =~ s/\.5\.sorted\./.7.w$opt_window_by_fixed./;
-            launch("perl -S window_gff.pl -t $opt_locus_tag $_ -g $opt_annotation -k -c sum -o ?? -r", expected => $window_anno);
+            if ($opt_wba){
+                launch("perl -S window_by_annotation.pl -t $opt_locus_tag -k -n -1 -g $opt_annotation -o ?? $_", expected => $window_anno);
+                ##launch("perl -S window_gff.pl -t $opt_locus_tag $_ -g $opt_annotation -k -c sum -o ?? -r", expected => $window_anno);
+            }
+            else{
+                launch("perl -S window_gff.pl -t $opt_locus_tag $_ -g $opt_annotation -k -c sum -o ?? -r", expected => $window_anno);
+            }
             launch("perl -S window_by_fixed.pl -n -w $opt_window_by_fixed -r $opt_reference_a -o ?? -k $_", expected => $window_50);
         }
     }
