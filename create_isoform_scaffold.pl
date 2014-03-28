@@ -15,9 +15,12 @@ my $result = GetOptions (
     "ref|r=s" => \(my $ref_file),
     "gff|g=s" => \(my $gff_file),
     "output|o=s" => \(my $output_file),
+    "locus-tag|t=s" => \(my $locus_tag = "ID"),
+    "features|f=s" => \(my $features_csv),
 );
 pod2usage(-verbose => 2, -noperldoc => 1) if (!$result || !$ref_file || !$gff_file || ! $output_file);  
 
+my %features = defined $features_csv ? (map { $_ => 1} split /,/, $features_csv) : ();
 my $ref = FastaReader->new(file => $ref_file, slurp => 1);
 my $gffparser = GFF::Parser->new(file => $gff_file, normalize => 0);
 
@@ -25,7 +28,6 @@ warn "done reading ref";
 
 open my $output_fh, '>', $output_file;
 open my $annotation_fh, '>', "$output_file.gff";
-
 
 # collect annotation into:
 #   $isoform_to_parts{ISOFORM}{seqid}
@@ -40,10 +42,16 @@ while (defined(my $gff = $gffparser->next)){
     my $start      = $gff->start;
     my $end        = $gff->end;
     my $strand     = $gff->strand;
+    my $feature    = $gff->feature;
     my $attributes = $gff->attribute_string;
 
-    if ($attributes =~ /ID=( ( [^.]+ \. \d ) : [^;]+ );/xms){
-        my $id      = $1;
+    # if feature is not on list, skip
+    if (defined $feature and ! $features{$feature} ){
+        next;
+    }
+
+    if ($attributes =~ /$locus_tag=( ( [^:;]+ ) :? [^;]* );?/xms){
+        my $part_id = $1;
         my $isoform = $2;
 
         $isoform_to_parts{$isoform}{strand} //= $strand;
@@ -59,7 +67,8 @@ while (defined(my $gff = $gffparser->next)){
         push @{$isoform_to_parts{$isoform}{parts}}, {
             start => $start,
             end   => $end,
-            id    => $id,
+            id    => $part_id,
+            feature => $feature,
         }
     }
     else{
@@ -75,6 +84,7 @@ for my $isoform (keys %isoform_to_parts) {
     my $strand = $isoform_to_parts{$isoform}{strand};
     my @parts  = @{$isoform_to_parts{$isoform}{parts}};
     @parts = sort { $a->{start} <=> $b->{start} } @parts;
+
     if ($strand eq '-'){
         @parts = reverse @parts;
     }
@@ -85,13 +95,12 @@ for my $isoform (keys %isoform_to_parts) {
     say $output_fh join "", @sequence_parts;
 
     my $pos = 1;
-    # for my $p (sort { $a->{start} <=> $b->{start} } @parts) {
     for my $p (@parts) {
         my $start = $p->{start};
         my $end = $p->{end};
         my $length = $end - $start + 1;
-        my $id = $p->{id};
-        say $annotation_fh join "\t", $isoform, ".", ".", $pos, $pos + $length - 1, ".", "+", ".", "ID=$id;original_start=$start;original_end=$end";
+        my $part_id = $p->{id};
+        say $annotation_fh join "\t", $isoform, ".", ".", $pos, $pos + $length - 1, ".", "+", ".", "ID=$part_id;original_start=$start;original_end=$end";
         $pos += $length;
     }
 }
@@ -101,11 +110,13 @@ close $annotation_fh;
 
 =head1 create_isoform_scaffold.pl 
 
-This is a script like create_scaffold.pl, except that it concatenates all pieces of a gene (as determined by the ID tag) into single fasta entry.
+This is a script like create_scaffold.pl, except that it concatenates all pieces of a gene (as determined by the locus tag) into single fasta entry.
 Useful when the annotation file contatins single isoforms of each gene.
 Originally written for Jessica. Example usage:
 
- create_isoform_scaffold.pl -g isoform-annotation.gff -r reference.fas -o output.fas
+ create_isoform_scaffold.pl [-f exon,upstream_pad,downstream_pad] [-t ID] -g isoform-annotation.gff -r reference.fas -o output.fas
+
+-f is optional, lets you define a list of features (comma separated) to grab from annotation. -t defined the locus tag (usually ID or Parent. Default ID).
 
 =cut
 
