@@ -141,18 +141,18 @@ __DATA__
       - ./cufflinks-1.3.0.Linux_x86_64/gtf_to_sam
 
 - name : cufflinks
-  version : 2.1.1
-  url : http://cufflinks.cbcb.umd.edu/downloads/cufflinks-2.1.1.Linux_x86_64.tar.gz
-  tarball : cufflinks-2.1.1.Linux_x86_64.tar.gz
-  md5sum : 59d5d54889bcc4bd9e427d3587b7973a
-  license: cufflinks-2.1.1.Linux_x86_64/LICENSE
+  version : 2.2.0
+  url : http://cufflinks.cbcb.umd.edu/downloads/cufflinks-2.2.0.Linux_x86_64.tar.gz
+  tarball : cufflinks-2.2.0.Linux_x86_64.tar.gz
+  md5sum : 589b8b9b4dbb036719bb75682fced057
+  license: cufflinks-2.2.0.Linux_x86_64/LICENSE
   bin_files : 
-      - ./cufflinks-2.1.1.Linux_x86_64/cuffcompare
-      - ./cufflinks-2.1.1.Linux_x86_64/cuffdiff
-      - ./cufflinks-2.1.1.Linux_x86_64/cufflinks
-      - ./cufflinks-2.1.1.Linux_x86_64/cuffmerge
-      - ./cufflinks-2.1.1.Linux_x86_64/gffread
-      - ./cufflinks-2.1.1.Linux_x86_64/gtf_to_sam
+      - ./cufflinks-2.2.0.Linux_x86_64/cuffcompare
+      - ./cufflinks-2.2.0.Linux_x86_64/cuffdiff
+      - ./cufflinks-2.2.0.Linux_x86_64/cufflinks
+      - ./cufflinks-2.2.0.Linux_x86_64/cuffmerge
+      - ./cufflinks-2.2.0.Linux_x86_64/gffread
+      - ./cufflinks-2.2.0.Linux_x86_64/gtf_to_sam
 
 - name : tophat
   version : 1.4.1
