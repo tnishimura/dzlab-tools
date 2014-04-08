@@ -16,12 +16,14 @@ my $inter;
 my $divorce;
 my $copy;
 my $bam;
+my $tophat;
 my $result = GetOptions (
     "copy|c=s" => \$copy,
     "single-c|s" => \$singlec,
     "windows|w"  => \$windows,
     "intermidiate|i" => \$inter,
     "divorce|d" => \$divorce,
+    "tophat|th" => \$tophat,
     "bam|b" => \$bam,
 );
 if (!@ARGV || !$result){
@@ -48,14 +50,22 @@ find( sub {
             /.methstats.txt$/ ||
             /.mstats.txt$/ ||
             # source code
-            /\.pl$/ || /\.sh$/ 
-
+            /\.pl$/ || /\.sh$/ ||
+            # cufflinks output - small so always grab
+            /^genes\.fpkm_tracking$/ ||  
+            /^isoforms\.fpkm_tracking$/ ||  
+            /^skipped\.gtf$/ ||  
+            /^transcripts\.gtf$/
         )
         { 
             $accum{$File::Find::name} = 1;
         }
         # if dir is windows is named 
         if ($windows && $dirbase =~ /^windows/){
+            $accum{$File::Find::name} = 1;
+        }
+        # if tophat 
+        if ($tophat && ($dirbase =~ /^logs/ || /\.info$/ || /\.bed$/ )){
             $accum{$File::Find::name} = 1;
         }
         # merged single-c files
