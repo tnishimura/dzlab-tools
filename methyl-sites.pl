@@ -57,3 +57,9 @@ close $fh_cg;
 close $fh_chg;
 close $fh_chh;
 
+=head1 methyl-sites.pl 
+
+ methyl-sites.pl referencee.fas
+
+=cut
+
