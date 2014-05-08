@@ -429,7 +429,7 @@ sub collect_stats{
 
         my $type = $seq =~ /chrc|chrpt/i ? 'chr' :
                    $seq =~ /chrm/i       ? 'mit' : 
-                   $seq =~ /chr\d+/i     ? 'nuclear' : 
+                   $seq =~ /\d+/i        ? 'nuclear' : 
                    $seq =~ /unknown/i    ? 'unknown' : 
                    undef;
 
