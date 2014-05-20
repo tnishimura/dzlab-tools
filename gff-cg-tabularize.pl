@@ -57,7 +57,7 @@ close $out;
 
 Usage examples:
 
- gff-cg-tabularize.pl input-cg-single-c.gff > output.txt
+ gff-cg-tabularize.pl -o output.txt input-cg-single-c.gff 
 
 =cut
 
