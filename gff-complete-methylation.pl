@@ -17,7 +17,11 @@ my $result = GetOptions (
     "output-file|o=s" => \(my $output_file),
 );
 pod2usage(-verbose => 2, -noperldoc => 1) if (!$result || ! $single_c || ! $methsites_file||!$output_file);  
-$output_file //= $single_c =~ s/gff$/complete.gff/r;
+if (! defined $output_file){
+	$output_file = $single_c;
+	$output_file =~ s/\.gff$//;
+	$output_file .= ".complete.gff";
+}
 
 warn "reading $methsites_file";
 my %strand;
