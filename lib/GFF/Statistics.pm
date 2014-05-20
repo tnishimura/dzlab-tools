@@ -204,7 +204,6 @@ sub histstd{
 
 sub histpercentiles{
     my $hist = shift;
-    #my @wanted_percentiles = @_;
     my $num_percentiles = @wanted_percentiles;
 
     if (keys(%$hist) == 0){ 
@@ -282,6 +281,15 @@ sub combine_hists{
 #######################################################################
 # statistics
 
+my %default_type_regex = ( 
+    chr     => qr/chrc|chrpt/i,
+    mit     => qr/chrm/i,
+    nuclear => qr/\d+/i,
+);
+my @all_types = qw/chr mit nuclear unknown/;
+my @known_types = qw/chr mit nuclear/;
+
+
 # returns multilevel hash as first value:
 # { combined | cg | chg | chh }
 #   { chr | nuclear | mit | total }
@@ -290,12 +298,13 @@ sub combine_hists{
 #
 # my ($stats, $table) = methyl_stats(cg => 'cg.gff', chg => 'chg.gff', chh => 'chh.gff');
 sub methyl_stats{
+    my %type_regex = (@_ > 0 && ref $_[-1] eq 'HASH') ? %{pop @_} :  %default_type_regex;
     my %files = @_;
-    # say Dumper \%files;
+
     my %stats;
     for my $context (sort keys %files) {
         my $file = $files{$context};
-        $stats{$context} = collect_stats($file);
+        $stats{$context} = collect_stats($file, \%type_regex);
     }
     $stats{combined} = combine_stats(values %stats);
 
@@ -336,10 +345,8 @@ sub round_if_decimal{
 sub combine_stats{
     my @stats = @_;
     #say Dumper \@stats;
-    #my @wanted_percentiles = qw/.05 .25 .50 .75 .95/;
-    my @types = qw/nuclear chr mit/;
     my %combined;
-    for my $type (qw/nuclear chr mit total/) {
+    for my $type (@known_types, 'total' ) {
         $combined{$type}{ct_hist} = combine_hists(map { $_->{$type}{ct_hist} }  @stats);
         $combined{$type}{c_count}    = sum(map { $_->{$type}{c_count} }  @stats);
         $combined{$type}{t_count}    = sum(map { $_->{$type}{t_count} }  @stats);
@@ -380,32 +387,13 @@ sub combine_stats{
 
 sub collect_stats{
     my $singlec = shift;
+    my $th = shift;
+    my %type_regex = $th ? %$th : %default_type_regex;
+
     say STDERR "collect_stats($singlec)" if $DEBUG;
     my %stats;
 
-    # my %methyl_averager = (
-    #     nuclear => make_averager(),
-    #     mit => make_averager(),
-    #     chr => make_averager(),
-    # );
-    # $stats{nuclear}{methyl_avg} = undef;
-    # $stats{chr}{methyl_avg}     = undef;
-    # $stats{mit}{methyl_avg}     = undef;
-    # $stats{nuclear}{ct_hist}    = {};
-    # $stats{chr}{ct_hist}        = {};
-    # $stats{mit}{ct_hist}        = {};
-    # $stats{nuclear}{c_count}    = 0;
-    # $stats{chr}{c_count}        = 0;
-    # $stats{mit}{c_count}        = 0;
-    # $stats{nuclear}{t_count}    = 0;
-    # $stats{chr}{t_count}        = 0;
-    # $stats{mit}{t_count}        = 0;
-    # $stats{nuclear}{line_count} = 0; # redundant but more clear.
-    # $stats{chr}{line_count}     = 0;
-    # $stats{mit}{line_count}     = 0;
-
     my %methyl_averager;
-    my @all_types = qw/nuclear chr mit unknown/; 
     for my $type (@all_types) {
         $methyl_averager{$type} = make_averager();
         $stats{$type}{methyl_avg} = undef;
@@ -427,19 +415,11 @@ sub collect_stats{
         my $ct = $c+$t;
         my $methyl = ($ct == 0) ? 0 : $c / ($ct);
 
-        my $type = $seq =~ /chrc|chrpt/i ? 'chr' :
-                   $seq =~ /chrm/i       ? 'mit' : 
-                   $seq =~ /\d+/i        ? 'nuclear' : 
-                   $seq =~ /unknown/i    ? 'unknown' : 
-                   undef;
+        my $type = $seq =~ /$type_regex{nuclear}/ ? 'nuclear' : 
+                   $seq =~ /$type_regex{chr}/ ? 'chr' : 
+                   $seq =~ /$type_regex{mit}/ ? 'mit' : 
+                   'other';
 
-                   # die if ! defined $type;
-
-        next PARSE if ! $type;
-
-        if (! exists $methyl_averager{$type}){
-            say $type;
-        }
         $methyl_averager{$type}->($methyl);
         $stats{$type}{ct_hist}{$ct}++;
         $stats{$type}{c_count} += $c;
