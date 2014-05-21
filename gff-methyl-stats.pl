@@ -18,8 +18,17 @@ my $result = GetOptions (
     "triplet|t"   => \(my $is_triplet),
     "feature|f=s" => \(my $feature),
     "output|o=s"  => \(my $output_file),
+    "nuclear|n=s"      => \(my $nuclear_pattern),
+    "chloroplast|c=s"  => \(my $chloroplast_pattern),
+    "mitochondria|m=s" => \(my $mitochondria_pattern),
 );
 usage() if ! $result || ! @ARGV;
+
+my $regexes = {
+    nuclear => $nuclear_pattern      ? qr/$nuclear_pattern/i      : qr/\d+/,
+    chr     => $chloroplast_pattern  ? qr/$chloroplast_pattern/i  : qr/chrc|chrpt+/i,
+    mit     => $mitochondria_pattern ? qr/$mitochondria_pattern/i : qr/chrm/i,
+};
 
 my %files;
 
@@ -47,7 +56,7 @@ else{
     } @ARGV;
 }
 
-my ($stats, $output) = methyl_stats(%files);
+my ($stats, $output) = methyl_stats(%files, $regexes);
 
 if ($output_file){
     io($output_file)->print("$output\n");
@@ -71,6 +80,18 @@ Usage examples:
 =head1 OPTIONS
 
 =over
+
+=item --nuclear <pattern>
+
+Regular expression for nuclear chromosome names. default '\d+'
+
+=item -m <pattern> | --mitochondria <pattern>
+
+Regular expression for mitochondria chromosome name. default 'chrm'
+
+=item -c <pattern> | --chloroplast <pattern>
+
+Regular expression for chloroplast chromosome name. default 'chrc|chrpt'
 
 =item  -t | --triplet
 

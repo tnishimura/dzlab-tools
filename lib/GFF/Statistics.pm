@@ -395,6 +395,7 @@ sub collect_stats{
 
     my %methyl_averager;
     for my $type (@all_types) {
+        warn "$type";
         $methyl_averager{$type} = make_averager();
         $stats{$type}{methyl_avg} = undef;
         $stats{$type}{ct_hist}    = {};
@@ -418,7 +419,7 @@ sub collect_stats{
         my $type = $seq =~ /$type_regex{nuclear}/ ? 'nuclear' : 
                    $seq =~ /$type_regex{chr}/ ? 'chr' : 
                    $seq =~ /$type_regex{mit}/ ? 'mit' : 
-                   'other';
+                   'unknown';
 
         $methyl_averager{$type}->($methyl);
         $stats{$type}{ct_hist}{$ct}++;
