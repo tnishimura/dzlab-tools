@@ -44,7 +44,11 @@ for my $pair (@files) {
         $logger->info("Sorting $input_file to $tempfile");
 
         # apparent the dollar sign is called 'ansi quoting': http://www.gnu.org/software/bash/manual/bashref.html#ANSI_002dC-Quoting
-        launch(qq/sort -t\$'\t' -f -k1,1 -k4,4n "$input_file" -o "$tempfile"/);
+        if ($opt_embedded_spaces){
+            launch(qq/sort -t\$'\t' -f -k1,1 -k4,4n "$input_file" -o "$tempfile"/);
+        }else{
+            launch(qq/sort -f -k1,1 -k4,4n "$input_file" -o "$tempfile"/);
+        }
 
         $logger->info("Overwriting $input_file with sorted version. (don't quit script right now)");
         rename($tempfile, $input_file);
@@ -245,6 +249,10 @@ nicknames must match number of input files.
 =item  -k  | --no-sort
 
 Assuming input gff files are sorted.
+
+=item  -e  | --embedded-spaces
+
+Specify this option if the gff files have embedded spaces in their fields.
 
 =item --help | -h
 
