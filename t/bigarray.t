@@ -4,7 +4,7 @@ use warnings;
 use 5.010_000;
 use Data::Dumper;
 use autodie;
-use Test::More qw(no_plan);
+use Test::More;
 use Test::Exception;
 use BigArray;
 use PDL;
@@ -22,7 +22,7 @@ SKIP: {
 
     for (1 .. $ntest) {
         my $ba = BigArray->new(size => $N, base => 0);
-        my $aref = [ (0) x $N ];
+        my $aref = [ (0) x ($N + 1) ];
         for (1 .. 20 * $N) {
             my $index = int(rand($N));
             my $value = int(rand(100));
@@ -36,6 +36,8 @@ SKIP: {
         #$ba->commit_increment();
         #$ba->commit_pair();
         #$ba->commit();
+        # print join ",", dims $ba->get_pdl;
+        # print scalar @$aref;
         push @success, sum_square($ba->get_pdl(), pdl($aref)) == 0;
     }
     all_ok(\@success, "randomized assignments");
@@ -85,3 +87,7 @@ my $collection = BigArray::create_collection({}, \%specs);
 while (my ($k,$v) = each %specs) {
     is($collection->{$k}{size}, $specs{$k}, "create_collection size test");
 }
+
+
+done_testing();
+
