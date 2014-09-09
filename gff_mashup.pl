@@ -1,6 +1,7 @@
 #!/usr/bin/env perl
 use strict;
 use warnings FATAL => "all";
+no if $] >= 5.017011, warnings => 'experimental::smartmatch';
 use 5.010_000;
 use FindBin;
 use lib "$FindBin::Bin/lib";
