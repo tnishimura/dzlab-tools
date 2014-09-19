@@ -86,11 +86,13 @@ for my $gff_file (@ARGV){
         my %feature2seq2fh = %{$tmpfiles{$type}};
         while (my ($feature,$seq2fh_ref) = each %feature2seq2fh) {
             my $wigfile = $gff_file;
+            $gff_file =~ s/\.gff$//;
+
             if ($no_feature_in_filename || $feature eq '.'){
-                $wigfile =~ s/\.gff$/.$type.wig/; 
+                $wigfile .=~ ".$type.wig"; 
             }
             else{
-                $wigfile =~ s/\.gff$/.$feature-$type.wig/;
+                $wigfile .=~ ".$feature-$type.wig";
             }
             my $outfh = IO::File->new($wigfile, 'w');
 
