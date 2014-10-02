@@ -6,13 +6,13 @@ use Data::Dumper;
 use List::MoreUtils qw/all/;
 use Scalar::Util qw/refaddr/;
 use Pod::Usage;
+use Tie::IxHash;
 use FindBin;
 use lib "$FindBin::Bin/lib";
 use GFF::Parser;
 
 pod2usage(-verbose => 2, -noperldoc => 1) if (!@ARGV);  
 
-use Tie::IxHash;
 tie my %files, 'Tie::IxHash'; 
 %files = map { $_ => 0 } @ARGV;
 
@@ -79,7 +79,7 @@ sub calculate_rank_quantiles{
     return %rv;
 }
 
-# returns [GFF, SCORE, LINE, RANK] in original order
+# returns [GFF_OBJECT, SCORE, LINE_NUM, RANK] in original order
 sub rank_scores{
     my $file_name = shift;
     my $parser = GFF::Parser->new(file => $file_name, normalize => 0);
@@ -90,7 +90,6 @@ sub rank_scores{
         $line++;
     }
     @ranked_lines = sort { $a->[1] <=> $b->[1] } @ranked_lines;
-    # my @ranked_scores = map { $_->[1] } @ranked_lines;
 
     # if there is a tie, give them all the high rank possible
     my $last_idx;
@@ -104,7 +103,6 @@ sub rank_scores{
             $ranked_lines[$i][3] = $i;
             $last_idx = $i;
             $last_val = $val;
-
         }
     }
 
