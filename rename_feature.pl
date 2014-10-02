@@ -7,6 +7,7 @@ use feature 'switch';
 use autodie;
 use Pod::Usage;
 use Getopt::Long;
+no if $] >= 5.017011, warnings => 'experimental::smartmatch';
 
 my $help;
 my $input;

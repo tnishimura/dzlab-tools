@@ -10,6 +10,7 @@ use Tree::Range;
 use GFF::Parser;
 use BinarySearch qw/greatest_lower least_upper/;
 use List::Util qw/min max/;
+no if $] >= 5.017011, warnings => 'experimental::smartmatch';
 use overload '""' => \&stringify;
 #######################################################################
 # Upstream/Downstream finder

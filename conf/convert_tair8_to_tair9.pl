@@ -4,6 +4,7 @@ use warnings FATAL => "all";
 use 5.010_000;
 use Data::Dumper;
 use autodie;
+no if $] >= 5.017011, warnings => 'experimental::smartmatch';
 END {close STDOUT}
 $| = 1;
 

@@ -13,6 +13,7 @@ use GFF::Tree;
 use List::Util qw/sum min max/;
 use Pod::Usage;
 use Getopt::Long;
+no if $] >= 5.017011, warnings => 'experimental::smartmatch';
 END {close STDOUT}
 $| = 1;
 

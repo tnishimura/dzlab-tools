@@ -9,6 +9,7 @@ use Fasta;
 
 use Test::More qw(no_plan);
 use feature 'say';
+no if $] >= 5.017011, warnings => 'experimental::smartmatch';
 
 
 my $width = 80;

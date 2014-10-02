@@ -18,6 +18,7 @@ use FastqReader::CheckPairedIntegrity;
 use FastqReader::GetReads;
 use FastqReader::IsBS;
 use FastqReader::Grep;
+no if $] >= 5.017011, warnings => 'experimental::smartmatch';
 
 $0 = basename $0;
 

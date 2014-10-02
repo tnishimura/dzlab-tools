@@ -7,6 +7,7 @@ use autodie;
 use Test::More qw(no_plan);
 use GFF::Statistics qw/methylation_stats/;
 use List::Util qw/sum/;
+no if $] >= 5.017011, warnings => 'experimental::smartmatch';
 
 #######################################################################
 # Utility tests

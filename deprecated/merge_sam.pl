@@ -7,6 +7,7 @@ use warnings;     use strict; use diagnostics;
 use Data::Dumper; use Carp;
 use Getopt::Long; use Pod::Usage;
 use version;      our $VERSION = qv('0.0.1');
+no if $] >= 5.017011, warnings => 'experimental::smartmatch';
 use FindBin;      use lib "$FindBin::Bin/DZLab-Tools/lib";
 use feature qw/state switch/;
 

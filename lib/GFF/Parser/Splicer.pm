@@ -9,6 +9,7 @@ use Carp;
 use autodie;
 use 5.010_000;
 use IO::Handle;
+no if $] >= 5.017011, warnings => 'experimental::smartmatch';
 
 extends 'Parser';
 

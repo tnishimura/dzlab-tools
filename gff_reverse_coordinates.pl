@@ -7,6 +7,7 @@ use autodie;
 use FindBin;
 use lib "$FindBin::Bin/lib";
 use FastaReader;
+no if $] >= 5.017011, warnings => 'experimental::smartmatch';
 
 
 END {close STDOUT}

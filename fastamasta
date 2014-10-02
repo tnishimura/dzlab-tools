@@ -12,6 +12,7 @@ use FastaReader;
 use FastaUtil;
 use FastaReader::BaseComposition;
 use DZUtil qw/reverse_complement/;
+no if $] >= 5.017011, warnings => 'experimental::smartmatch';
 
 END {close STDOUT}
 $| = 1;

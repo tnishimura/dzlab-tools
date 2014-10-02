@@ -9,6 +9,7 @@ use autodie;
 use List::MoreUtils qw/any notall/;
 use DZUtil qw/fastq_read_length/;
 use IPC::Cmd qw/can_run run/;
+no if $] >= 5.017011, warnings => 'experimental::smartmatch';
 
 require Exporter;
 our @ISA = qw(Exporter);

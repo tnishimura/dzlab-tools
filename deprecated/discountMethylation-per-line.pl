@@ -9,6 +9,7 @@ use lib "$FindBin::Bin/lib";
 use FastaReader;
 use Getopt::Euclid qw( :vars<opt_> );
 use Pod::Usage;
+no if $] >= 5.017011, warnings => 'experimental::smartmatch';
 
 pod2usage(-verbose => 99,-sections => [qw/NAME SYNOPSIS OPTIONS/]) 
 if !$opt_file || !$opt_reference;

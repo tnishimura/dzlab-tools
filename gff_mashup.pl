@@ -14,6 +14,7 @@ use GFF::Parser;
 use Pod::Usage;
 use Log::Log4perl qw/:easy/;
 use Launch;
+no if $] >= 5.017011, warnings => 'experimental::smartmatch';
 
 END {close STDOUT}
 $| = 1;
